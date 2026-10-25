@@ -25,6 +25,7 @@ import type * as checks_text from "../checks/text.js";
 import type * as checks_types from "../checks/types.js";
 import type * as contract from "../contract.js";
 import type * as crons from "../crons.js";
+import type * as demo from "../demo.js";
 import type * as families from "../families.js";
 import type * as feed from "../feed.js";
 import type * as gmailActions from "../gmailActions.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "checks/types": typeof checks_types;
   contract: typeof contract;
   crons: typeof crons;
+  demo: typeof demo;
   families: typeof families;
   feed: typeof feed;
   gmailActions: typeof gmailActions;
