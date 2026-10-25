@@ -71,5 +71,13 @@ export function KidGate({ children }: { children: (family: KidFamily, demo: bool
 
 /** A small, honest note on screens showing the sample family. */
 export function SampleDataNote() {
-  return <p className="rounded-xl border-2 border-transparent bg-unsure-tint px-4 py-2 text-lg text-unsure">Sample data for the demo</p>;
+  // Demo mode sticks for the whole tab, so the way out is always right here.
+  return (
+    <p className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border-2 border-transparent bg-unsure-tint px-4 py-2 text-lg text-unsure">
+      <span>Sample data for the demo</span>
+      <a href="?demo=0" className="font-semibold underline">
+        Leave the demo
+      </a>
+    </p>
+  );
 }
