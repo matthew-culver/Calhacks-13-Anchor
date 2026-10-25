@@ -107,6 +107,16 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
 - [ ] **Demo:** pre-connected demo account, scripted test emails (fake Chase, hacked-Aunt-Sue with a bad link, Aunt Sue with a YouTube link that stays real), runbook and backup plan.
   - Runbook, test emails, commands and backup plan: [docs/DEMO.md](docs/DEMO.md). Left: one full rehearsal on the real inbox.
 
+### Overnight (Sunday 2:40-5:30 AM, while Lucas slept)
+- [x] **Look and feel:** one design across every screen (header with the Anchor mark, cards, letter badges, tags, icons), a real front page (how it works, what the family gets, where it could go wrong, measured accuracy, a no-sign-in demo link), a shorter investigation page, phone-width fixes.
+- [x] **Family impostors:** names of people the parent corresponds with are learned (import + as mail arrives, only from her sent mail and authenticated mail). A stranger using one from a new address is flagged; a look-alike address is held. `contactNames` table.
+- [x] **Mom asks:** moving any email to "⚠ Check with [kid]" in Gmail sends it to the kid's feed as "asked", with the investigation; the answer comes back in the kid's words. Feed kind `asked`, verdict `askedAt`.
+- [x] **Heartbeat:** "Watching Mom's inbox · checked 2 minutes ago" on both sides (`gmailTokens.checkedAt`), with a plain warning if checks stop.
+- [x] **Weekly lesson:** one fixed "One thing to remember" from what was caught, plus how to ask the kid.
+- [x] **Accuracy eval:** `convex/accuracy.test.ts`, 44 labeled emails, report in `docs/ACCURACY.md`. Found and fixed missing impostor brands (Microsoft, Netflix, Zelle and more). A stranger's gift card/wire/crypto ask is now held.
+- [x] **Docs:** product README, `docs/DEVPOST.md` draft, demo scenes 5a/5b and judge Q&A in `docs/DEMO.md`.
+- [ ] **Morning:** rehearse every scene in `docs/DEMO.md` on the real inbox (especially 5a "Mom asks" and 5b "family impostor", which are new), then submit on Devpost by 9:00.
+
 ### Person B
 - [x] **B8. Parent "front door" page.** Mom's accounts as big sign-in buttons, grouped (Money, Health, Bills, Shopping, Other), most important first (`rank` desc), animated as they appear and re-sort live during the import. No link when `loginUrl` is missing.
 - [x] **B9. Live investigation view.** On the kid's item page: the agent's steps appearing live (`investigations.steps`), then the conclusion: sender finding, each link (safe / unknown / dangerous with reason), suggestion ("Maybe text Aunt Sue?"), sources.
