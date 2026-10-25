@@ -11,6 +11,16 @@ import type { CheckResult, CheckStatus } from "../contract";
 import { BRANDS, isOfficialFor, registrableDomain } from "./brands";
 import type { ParsedEmail } from "./types";
 
+/**
+ * What this email does, for spotting a familiar sender acting unlike themselves (a hacked
+ * account). Links are judged by the site itself: an established site (YouTube, Reddit...) is
+ * never suspicious just because the sender hasn't linked it before.
+ */
+export type Behavior = {
+  links: { site: string; cls: "established" | "user_content" | "unknown" }[];
+  pressure: CheckStatus; // A1's pressure check: money, gift cards, urgency, secrecy
+};
+
 /** What the caller found in the parent's history (relationships + accounts tables). */
 export type HistoryContext = {
   /** The sender's own relationship row (by address for people, by domain for orgs). */
@@ -26,6 +36,7 @@ export function relationship(
   claimedOrg: string | undefined,
   history: HistoryContext,
   claimStatus: CheckStatus = "pass",
+  behavior?: Behavior,
 ): CheckResult {
   const brand = claimedOrg ? BRANDS.find((b) => b.name === claimedOrg) : undefined;
   const fromBrand = brand !== undefined && email.fromDomain !== "" && isOfficialFor(email.fromDomain, brand);
@@ -67,6 +78,25 @@ export function relationship(
 
   const s = history.sender;
   if (s && (s.messageCount >= 2 || (s.parentSentCount ?? 0) > 0)) {
+    // Familiar sender: is this email unlike them? (Their account may have been taken over.)
+    const odd: string[] = [];
+    const risky = (behavior?.links ?? []).filter((l) => l.cls !== "established" && l.site);
+    if (risky.length > 0) {
+      const sites = [...new Set(risky.map((l) => l.site))].slice(0, 3).join(", ");
+      odd.push(`it links to ${sites}, a site we can't vouch for`);
+    }
+    if (behavior && behavior.pressure !== "pass" && behavior.pressure !== "unknown") odd.push("it's pushing for money or rushing you");
+    if (email.replyToAddress && registrableDomain(email.replyToAddress.split("@")[1] ?? "") !== registrableDomain(email.fromDomain || "x")) {
+      odd.push("replies would go to a different address");
+    }
+    if (odd.length > 0) {
+      return {
+        id: "relationship",
+        status: "warn",
+        plainReason: `This came from someone you know, but ${odd.join(" and ")}. Their account may have been hacked.`,
+        detail: `familiar sender (${s.messageCount} prior messages) acting unusually`,
+      };
+    }
     const wrote = (s.parentSentCount ?? 0) > 0 ? " You've written to them too." : "";
     return {
       id: "relationship",

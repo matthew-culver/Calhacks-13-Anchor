@@ -62,3 +62,35 @@ describe("relationship check", () => {
     expect(relationship(email("hello@newsletter.example"), undefined, {}).status).toBe("unknown");
   });
 });
+
+describe("familiar sender acting unlike themselves", () => {
+  const known = { sender: { messageCount: 40, firstSeen: y2024, authPassRate: 1 } };
+  const calm = { links: [], pressure: "pass" as const };
+
+  test("Aunt Sue sending a YouTube link is fine: established sites aren't suspicious", () => {
+    const r = relationship(email("sue@gmail.com"), undefined, known, "pass", { links: [{ site: "youtube.com", cls: "established" }], pressure: "pass" });
+    expect(r.status).toBe("pass");
+  });
+
+  test("Aunt Sue linking to an unknown site or a Google Form is flagged as a possible hack", () => {
+    for (const cls of ["unknown", "user_content"] as const) {
+      const r = relationship(email("sue@gmail.com"), undefined, known, "pass", { links: [{ site: "secure-docs-view.top", cls }], pressure: "pass" });
+      expect(r.status).toBe("warn");
+      expect(r.plainReason).toContain("may have been hacked");
+    }
+  });
+
+  test("Aunt Sue suddenly asking for money is flagged", () => {
+    const r = relationship(email("sue@gmail.com"), undefined, known, "pass", { links: [], pressure: "warn" });
+    expect(r.plainReason).toContain("pushing for money");
+  });
+
+  test("replies going to a different address are flagged", () => {
+    const e = { ...email("sue@gmail.com"), replyToAddress: "sue.help@outlook.com" };
+    expect(relationship(e, undefined, known, "pass", calm).status).toBe("warn");
+  });
+
+  test("a normal email from a familiar sender still passes", () => {
+    expect(relationship(email("sue@gmail.com"), undefined, known, "pass", calm).status).toBe("pass");
+  });
+});

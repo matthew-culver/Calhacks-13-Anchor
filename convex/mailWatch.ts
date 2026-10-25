@@ -17,6 +17,8 @@ import { checkResult, verdictLevel } from "./contract";
 import { accessTokenFor } from "./googleAuth";
 import { atLeast, explain, templateExplanation } from "./lib/explain";
 import { keyFor } from "./lib/history";
+import { cleanUrl } from "./lib/linkProbe";
+import { classifySite } from "./lib/sites";
 import { GOOGLE_TIMEOUT_MS } from "./lib/oauth";
 
 const GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -277,7 +279,7 @@ export const saveVerdict = internalMutation({
     explanationForParent: v.string(),
     explanationForKid: v.string(),
   },
-  returns: v.null(),
+  returns: v.union(v.null(), v.id("verdicts")),
   handler: async (ctx, a) => {
     const family = await ctx.db.get(a.familyId);
     if (!family || family.status === "off") return null;
@@ -327,7 +329,7 @@ export const saveVerdict = internalMutation({
     });
     // A6: label or hold it in Gmail and tell the parent (no-op unless ANCHOR_GMAIL_ACTIONS is on).
     await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId });
-    return null;
+    return verdictId;
   },
 });
 
@@ -430,8 +432,25 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
     senderKey,
     ...(base.claimedOrg !== undefined && { claimedOrg: base.claimedOrg }),
   });
-  const checks = [...base.checks, relationship(email, base.claimedOrg, history, claimStatus)];
+  const linkFacts = email.links.slice(0, 20).map((l) => {
+    const c = classifySite(l.href);
+    const intelFor = c.site ? intel[c.site] : undefined;
+    return {
+      shownText: l.text.slice(0, 120),
+      href: cleanUrl(l.href) ?? "",
+      site: c.site,
+      cls: c.cls,
+      ...(intelFor?.ageDays !== undefined && { ageDays: intelFor.ageDays }),
+      ...(intelFor?.listed !== undefined && { listedDangerous: intelFor.listed }),
+    };
+  });
+  const behavior = {
+    links: linkFacts.map((l) => ({ site: l.site, cls: l.cls })),
+    pressure: base.checks.find((c) => c.id === "pressure")?.status ?? "pass",
+  };
+  const checks = [...base.checks, relationship(email, base.claimedOrg, history, claimStatus, behavior)];
   const floor = ruleLevel(checks);
+  const familiar = history.sender !== undefined && (history.sender.messageCount >= 2 || (history.sender.parentSentCount ?? 0) > 0);
 
   // Claude only for flagged mail: it explains and may raise the level. Real mail stays private.
   // A flood of scam emails falls back to the template after CLAUDE_PER_HOUR in an hour.
@@ -454,7 +473,7 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
           overCap ? undefined : process.env.ANTHROPIC_API_KEY,
         );
 
-  await ctx.runMutation(internal.mailWatch.saveVerdict, {
+  const verdictId = await ctx.runMutation(internal.mailWatch.saveVerdict, {
     familyId,
     gmailMessageId: id,
     receivedAt: Number(msg.internalDate ?? Date.now()),
@@ -469,6 +488,28 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
     explanationForParent: explained?.explanationForParent ?? "",
     explanationForKid: explained?.explanationForKid ?? "",
   });
+
+  // A7: every suspicious email gets the AI investigator (facts only; never the body).
+  if (verdictId && explained) {
+    const brand = base.claimedOrg ? BRANDS.find((b) => b.name === base.claimedOrg) : undefined;
+    await ctx.scheduler.runAfter(0, internal.investigations.investigate, {
+      verdictId,
+      facts: {
+        ruleLevel: explained.level,
+        sender: {
+          name: email.fromName.slice(0, 120),
+          address: email.fromAddress.slice(0, 254),
+          domain: email.fromDomain || "unknown",
+          ...(email.replyToAddress && { replyTo: email.replyToAddress.slice(0, 254) }),
+        },
+        ...(base.claimedOrg !== undefined && { claimedOrg: base.claimedOrg }),
+        ...(brand && { officialDomains: brand.officialDomains }),
+        familiar,
+        checks,
+        links: linkFacts.filter((l) => l.href),
+      },
+    });
+  }
 }
 
 /** Errors that mean "stop this run and try again next minute", not "this email is bad". */
