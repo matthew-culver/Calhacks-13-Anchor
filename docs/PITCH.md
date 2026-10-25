@@ -38,7 +38,7 @@ secrecy: his account's been hacked, so it's held."
 her Gmail, it lands here with the investigation, I tap 'It's fine', and she gets my answer in
 my words. One calm email a week, no alerts."
 
-**1:50 Close (10 s).** "On our test set it caught 24 of 24 scams and held zero real emails.
+**1:50 Close (10 s).** "On our test set it caught 25 of 25 scams and held zero real emails.
 It's running on my real inbox right now. Anchor: our parents get a safer inbox, and we get our
 weekends back."
 
@@ -48,7 +48,7 @@ weekends back."
 Chase email to someone who doesn't bank at Chase is held before they see it, and an AI
 investigator shows us why, step by step. Family emails about bills are left alone, but a
 hacked family account asking for gift cards is caught. And Mom can ask us about any email from
-inside Gmail. 24 of 24 scams caught on our test set, zero real emails held."
+inside Gmail. 25 of 25 scams caught on our test set, zero real emails held."
 
 ## Track-specific closers (pick the one that matches the judge)
 

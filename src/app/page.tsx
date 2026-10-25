@@ -135,10 +135,10 @@ export default function Home() {
 
         {/* Measured, not promised: docs/ACCURACY.md, reproduced by convex/accuracy.test.ts. */}
         <section aria-labelledby="tested" className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
-          <h2 id="tested" className="text-lg font-semibold text-muted">On our test set of 57 real-world scams and everyday emails</h2>
+          <h2 id="tested" className="text-lg font-semibold text-muted">On our test set of 58 real-world scams and everyday emails</h2>
           <dl className="mt-4 grid gap-4 sm:grid-cols-3">
             {[
-              ["24 of 24", "scams caught, from fake banks to a hacked family account"],
+              ["25 of 25", "scams caught, from fake banks to a hacked family account"],
               ["0 of 33", "real emails set aside by mistake, family bills included"],
               ["1 minute", "for every new email to be checked, day and night"],
             ].map(([n, label]) => (
