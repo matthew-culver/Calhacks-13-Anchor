@@ -47,6 +47,7 @@ const factsValidator = v.object({
   claimedOrg: v.optional(v.string()),
   officialDomains: v.optional(v.array(v.string())),
   familiar: v.boolean(),
+  askedByParent: v.optional(v.boolean()),
   checks: v.array(checkResult),
   links: v.array(
     v.object({

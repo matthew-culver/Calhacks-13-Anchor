@@ -628,7 +628,8 @@ describe("pollFamily", () => {
       expect(feed[0]).toMatchObject({ kind: "asked", verdict: { gmailMessageId: "a1", subject: "Your flu shot is ready to schedule", fromName: "Kaiser Permanente" } });
       expect(feed[0].verdict!.explanationForKid).toContain("Mom asked you about this email");
       const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
-      expect(scheduled.map((s) => s.name)).toContain("investigations:investigate");
+      const investigation = scheduled.find((s) => s.name === "investigations:investigate");
+      expect((investigation?.args[0] as { facts: { askedByParent?: boolean } }).facts.askedByParent).toBe(true);
 
       // Asked once is enough: the next poll doesn't add it again.
       await t.action(internal.mailWatch.pollFamily, { familyId });

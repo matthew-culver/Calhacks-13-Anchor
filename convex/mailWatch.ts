@@ -675,6 +675,7 @@ async function checkOne(
         ...(base.claimedOrg !== undefined && { claimedOrg: base.claimedOrg }),
         ...(brand && { officialDomains: brand.officialDomains }),
         familiar,
+        ...(asked && { askedByParent: true }),
         checks,
         links: linkFacts.map((l) => ({
           shownText: l.shownText,
