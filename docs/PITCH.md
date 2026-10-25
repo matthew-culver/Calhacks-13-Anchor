@@ -56,7 +56,8 @@ inside Gmail. 25 of 25 scams caught on our test set, zero real emails held."
   own words, and the parent can start the conversation from inside Gmail."
 - **Anthropic:** "A named community, a problem we live, it works on a real inbox, and we know
   where it can go wrong: the AI can only make things stricter, email text is never
-  instructions, and clearing an email needs our own data, never the model's opinion."
+  instructions, and clearing an email needs our own data, never the model's opinion." If there's
+  time, send **email F** live: a scam telling the AI to mark it safe, held anyway.
 - **Microsoft:** "Measured, not promised: an accuracy eval in our test suite that fails the
   build if a real email is ever held. The path to production is Google's verification for
   Gmail access."
