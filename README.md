@@ -50,7 +50,7 @@ Anchor off revokes Google access and deletes the family's data.
 
 `convex/accuracy.test.ts` runs 44 labeled emails (scams built from FTC and AARP warning patterns,
 and everyday mail including family bills and links) through the whole pipeline with no AI and no
-network: **24 of 24 scams caught, 19 held automatically, 0 of 20 real emails held.** The test
+network: **24 of 24 scams caught, 22 held automatically, 0 of 20 real emails held.** The test
 fails if a real email is ever held or a scam is missed. Details: [docs/ACCURACY.md](docs/ACCURACY.md).
 About 660 automated tests in all (`npx vitest run`).
 

@@ -68,7 +68,7 @@ the parent does nothing new:
 ## Measured, not promised
 
 `convex/accuracy.test.ts` runs a labeled set of 44 emails through the whole pipeline with no AI
-and no network (the floor): **24 of 24 scams caught (19 held automatically), 0 of 20 real
+and no network (the floor): **24 of 24 scams caught (22 held automatically), 0 of 20 real
 emails held, 3 asked the kid** (first-ever emails from a real company, which the AI then
 clears). Its first run caught only 18 of 21: tech-support, streaming and Zelle impostors got
 through. We added those brands and it now fails the build if a real email is ever held. 660+

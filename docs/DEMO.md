@@ -177,7 +177,7 @@ name as it shows in his own emails)
   really deals with (her family, her bank, her doctor), so it can leave her son's bill reminder
   alone and still catch the same son's hacked account asking for gift cards.
 - **"How accurate is it?"** On our labeled test set of 44 emails (`docs/ACCURACY.md`, re-run by
-  `convex/accuracy.test.ts`): 24 of 24 scams caught, 19 held automatically, 0 of 20 real emails
+  `convex/accuracy.test.ts`): 24 of 24 scams caught, 22 held automatically, 0 of 20 real emails
   held. Its first run missed tech-support and streaming impostors; we added those brands, and the
   test now fails the build if a real email is ever held.
 - **"What if someone pretends to be family?"** Anchor learns the names of the people Mom writes
