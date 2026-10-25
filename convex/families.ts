@@ -32,14 +32,24 @@ export function acceptsInvite(status: Doc<"families">["status"]): boolean {
   return status === "invited" || status === "needs_reconnect";
 }
 
+// Letters (any language), spaces, apostrophes, periods and hyphens. Names appear in the note
+// Anchor puts in the parent's inbox, in Gmail labels and in Claude prompts, so no digits, links
+// or symbols: a stranger posing as a kid must not be able to put "Call 1-800..." there.
+const NAME_CHARS = /^[\p{L}\p{M} '\u2019.-]+$/u;
+
 function cleanName(raw: string, label: string): string {
-  // Names later appear in Gmail labels, the parent note and Claude prompts: one plain line only.
   const name = raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
   if (name.length === 0 || name.length > MAX_NAME) {
     throw new ConvexError(`${label} name must be 1 to ${MAX_NAME} characters.`);
   }
+  if (!NAME_CHARS.test(name) || /\p{L}{2,}\.\p{L}{2,}/u.test(name)) {
+    throw new ConvexError(`${label} name can only use letters, spaces, apostrophes, periods and hyphens.`);
+  }
   return name;
 }
+
+/** Real tokens are 43 characters; anything much longer is junk and isn't looked up. */
+export const MAX_TOKEN = 64;
 
 function cleanEmail(raw: string): string {
   const email = raw.trim().toLowerCase();
@@ -57,8 +67,21 @@ export const createFamily = mutation({
     const kidUserId = await requireKid(ctx);
     // No unique constraint is needed: mutations are serializable, so two concurrent calls
     // can't both see an empty by_kid range.
-    if ((await familyOf(ctx, kidUserId)) !== null) {
+    const existing = await familyOf(ctx, kidUserId);
+    if (existing !== null && existing.status !== "off") {
       throw new ConvexError("You've already set up protection for someone.");
+    }
+    // After the parent turned protection off, the kid can start over with a fresh family, but
+    // only once turn-off has finished cleaning up (data deleted, Google access revoked).
+    // Deleting the row earlier would orphan that cleanup and leave the token behind.
+    if (existing !== null) {
+      const leftover =
+        (await ctx.db.query("gmailTokens").withIndex("by_family", (q) => q.eq("familyId", existing._id)).first()) ??
+        (await ctx.db.query("verdicts").withIndex("by_family_received", (q) => q.eq("familyId", existing._id)).first()) ??
+        (await ctx.db.query("relationships").withIndex("by_family_key", (q) => q.eq("familyId", existing._id)).first()) ??
+        (await ctx.db.query("feedItems").withIndex("by_family_created", (q) => q.eq("familyId", existing._id)).first());
+      if (leftover) throw new ConvexError("We're still switching things off. Please try again in a few minutes.");
+      await ctx.db.delete(existing._id);
     }
     const inviteToken = randomToken();
     const familyId = await ctx.db.insert("families", {
@@ -136,7 +159,7 @@ export const getInvite = query({
     }),
   ),
   handler: async (ctx, { token }) => {
-    if (token.length === 0) return null;
+    if (token.length === 0 || token.length > MAX_TOKEN) return null;
     const family = await ctx.db
       .query("families")
       .withIndex("by_invite", (q) => q.eq("inviteToken", token))
@@ -190,7 +213,7 @@ export const getParentView = query({
     v.object({ parentName: v.string(), kidName: v.string(), status: familyStatus }),
   ),
   handler: async (ctx, { parentToken }) => {
-    if (parentToken.length === 0) return null;
+    if (parentToken.length === 0 || parentToken.length > MAX_TOKEN) return null;
     const family = await ctx.db
       .query("families")
       .withIndex("by_parent_token", (q) => q.eq("parentToken", parentToken))

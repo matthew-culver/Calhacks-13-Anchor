@@ -27,18 +27,23 @@ import type * as contract from "../contract.js";
 import type * as crons from "../crons.js";
 import type * as families from "../families.js";
 import type * as feed from "../feed.js";
+import type * as gmailActions from "../gmailActions.js";
 import type * as gmailConnect from "../gmailConnect.js";
 import type * as gmailImport from "../gmailImport.js";
 import type * as googleAuth from "../googleAuth.js";
 import type * as http from "../http.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_explain from "../lib/explain.js";
+import type * as lib_gmailApi from "../lib/gmailApi.js";
 import type * as lib_history from "../lib/history.js";
 import type * as lib_oauth from "../lib/oauth.js";
 import type * as lib_orgDirectory from "../lib/orgDirectory.js";
+import type * as lib_parentNote from "../lib/parentNote.js";
 import type * as lib_sampleHistory from "../lib/sampleHistory.js";
 import type * as lib_tokens from "../lib/tokens.js";
 import type * as mailWatch from "../mailWatch.js";
+import type * as repair from "../repair.js";
+import type * as turnOff from "../turnOff.js";
 
 import type {
   ApiFromModules,
@@ -66,18 +71,23 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   families: typeof families;
   feed: typeof feed;
+  gmailActions: typeof gmailActions;
   gmailConnect: typeof gmailConnect;
   gmailImport: typeof gmailImport;
   googleAuth: typeof googleAuth;
   http: typeof http;
   "lib/env": typeof lib_env;
   "lib/explain": typeof lib_explain;
+  "lib/gmailApi": typeof lib_gmailApi;
   "lib/history": typeof lib_history;
   "lib/oauth": typeof lib_oauth;
   "lib/orgDirectory": typeof lib_orgDirectory;
+  "lib/parentNote": typeof lib_parentNote;
   "lib/sampleHistory": typeof lib_sampleHistory;
   "lib/tokens": typeof lib_tokens;
   mailWatch: typeof mailWatch;
+  repair: typeof repair;
+  turnOff: typeof turnOff;
 }>;
 
 /**

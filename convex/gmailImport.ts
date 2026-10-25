@@ -20,8 +20,15 @@ const WINDOW = "newer_than:2y -in:chats";
 const MAX_RECENT = 1500; // with MAX_FROM_ORGS, keeps a big inbox well under the 10-minute action limit
 const MAX_FROM_ORGS = 1000;
 const PAGE_SIZE = 500;
-// Gmail allows ~250 quota units per user per second and messages.get costs 5: stay well under.
-const CONCURRENCY = 8;
+// Gmail allows ~250 quota units per user per second and messages.get costs 5, so about 50
+// messages a second. Each request takes up to ~1 s, so many must be in flight at once to get
+// near that; the pacing below keeps the rate just under it, so Gmail never answers "slow
+// down" (each of those costs a retry wait). Override with ANCHOR_IMPORT_RATE (messages/second).
+// Measured on a real ~2,500-message inbox: 8 in flight took 400+ s, 40 in flight 166 s. 20 keeps
+// clear of Gmail's separate limit on simultaneous requests per user.
+const CONCURRENCY = 20;
+const DEFAULT_RATE = 30; // leaves quota for the watcher and Gmail actions running alongside
+const MAX_RETRY_WAIT_MS = 10_000;
 const MAX_TRIES = 4;
 /** Whole-import retries after an unexpected failure: 1, 4, then 16 minutes later. */
 const MAX_IMPORT_ATTEMPTS = 3;
@@ -49,7 +56,7 @@ async function gmail<T>(accessToken: string, path: string, params: Record<string
     const rateLimited = res.status === 429 || (res.status === 403 && /rateLimit/i.test(await res.clone().text()));
     if ((rateLimited || res.status >= 500) && attempt < MAX_TRIES) {
       const retryAfter = Number(res.headers.get("Retry-After"));
-      await sleep(retryAfter > 0 ? retryAfter * 1000 : 2 ** attempt * 250 + Math.random() * 250);
+      await sleep(Math.min(MAX_RETRY_WAIT_MS, retryAfter > 0 ? retryAfter * 1000 : 2 ** attempt * 250 + Math.random() * 250));
       continue;
     }
     throw new GmailError(res.status);
@@ -101,8 +108,11 @@ async function fetchHeaders(accessToken: string): Promise<{ records: HeaderRecor
   const fromOrgs = await listIds(accessToken, `${WINDOW} from:(${orgDomains.join(" OR ")})`, MAX_FROM_ORGS);
   const ids = [...new Set([...recent, ...fromOrgs])];
 
+  const rate = Number(process.env.ANCHOR_IMPORT_RATE) > 0 ? Number(process.env.ANCHOR_IMPORT_RATE) : DEFAULT_RATE;
+  const minBatchMs = (CONCURRENCY * 1000) / rate;
   const records: HeaderRecord[] = [];
   for (let i = 0; i < ids.length; i += CONCURRENCY) {
+    const batchStarted = Date.now();
     const batch = await Promise.all(
       ids.slice(i, i + CONCURRENCY).map((id) =>
         gmail<GmailMessage>(accessToken, `/messages/${encodeURIComponent(id)}`, {
@@ -121,6 +131,8 @@ async function fetchHeaders(accessToken: string): Promise<{ records: HeaderRecor
       const record = m && toRecord(m);
       if (record) records.push(record);
     }
+    const spent = Date.now() - batchStarted;
+    if (spent < minBatchMs) await sleep(minBatchMs - spent);
   }
   return { records, historyId: profile.historyId };
 }
@@ -170,7 +182,7 @@ export const importHistory = internalAction({
           if (access.ok) continue;
           return access.reason === "unavailable" ? retryLater("token refresh unavailable") : null;
         }
-        return retryLater(e instanceof Error ? e.message : "unknown error");
+        return retryLater(e instanceof GmailError ? e.message : e instanceof Error ? e.name : "unknown error");
       }
     }
   },
@@ -188,7 +200,7 @@ export const importSample = internalAction({
     if (tokens?.historyId !== undefined && !replaceRealData) {
       throw new Error("This family has real Gmail history. Pass replaceRealData: true to overwrite it.");
     }
-    await save(ctx, familyId, sampleRecords(), { selfEmail: "mom.culver@gmail.com" });
+    await save(ctx, familyId, sampleRecords(), { selfEmail: "mom@example.com" });
     return null;
   },
 });

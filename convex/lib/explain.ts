@@ -129,7 +129,7 @@ export function buildUserMessage(input: ExplainInput): string {
 export async function explain(input: ExplainInput, apiKey: string | undefined): Promise<Explanation> {
   const fallback = templateExplanation(input, input.ruleLevel);
   if (!apiKey) {
-    console.error("explain: ANTHROPIC_API_KEY is not set, using templates");
+    console.error("explain: no API key passed (not set, or over the hourly cap), using templates");
     return fallback;
   }
   try {

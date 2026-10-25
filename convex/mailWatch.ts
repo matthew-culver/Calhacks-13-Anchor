@@ -25,6 +25,8 @@ const MAX_PER_POLL = 20;
 const MAX_FAMILIES = 200;
 /** Bigger emails aren't downloaded (attachments could exhaust the action's memory). */
 const MAX_RAW_BYTES = 5 * 1024 * 1024;
+/** Claude explanations per family per hour; beyond that the fixed template is used. */
+const CLAUDE_PER_HOUR = 30;
 /** After this many failed tries an email becomes "unsure: we couldn't check it". */
 const MAX_FAILURES = 3;
 /** Stop starting new emails after this long, well inside the action time limit. */
@@ -48,8 +50,11 @@ async function gmail<T>(accessToken: string, path: string, params: Record<string
     headers: { Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
   });
-  if (!res.ok) throw new GmailError(res.status);
-  return (await res.json()) as T;
+  if (res.ok) return (await res.json()) as T;
+  // Gmail signals "slow down" as 403 with a rateLimit reason: treat it like 429 (try later),
+  // never as a broken email.
+  if (res.status === 403 && /rateLimit/i.test(await res.text())) throw new GmailError(429);
+  throw new GmailError(res.status);
 }
 
 function decodeRaw(raw: string): Uint8Array {
@@ -84,7 +89,14 @@ export const familyForPoll = internalQuery({
   args: { familyId: v.id("families") },
   returns: v.union(
     v.null(),
-    v.object({ status: v.string(), parentName: v.string(), kidName: v.string(), historyId: v.optional(v.string()), googleEmail: v.optional(v.string()) }),
+    v.object({
+      status: v.string(),
+      parentName: v.string(),
+      kidName: v.string(),
+      historyId: v.optional(v.string()),
+      googleEmail: v.optional(v.string()),
+      noteLabelId: v.optional(v.string()),
+    }),
   ),
   handler: async (ctx, { familyId }) => {
     const family = await ctx.db.get(familyId);
@@ -99,6 +111,7 @@ export const familyForPoll = internalQuery({
       kidName: family.kidName,
       historyId: tokens?.historyId,
       googleEmail: tokens?.googleEmail,
+      noteLabelId: tokens?.noteLabelId,
     };
   },
 });
@@ -111,7 +124,14 @@ export const alreadySeen = internalQuery({
       .query("verdicts")
       .withIndex("by_family_gmail_id", (q) => q.eq("familyId", familyId).eq("gmailMessageId", gmailMessageId))
       .first();
-    return row !== null;
+    if (row !== null) return true;
+    // Anchor's own notes to the parent are never checked. Known by the id Gmail gave us when we
+    // inserted them (a sender can't forge that), not by any header a scammer could copy.
+    const note = await ctx.db
+      .query("anchorNotes")
+      .withIndex("by_family_message", (q) => q.eq("familyId", familyId).eq("gmailMessageId", gmailMessageId))
+      .first();
+    return note !== null;
   },
 });
 
@@ -198,6 +218,8 @@ export const recordFailure = internalMutation({
   args: { familyId: v.id("families"), gmailMessageId: v.string() },
   returns: v.number(),
   handler: async (ctx, { familyId, gmailMessageId }) => {
+    const family = await ctx.db.get(familyId);
+    if (!family || family.status === "off") return MAX_FAILURES; // turned off: stop retrying, write nothing
     const row = await ctx.db
       .query("pollFailures")
       .withIndex("by_family_message", (q) => q.eq("familyId", familyId).eq("gmailMessageId", gmailMessageId))
@@ -208,6 +230,19 @@ export const recordFailure = internalMutation({
     }
     await ctx.db.insert("pollFailures", { familyId, gmailMessageId, count: 1 });
     return 1;
+  },
+});
+
+/** Flagged emails in the last hour, to cap Claude calls when someone floods the inbox. */
+export const recentFlagged = internalQuery({
+  args: { familyId: v.id("families"), since: v.number() },
+  returns: v.number(),
+  handler: async (ctx, { familyId, since }) => {
+    const items = await ctx.db
+      .query("feedItems")
+      .withIndex("by_family_created", (q) => q.eq("familyId", familyId).gte("createdAt", since))
+      .take(CLAUDE_PER_HOUR + 1);
+    return items.length;
   },
 });
 
@@ -290,6 +325,8 @@ export const saveVerdict = internalMutation({
       kind: a.level === "fake" ? "held" : "needs_answer",
       createdAt: Date.now(),
     });
+    // A6: label or hold it in Gmail and tell the parent (no-op unless ANCHOR_GMAIL_ACTIONS is on).
+    await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId });
     return null;
   },
 });
@@ -302,7 +339,11 @@ type HistoryPage = {
   nextPageToken?: string;
 };
 
-async function newMessageIds(accessToken: string, startHistoryId: string): Promise<{ ids: string[]; historyId?: string }> {
+async function newMessageIds(
+  accessToken: string,
+  startHistoryId: string,
+  noteLabelId?: string,
+): Promise<{ ids: string[]; historyId?: string }> {
   const ids: string[] = [];
   let pageToken: string | undefined;
   let historyId: string | undefined;
@@ -317,6 +358,7 @@ async function newMessageIds(accessToken: string, startHistoryId: string): Promi
       for (const added of h.messagesAdded ?? []) {
         const labels = added.message.labelIds ?? [];
         if (labels.includes("SENT") || labels.includes("DRAFT") || labels.includes("SPAM")) continue;
+        if (noteLabelId && labels.includes(noteLabelId)) continue; // Anchor's own note to the parent
         ids.push(added.message.id);
       }
     }
@@ -392,6 +434,10 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
   const floor = ruleLevel(checks);
 
   // Claude only for flagged mail: it explains and may raise the level. Real mail stays private.
+  // A flood of scam emails falls back to the template after CLAUDE_PER_HOUR in an hour.
+  const overCap =
+    floor !== "real" &&
+    (await ctx.runQuery(internal.mailWatch.recentFlagged, { familyId, since: Date.now() - 3600_000 })) >= CLAUDE_PER_HOUR;
   const explained =
     floor === "real"
       ? null
@@ -405,7 +451,7 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
             parentName: family.parentName,
             kidName: family.kidName,
           },
-          process.env.ANTHROPIC_API_KEY,
+          overCap ? undefined : process.env.ANTHROPIC_API_KEY,
         );
 
   await ctx.runMutation(internal.mailWatch.saveVerdict, {
@@ -470,7 +516,7 @@ export const pollFamily = internalAction({
 
       let found: { ids: string[]; historyId?: string };
       try {
-        found = await newMessageIds(access.accessToken, family.historyId);
+        found = await newMessageIds(access.accessToken, family.historyId, family.noteLabelId);
       } catch (e) {
         if (e instanceof GmailError && e.status === 404) {
           // The cursor is too old (Gmail keeps about a week, e.g. after a reconnect). Don't
@@ -491,6 +537,7 @@ export const pollFamily = internalAction({
           await accessTokenFor(ctx, familyId, { force: true }); // next poll uses the fresh token
           return null;
         }
+        if (isTransient(e)) return null; // rate limited or Gmail trouble: next minute
         throw e;
       }
 
