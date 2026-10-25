@@ -2,7 +2,7 @@
 
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockAccounts } from "@/shared/mock";
+import { mockAccounts, mockNow } from "@/shared/mock";
 import { fakeBackend } from "@/test/fakeBackend";
 import KidAccounts from "./page";
 
@@ -27,9 +27,9 @@ const title = () => screen.getByRole("heading", { level: 1 });
 
 describe("kid My Accounts", () => {
   it("lists the parent's accounts with how long they've been in the email", () => {
-    // The mock's "now" (Oct 25, 2026); Kaiser was first seen 24 months before it.
+    // The mock's "now"; Kaiser was first seen 24 months before it.
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(Date.UTC(2026, 9, 25, 15, 0));
+    vi.setSystemTime(mockNow);
     try {
       render(<KidAccounts />);
       expect(title()).toHaveTextContent("Mom's accounts");

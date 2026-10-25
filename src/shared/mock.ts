@@ -23,7 +23,10 @@ export type Row<T, Table extends string> = T & {
 const id = <Table extends string>(s: string) => s as GenericId<Table>;
 const MIN = 60 * 1000;
 const DAY = 24 * 60 * MIN;
-const now = Date.UTC(2026, 9, 25, 15, 0); // Oct 25, 2026
+// Everything is relative to when the app loads, so a demo always reads "20 minutes ago",
+// never a date in the future or the past. Tests that check durations use mockNow.
+export const mockNow = Date.now();
+const now = mockNow;
 const monthsAgo = (m: number) => now - m * 30 * DAY;
 
 const familyId = id<"families">("mock_family_1");
@@ -96,7 +99,7 @@ export const mockVerdicts: Row<Verdict, "verdicts">[] = [
       { id: "pressure", status: "warn", plainReason: "It tries to rush you with a 24-hour deadline." },
     ],
     explanationForParent: "We held a message pretending to be Chase. You don't have a Chase account, so you don't need to do anything.",
-    explanationForKid: "A convincing Chase phish: wrong sending domain, a link to a 3-day-old lookalike site, and no Chase history in Mom's inbox. Held automatically.",
+    explanationForKid: "A convincing fake Chase email: sent from the wrong website, a link to a 3-day-old copycat site, and no Chase history in Mom's inbox. Held automatically.",
   },
   {
     // Real mail keeps only what the checks and counts need. The kid never sees it.
@@ -155,7 +158,7 @@ export const mockVerdicts: Row<Verdict, "verdicts">[] = [
       { id: "pressure", status: "pass", plainReason: "Nothing pushy in this email." },
     ],
     explanationForParent: "We're not sure about this one, so we asked Lucas. Please don't click anything in it yet.",
-    explanationForKid: "A delivery notice from a domain that isn't usps.com, with no history. Did Mom order something recently?",
+    explanationForKid: "A delivery notice from a website that isn't usps.com, with no history. Did Mom order something recently?",
   },
   {
     // An older unsure email the kid already answered: the "Good catch, Mom" moment.
