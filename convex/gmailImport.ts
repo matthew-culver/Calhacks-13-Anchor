@@ -26,7 +26,7 @@ const PAGE_SIZE = 500;
 // down" (each of those costs a retry wait). Override with ANCHOR_IMPORT_RATE (messages/second).
 // Measured on a real ~2,500-message inbox: 8 in flight took about 400 s.
 const CONCURRENCY = 40;
-const DEFAULT_RATE = 40;
+const DEFAULT_RATE = 30; // leaves quota for the watcher and Gmail actions running alongside
 const MAX_RETRY_WAIT_MS = 10_000;
 const MAX_TRIES = 4;
 /** Whole-import retries after an unexpected failure: 1, 4, then 16 minutes later. */

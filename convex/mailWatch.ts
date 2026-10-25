@@ -50,8 +50,11 @@ async function gmail<T>(accessToken: string, path: string, params: Record<string
     headers: { Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
   });
-  if (!res.ok) throw new GmailError(res.status);
-  return (await res.json()) as T;
+  if (res.ok) return (await res.json()) as T;
+  // Gmail signals "slow down" as 403 with a rateLimit reason: treat it like 429 (try later),
+  // never as a broken email.
+  if (res.status === 403 && /rateLimit/i.test(await res.text())) throw new GmailError(429);
+  throw new GmailError(res.status);
 }
 
 function decodeRaw(raw: string): Uint8Array {
@@ -534,6 +537,7 @@ export const pollFamily = internalAction({
           await accessTokenFor(ctx, familyId, { force: true }); // next poll uses the fresh token
           return null;
         }
+        if (isTransient(e)) return null; // rate limited or Gmail trouble: next minute
         throw e;
       }
 

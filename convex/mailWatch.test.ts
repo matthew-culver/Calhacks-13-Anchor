@@ -244,6 +244,28 @@ describe("pollFamily", () => {
     expect(await t.run((ctx) => ctx.db.query("pollFailures").collect())).toHaveLength(0);
   });
 
+  test("Gmail's rate-limit 403 waits for the next minute and never counts against an email", async () => {
+    const { t, familyId } = await activeFamily();
+    fakeWorld({ messages: { m1: fixture("chase-phish.eml") }, rawStatus: { m1: 403 } });
+    vi.mocked(fetch).mockImplementation(async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/history")) {
+        return new Response(JSON.stringify({ historyId: "200", history: [{ messagesAdded: [{ message: { id: "m1", labelIds: ["INBOX"] } }] }] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ error: { errors: [{ reason: "userRateLimitExceeded" }] } }), { status: 403 });
+    });
+    for (let i = 0; i < 4; i++) await t.action(internal.mailWatch.pollFamily, { familyId });
+    expect(await t.run((ctx) => ctx.db.query("verdicts").collect())).toHaveLength(0);
+    expect(await t.run((ctx) => ctx.db.query("pollFailures").collect())).toHaveLength(0);
+    expect(await cursor(t)).toBe("100");
+  });
+
+  test("a rate-limited history call ends the run quietly", async () => {
+    const { t, familyId } = await activeFamily();
+    fakeWorld({ messages: {}, historyStatus: 429 });
+    await expect(t.action(internal.mailWatch.pollFamily, { familyId })).resolves.toBeNull();
+  });
+
   test("only one poll per family runs at a time", async () => {
     const { t, familyId } = await activeFamily();
     expect(await t.mutation(internal.mailWatch.claimPoll, { familyId })).toBe(true);
