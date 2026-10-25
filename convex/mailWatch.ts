@@ -11,6 +11,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { type ActionCtx, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { BRANDS } from "./checks/brands";
+import { speaksAsCompany } from "./checks/claimedIdentity";
 import { gatherLinkIntel, parseEml, ruleLevel, runChecks } from "./checks/index";
 import { type HistoryContext, relationship } from "./checks/relationship";
 import { checkResult, verdictLevel } from "./contract";
@@ -489,15 +490,27 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
   }
 
   // Ordinary money talk from family or familiar senders (bills, Venmo, "ASAP") isn't a scam
-  // signal; gift cards, wires, crypto and secrecy are.
+  // signal; gift cards, wires, crypto and secrecy are. Nor is naming a company in the subject
+  // ("Can you pay the PG&E bill?") when every link goes to a big, known site and it talks about
+  // the company rather than as it. Pretending to be a company (its name as the sender, a
+  // look-alike address, "your account is locked") still counts, and so does a company's name
+  // next to a link to some other site.
   const pressureCheck = base.checks.find((c) => c.id === "pressure");
   const signals = pressureSignals(pressureCheck?.detail);
   const scamPressure = signals.some((sig) => SCAM_SIGNALS.includes(sig));
-  const baseChecks = base.checks.map((c) =>
-    c.id === "pressure" && familiar && c.status === "fail" && !scamPressure
-      ? { ...c, status: "warn" as const, plainReason: "It mentions paying or a deadline, which is normal from someone you know." }
-      : c,
-  );
+  const baseChecks = base.checks.map((c) => {
+    if (!familiar) return c;
+    if (c.id === "pressure" && c.status === "fail" && !scamPressure) {
+      return { ...c, status: "warn" as const, plainReason: "It mentions paying or a deadline, which is normal from someone you know." };
+    }
+    if (
+      c.id === "claimed_identity" && c.status === "warn" && c.detail?.startsWith("mentions ") &&
+      linkFacts.every((l) => l.cls === "established") && !speaksAsCompany(email)
+    ) {
+      return { ...c, status: "pass" as const, plainReason: "It mentions a company, which is normal from someone you know." };
+    }
+    return c;
+  });
   const behavior = { riskySites: linkFacts.filter((l) => l.risky).map((l) => l.site), scamPressure };
   const checks = [...baseChecks, relationship(email, base.claimedOrg, history, claimStatus, behavior)];
   const floor = ruleLevel(checks);

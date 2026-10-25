@@ -384,6 +384,46 @@ describe("pollFamily", () => {
     expect(await kid.query(api.feed.myFeed, {})).toEqual([]);
   });
 
+  test("someone Mom knows naming a company in the subject (\"Can you pay the PG&E bill?\") is not flagged", async () => {
+    const { t, kid, familyId } = await activeFamily();
+    await t.run((ctx) =>
+      ctx.db.insert("relationships", {
+        familyId, kind: "person", key: "matt.culver@gmail.com", firstSeen: Date.now() - 900 * DAY, lastSeen: Date.now() - 3 * DAY, messageCount: 0, parentSentCount: 4, authPassRate: 0,
+      }),
+    );
+    const fromMatt = (id: string, subject: string, body: string) => [
+      "Authentication-Results: mx.google.com; dkim=pass header.i=@gmail.com; spf=pass smtp.mailfrom=matt.culver@gmail.com; dmarc=pass (p=NONE) header.from=gmail.com",
+      "From: Matt <matt.culver@gmail.com>",
+      "To: mom.culver@gmail.com",
+      `Subject: ${subject}`,
+      `Message-ID: <${id}@mail.gmail.com>`,
+      "Content-Type: text/plain",
+      "",
+      body,
+      "",
+    ].join("\r\n");
+    fakeWorld({
+      messages: {
+        b1: fromMatt("b1", "Can you pay the PG&E bill?", "Hi Mom! It's $84.20, due Friday. You can pay at https://www.pge.com/ or just Venmo me. Love, Matt"),
+        // A hacked account phishing with a company's name is still caught: the link gives it away,
+        b2: fromMatt("b2", "Chase account alert", "Your Chase account is locked. Verify it here: https://chase-account-verify.top/login"),
+        // even when the site looks harmless to our checks: Chase's name next to some other site.
+        b3: fromMatt("b3", "Chase account alert", "Please review your account here: https://secure-account-review.com/start"),
+        // and with no link at all, when it talks as the company would.
+        b4: fromMatt("b4", "Chase account alert", "Your Chase account has been locked. Call 1-800-555-0100 to verify your identity."),
+      },
+    });
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    const verdicts = await t.run((ctx) => ctx.db.query("verdicts").collect());
+    const level = (id: string) => verdicts.find((v) => v.gmailMessageId === id)?.level;
+    expect(level("b1")).toBe("real");
+    expect(level("b2")).toBe("fake");
+    expect(level("b3")).toBe("unsure");
+    expect(level("b4")).not.toBe("real");
+    const feed = await kid.query(api.feed.myFeed, {});
+    expect(feed.map((f) => f.verdict?.gmailMessageId).sort()).toEqual(["b2", "b3", "b4"]);
+  });
+
   test("the same address asking for gift cards and secrecy is flagged as a hacked account", async () => {
     const { t, familyId } = await activeFamily();
     const raw = [
