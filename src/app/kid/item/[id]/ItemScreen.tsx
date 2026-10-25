@@ -3,10 +3,12 @@
 import { ConvexError, type Infer } from "convex/values";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { InvestigationPanel } from "@/components/InvestigationPanel";
 import { KidGate, SampleDataNote } from "@/components/KidGate";
 import { TimeAgo } from "@/components/TimeAgo";
 import { BigButton, Card, Screen } from "@/components/ui";
 import { MAX_NOTE, useAnswerFeedItem, useFeed, type FeedEntry } from "@/shared/feedApi";
+import { useInvestigation } from "@/shared/investigationApi";
 import { claimedSender, senderText } from "@/shared/senderText";
 import type { checkStatus } from "../../../../../convex/contract";
 
@@ -23,13 +25,16 @@ const STATUS: Record<Infer<typeof checkStatus>, { mark: string; label: string; c
 export function ItemScreen({ id }: { id: string }) {
   return (
     <KidGate>
-      {(family, demo) => <Item id={id} parentName={family.parentName} demo={demo} />}
+      {/* key: a different email starts fresh (its own investigation replay, its own answer state). */}
+      {(family, demo) => <Item key={id} id={id} parentName={family.parentName} demo={demo} />}
     </KidGate>
   );
 }
 
 function Item({ id, parentName, demo }: { id: string; parentName: string; demo: boolean }) {
   const feed = useFeed();
+  // A7's investigator, live as it works (sample replay in demo mode until A7 lands).
+  const investigation = useInvestigation(id);
   // Set when the kid answers on this visit, so focus moves to the result (not on a later visit).
   const [justAnswered, setJustAnswered] = useState(false);
 
@@ -68,9 +73,11 @@ function Item({ id, parentName, demo }: { id: string; parentName: string; demo: 
 
       {verdict.explanationForKid && <p className="text-xl">{verdict.explanationForKid}</p>}
 
+      <InvestigationPanel investigation={investigation} />
+
       {verdict.checks && verdict.checks.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="text-2xl font-bold">What we checked</h2>
+          <h2 className="text-2xl font-bold">{investigation ? "Our quick checks" : "What we checked"}</h2>
           <ul className="flex flex-col gap-3">
             {verdict.checks.map((c) => {
               const s = STATUS[c.status];
