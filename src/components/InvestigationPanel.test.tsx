@@ -1,12 +1,17 @@
 // B9: the AI investigator's steps appearing live, then its conclusion, in plain words.
 
 import { act, render, renderHook, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SAMPLE_INVESTIGATIONS, useInvestigation, type InvestigationView } from "@/shared/investigationApi";
+import { fakeBackend } from "@/test/fakeBackend";
 import { InvestigationPanel } from "./InvestigationPanel";
+
+vi.mock("convex/react", async () => (await import("@/test/fakeBackend")).convexReact);
 
 // From CLAUDE.md: plain words only, and never say "safe".
 const BANNED = /\b(safe|phishing|domain|dkim|spf|dmarc)\b/i;
+
+beforeEach(() => fakeBackend.reset());
 
 afterEach(() => {
   sessionStorage.clear();
@@ -85,8 +90,15 @@ describe("investigation panel", () => {
 });
 
 describe("useInvestigation", () => {
-  it("shows nothing live until A7 lands", () => {
+  it("live: returns A7's investigation for an email the feed knows", () => {
+    fakeBackend.setQuery("investigations:forFeedItem", chase);
     const { result } = renderHook(() => useInvestigation("mock_feed_chase"));
+    expect(result.current).toBe(chase);
+  });
+
+  it("live: doesn't ask about an email the feed doesn't know", () => {
+    fakeBackend.setQuery("investigations:forFeedItem", chase);
+    const { result } = renderHook(() => useInvestigation("mock_feed_chase", false));
     expect(result.current).toBeNull();
   });
 

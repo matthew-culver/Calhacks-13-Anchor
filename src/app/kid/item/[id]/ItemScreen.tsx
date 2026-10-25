@@ -33,8 +33,9 @@ export function ItemScreen({ id }: { id: string }) {
 
 function Item({ id, parentName, demo }: { id: string; parentName: string; demo: boolean }) {
   const feed = useFeed();
-  // A7's investigator, live as it works (sample replay in demo mode until A7 lands).
-  const investigation = useInvestigation(id);
+  // A7's investigator, live as it works (a sample replay in demo mode). Asked only once the
+  // feed confirms this email exists, so a bad id in the address can't crash the page.
+  const investigation = useInvestigation(id, feed?.some((e) => e._id === id) ?? false);
   // Set when the kid answers on this visit, so focus moves to the result (not on a later visit).
   const [justAnswered, setJustAnswered] = useState(false);
 
@@ -151,6 +152,7 @@ function AnswerForm({
 }) {
   const answerFeedItem = useAnswerFeedItem();
   const [note, setNote] = useState("");
+  const [trust, setTrust] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -158,7 +160,8 @@ function AnswerForm({
     setBusy(true);
     setError(null);
     try {
-      await answerFeedItem({ feedItemId: entry._id, answer, note });
+      // "Always trust" only means something with "It's fine" (A7: family-aware rules).
+      await answerFeedItem({ feedItemId: entry._id, answer, note, ...(answer === "fine" && trust && { trustSender: true }) });
       onAnswered();
     } catch (err) {
       // api.feed.answer's errors are already plain words ("You already answered this one.").
@@ -200,6 +203,17 @@ function AnswerForm({
       <BigButton onClick={() => void send("fine")} disabled={busy} secondary>
         It&apos;s fine
       </BigButton>
+      <label className="flex min-h-tap items-center gap-3 text-lg">
+        <input
+          type="checkbox"
+          checked={trust}
+          onChange={(e) => setTrust(e.target.checked)}
+          className="h-7 w-7 shrink-0 accent-action"
+        />
+        <span>
+          {`With “It's fine”: always trust this sender. We'll only flag their emails for something serious, like a request for gift cards.`}
+        </span>
+      </label>
     </section>
   );
 }

@@ -1,14 +1,13 @@
 "use client";
 
 // The AI investigator's check of one flagged email (A7), for the kid's email page (B9).
-//
-// Live: A7 isn't on main yet, so there's no api.investigations query to call. When it lands,
-// the live branch of useInvestigation becomes:
-//   useQuery(api.investigations.forFeedItem, demo ? "skip" : { feedItemId })
-// Until then, live mode shows no investigation (the page still shows the plain checks), and
-// demo mode replays the sample investigations below step by step, as the kid would watch.
+// Live from api.investigations.forFeedItem: steps appear as the agent appends them, then its
+// conclusion. Demo mode replays the sample investigations below step by step instead.
 
+import { useQuery } from "convex/react";
 import { useEffect, useState } from "react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import type { Investigation, InvestigationStep } from "../../convex/contract";
 import { useDemoMode } from "./demoMode";
 
@@ -112,8 +111,14 @@ const STEP_MS = 900;
  * The investigation for one feed item, or null when there isn't one (yet), or undefined while
  * loading. In demo mode it replays the sample: steps arrive one by one, then the conclusion.
  */
-export function useInvestigation(feedItemId: string): InvestigationView | null | undefined {
+export function useInvestigation(feedItemId: string, known = true): InvestigationView | null | undefined {
   const demo = useDemoMode();
+  // `known`: only ask once the feed confirms this id. The id comes from the address, and the
+  // query rejects a malformed one with an error, which would crash the page.
+  const live = useQuery(
+    api.investigations.forFeedItem,
+    demo || !known ? "skip" : { feedItemId: feedItemId as Id<"feedItems"> },
+  );
   const sample = demo ? SAMPLE_INVESTIGATIONS[feedItemId] : undefined;
   const [shown, setShown] = useState(0);
 
@@ -129,7 +134,7 @@ export function useInvestigation(feedItemId: string): InvestigationView | null |
     return () => clearInterval(timer);
   }, [sample]);
 
-  if (!demo) return null; // until A7: see the note at the top
+  if (!demo) return known ? live : null;
   if (!sample) return null;
   if (shown > sample.steps.length) return sample;
   return { status: "running", startedAt: sample.startedAt, steps: sample.steps.slice(0, shown) };

@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ConvexError } from "convex/values";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetMockFeed } from "@/shared/feedApi";
+import { SAMPLE_INVESTIGATIONS } from "@/shared/investigationApi";
 import { fakeBackend } from "@/test/fakeBackend";
 import { seedSignedInKid } from "@/test/seed";
 import { ItemScreen } from "./ItemScreen";
@@ -117,5 +118,47 @@ describe("feed item detail", () => {
     render(<ItemScreen id="mock_feed_usps" />);
     fireEvent.click(screen.getByRole("button", { name: "It's a scam" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("You already answered this one.");
+  });
+
+  it("\"always trust this sender\" goes with \"It's fine\"", async () => {
+    render(<ItemScreen id="mock_feed_usps" />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /always trust this sender/i }));
+    fireEvent.click(screen.getByRole("button", { name: "It's fine" }));
+    await waitFor(() =>
+      expect(fakeBackend.mutations["feed:answer"]).toHaveBeenCalledWith(
+        expect.objectContaining({ answer: "fine", trustSender: true }),
+      ),
+    );
+  });
+
+  it("never sends \"always trust\" with \"It's a scam\"", async () => {
+    render(<ItemScreen id="mock_feed_usps" />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /always trust this sender/i }));
+    fireEvent.click(screen.getByRole("button", { name: "It's a scam" }));
+    await waitFor(() => expect(fakeBackend.mutations["feed:answer"]).toHaveBeenCalled());
+    expect(fakeBackend.mutations["feed:answer"].mock.calls[0][0]).not.toHaveProperty("trustSender");
+  });
+});
+
+describe("live investigation (A7)", () => {
+  it("shows the investigator's live work from api.investigations.forFeedItem", () => {
+    fakeBackend.setQuery("investigations:forFeedItem", SAMPLE_INVESTIGATIONS.mock_feed_chase);
+    render(<ItemScreen id="mock_feed_chase" />);
+    expect(screen.getByRole("heading", { level: 2, name: "Our investigation" })).toBeInTheDocument();
+    expect(screen.getByText(/A fake Chase email/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Our quick checks" })).toBeInTheDocument();
+  });
+
+  it("shows just the quick checks while there's no investigation", () => {
+    fakeBackend.setQuery("investigations:forFeedItem", null);
+    render(<ItemScreen id="mock_feed_chase" />);
+    expect(screen.queryByRole("heading", { name: "Our investigation" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 2, name: "What we checked" })).toBeInTheDocument();
+  });
+
+  it("never asks about an id that isn't in the feed (a bad address can't crash the page)", () => {
+    fakeBackend.setQuery("investigations:forFeedItem", SAMPLE_INVESTIGATIONS.mock_feed_chase);
+    render(<ItemScreen id="not-a-real-id" />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("We couldn't find that email");
   });
 });
