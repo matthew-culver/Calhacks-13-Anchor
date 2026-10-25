@@ -37,6 +37,9 @@ export function acceptsInvite(status: Doc<"families">["status"]): boolean {
 // or symbols: a stranger posing as a kid must not be able to put "Call 1-800..." there.
 const NAME_CHARS = /^[\p{L}\p{M} '\u2019.-]+$/u;
 
+/** "mom" → "Mom": names are shown in greetings ("Hi Mom."), so the first letter is a capital. */
+export const capitalized = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
+
 function cleanName(raw: string, label: string): string {
   const name = raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
   if (name.length === 0 || name.length > MAX_NAME) {
@@ -45,7 +48,7 @@ function cleanName(raw: string, label: string): string {
   if (!NAME_CHARS.test(name) || /\p{L}{2,}\.\p{L}{2,}/u.test(name)) {
     throw new ConvexError(`${label} name can only use letters, spaces, apostrophes, periods and hyphens.`);
   }
-  return name;
+  return capitalized(name);
 }
 
 /** Real tokens are 43 characters; anything much longer is junk and isn't looked up. */
@@ -128,9 +131,9 @@ export const getMyFamily = query({
 function toMyFamily(family: Doc<"families">): Infer<typeof myFamily> {
   const base = {
     _id: family._id,
-    parentName: family.parentName,
+    parentName: capitalized(family.parentName),
     parentEmail: family.parentEmail,
-    kidName: family.kidName,
+    kidName: capitalized(family.kidName),
     status: family.status,
     ...(family.connectedAt !== undefined && { connectedAt: family.connectedAt }),
   };
@@ -169,8 +172,8 @@ export const getInvite = query({
     }
     const kid = await ctx.db.get(family.kidUserId);
     return {
-      parentName: family.parentName,
-      kidName: family.kidName,
+      parentName: capitalized(family.parentName),
+      kidName: capitalized(family.kidName),
       kidEmail: kid?.email ?? null,
       status: family.status,
       inviteExpiresAt: family.inviteExpiresAt,
@@ -192,8 +195,8 @@ export const renewInvite = mutation({
     if (!acceptsInvite(family.status)) {
       throw new ConvexError(
         family.status === "off"
-          ? `${family.parentName} turned protection off.`
-          : `${family.parentName} is already connected.`,
+          ? `${capitalized(family.parentName)} turned protection off.`
+          : `${capitalized(family.parentName)} is already connected.`,
       );
     }
     const inviteToken = randomToken();
@@ -219,6 +222,6 @@ export const getParentView = query({
       .withIndex("by_parent_token", (q) => q.eq("parentToken", parentToken))
       .unique();
     if (family === null) return null;
-    return { parentName: family.parentName, kidName: family.kidName, status: family.status };
+    return { parentName: capitalized(family.parentName), kidName: capitalized(family.kidName), status: family.status };
   },
 });

@@ -30,8 +30,10 @@ To change a Gmail display name: Gmail → Settings → Accounts → "Send mail a
      got when setting up; it's also `parentToken` on the family in the Convex dashboard).
      Never show the full link on the projector: it's Mom's key.
    - **Terminal:** ready with the two commands below, family id filled in.
-5. Have the four test emails below drafted (not sent) in the right accounts.
-6. Phone hotspot ready in case the venue Wi-Fi dies.
+5. **Start at zero:** clear old test emails from Anchor's screens (the emails stay in Gmail;
+   accounts and history are kept): `npx convex run demo:clearChecked '{"familyId":"<familyId>"}'`.
+6. Have the four test emails below drafted (not sent) in the right accounts.
+7. Phone hotspot ready in case the venue Wi-Fi dies.
 
 ## Commands
 
@@ -41,6 +43,9 @@ npx convex run mailWatch:pollFamily '{"familyId":"<familyId>"}'
 
 # Send Mom this week's calm note now (normally Sundays)
 npx convex run gmailActions:sendWeeklyNote '{"familyId":"<familyId>"}'
+
+# Before presenting: clear old test emails from the screens (nothing in Gmail changes)
+npx convex run demo:clearChecked '{"familyId":"<familyId>"}'
 ```
 
 Gmail usually delivers in 2-5 seconds; run the poll right after hitting send. (Without it the
@@ -53,8 +58,8 @@ answer is a spam folder and a warning banner they don't understand. So they call
 is her safe front door to the internet, and it keeps me in the loop without nagging either of us."
 
 **2. Mom's front door (30 s).** On the phone: her real accounts, found from her own email,
-most-used first (an old doctor she stopped using sinks to the bottom), each a big button straight
-to that company's real sign-in page. Tap one: it opens the real sign-in page, not a link from an
+grouped (Money, Health, Insurance, Bills, Government...) and most-used first (an old doctor she
+stopped using sinks to the bottom), each a big button straight to that company's real sign-in page. Tap one: it opens the real sign-in page, not a link from an
 email. "She never has to click a link in an email again."
 
 **3. A scam arrives (60 s).** The scammer sends **email A**. Run the poll. On the kid's feed it
@@ -134,7 +139,7 @@ Paste the link as plain text so Gmail makes it a link. Don't add a signature wit
 | Email doesn't show up | Run the poll again. Check it arrived in Mom's Gmail (not in Spam). Watch the `npx convex dev` terminal. |
 | The investigation is slow | The email is already held before the AI starts (the rules decide first, the AI can only make it stricter). Keep talking; it concludes from the checks alone after 3 minutes at most. |
 | The kid's screen says reconnect | Google token expired: click the reconnect link and sign in as Mom (takes 20 s). |
-| Google or Gmail is down | Demo mode: `npx convex run gmailImport:importSample '{"familyId":"<familyId>"}'` fills My Accounts from a sample inbox. Show the recorded video for the live-scam part. |
+| Google or Gmail is down | Open `localhost:3000/kid?demo=1`: the whole kid side runs on sample data, no sign-in or Gmail needed (feed, a replayed live investigation, accounts). `?demo=0` turns it off. Or fill My Accounts from a sample inbox: `npx convex run gmailImport:importSample '{"familyId":"<familyId>"}'`. |
 | Wi-Fi is down | Phone hotspot. |
 
 ## Questions judges may ask

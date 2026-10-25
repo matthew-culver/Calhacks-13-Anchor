@@ -13,9 +13,12 @@ const names = (list: AccountView[]) => list.map((a) => a.orgName);
 describe("grouping and order", () => {
   it("puts the group with Mom's most important account first, and sorts inside each group", () => {
     const groups = groupAccounts(mockAccounts);
-    expect(groups.map((g) => g.group)).toEqual(["Money", "Health", "Other", "Bills", "Shopping"]);
-    expect(names(groups[0].accounts)).toEqual(["Wells Fargo", "AARP Medicare Supplement"]);
+    expect(groups.map((g) => g.group)).toEqual(["Money", "Health", "Government", "Bills", "Insurance", "Shopping", "Other"]);
+    expect(names(groups[0].accounts)).toEqual(["Wells Fargo"]);
     expect(names(groups[1].accounts)).toEqual(["Kaiser Permanente", "CVS Pharmacy", "Walgreens"]);
+    // An insurance plan isn't "Money", and Medicare and Social Security aren't "Other".
+    expect(names(groups.find((g) => g.group === "Insurance")!.accounts)).toEqual(["AARP Medicare Supplement"]);
+    expect(names(groups.find((g) => g.group === "Government")!.accounts)).toEqual(["Medicare", "Social Security"]);
   });
 
   it("ranks by real use, not by how much mail arrives: Amazon sends the most but isn't first", () => {
@@ -48,10 +51,7 @@ describe("front door list", () => {
     // Groups are plain sections under an h2 (not landmarks, which would clutter navigation).
     expect(screen.queryAllByRole("region")).toHaveLength(0);
     const money = screen.getByRole("heading", { level: 2, name: "Money" }).closest("section")!;
-    expect(within(money).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
-      "Wells Fargo",
-      "AARP Medicare Supplement",
-    ]);
+    expect(within(money).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Wells Fargo"]);
     expect(within(money).getByRole("link", { name: "Open Wells Fargo" })).toHaveAttribute(
       "href",
       "https://connect.secure.wellsfargo.com/auth/login/present",

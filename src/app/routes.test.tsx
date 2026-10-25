@@ -92,8 +92,9 @@ describe("parent invite page", () => {
 describe("kid feed", () => {
   it("shows this week's numbers", () => {
     render(<KidFeed />);
-    expect(screen.getByText(`${mockRecap.checked} checked`)).toBeInTheDocument();
-    expect(screen.getByText(`${mockRecap.held} held`)).toBeInTheDocument();
+    // Each number sits under its label: "Checked" then 41.
+    expect(screen.getByText("Checked").nextElementSibling).toHaveTextContent(String(mockRecap.checked));
+    expect(screen.getByText("Held").nextElementSibling).toHaveTextContent(String(mockRecap.held));
   });
 });
 

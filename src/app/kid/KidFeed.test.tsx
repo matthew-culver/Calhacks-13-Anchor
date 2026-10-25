@@ -20,6 +20,8 @@ afterEach(() => sessionStorage.clear());
 
 const section = (name: string) => screen.getByRole("heading", { level: 2, name }).closest("section")!;
 const cards = (name: string) => within(section(name)).queryAllByRole("link").map((a) => a.textContent ?? "");
+/** The number under a label in this week's tiles ("Checked" → "41"). */
+const stat = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
 const usps = mockFeed.find((f) => f._id === "mock_feed_usps")!._id;
 
 describe("kid feed", () => {
@@ -53,24 +55,26 @@ describe("kid feed", () => {
     render(<KidFeed />);
     const link = within(section("Needs your answer")).getByRole("link");
     expect(link).toHaveAttribute("href", "/kid/item/mock_feed_usps");
-    expect(within(link).getByText("Look closer")).toHaveAttribute("aria-hidden", "true");
+    // The arrow is only a visual hint: the card's short name is what screen readers say.
+    expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(link).toHaveAccessibleName("Says it's from USPS. Not sure.");
   });
 
   it("moves an email to \"You answered\" once the kid answers, and updates the count", async () => {
     render(<KidFeed />);
-    expect(screen.getByText("1 needs an answer")).toBeInTheDocument();
+    expect(stat("Needs an answer")).toBe("1");
     const { result } = renderHook(() => useAnswerFeedItem());
     await act(() => result.current({ feedItemId: usps, answer: "fine" }));
 
-    expect(screen.getByText("0 need an answer")).toBeInTheDocument();
+    expect(stat("Need an answer")).toBe("0");
     expect(within(section("Needs your answer")).getByText(/Nothing to answer/)).toBeInTheDocument();
     expect(cards("You answered")).toContainEqual(expect.stringContaining("You said it's fine."));
   });
 
   it("shows this week's live numbers from the recap, and the good catches", () => {
     render(<KidFeed />);
-    expect(screen.getByText("41 checked")).toBeInTheDocument();
-    expect(screen.getByText("3 held")).toBeInTheDocument();
+    expect(stat("Checked")).toBe("41");
+    expect(stat("Held")).toBe("3");
     expect(screen.getByText("1 good catch with Mom this week.")).toBeInTheDocument();
   });
 
@@ -110,8 +114,8 @@ describe("kid feed", () => {
     const pending = { ...chase, verdict: { ...chase.verdict, actionAppliedAt: undefined } };
     fakeBackend.setQuery("feed:myFeed", feed.map((e) => (e === chase ? pending : e)));
     render(<KidFeed />);
-    expect(cards("We held these")).toContainEqual(expect.stringMatching(/^Looks fake · Being held…Says it's from Chase/));
-    expect(cards("We held these")).toContainEqual(expect.stringMatching(/^Looks fakeSays it's from Wells Fargo/));
+    expect(cards("We held these")).toContainEqual(expect.stringMatching(/^Looks fake · Being held….*Says it's from Chase/));
+    expect(cards("We held these")).toContainEqual(expect.stringMatching(/^Looks fake\d.*Says it's from Wells Fargo/));
   });
 
   it("gives each card a short name for screen readers instead of one long run-on", () => {

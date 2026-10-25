@@ -4,8 +4,9 @@ import { useQuery } from "convex/react";
 import Link from "next/link";
 import { KidGate, SampleDataNote, type KidFamily } from "@/components/KidGate";
 import { KidRecapCard } from "@/components/RecapCard";
+import { Icon, Spinner } from "@/components/icons";
 import { TimeAgo, useClientNow } from "@/components/TimeAgo";
-import { BigButton, Screen } from "@/components/ui";
+import { BigButton, Pill, Screen } from "@/components/ui";
 import { useFeed, type FeedEntry } from "@/shared/feedApi";
 import { mockRecap } from "@/shared/mock";
 import { claimedSender, senderText } from "@/shared/senderText";
@@ -42,7 +43,8 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
       <KidRecapCard recap={recap} needAnswer={needAnswer} parentName={parentName} />
 
       {family.status === "learning" && (
-        <p role="status" className="text-lg">
+        <p role="status" className="flex items-center gap-3 rounded-2xl bg-action-tint px-5 py-4 text-lg text-action">
+          <Spinner className="h-6 w-6" />
           {`We're reading ${parentName}'s email history. New emails get checked as soon as that's done.`}
         </p>
       )}
@@ -74,9 +76,9 @@ function FeedSection({
 }) {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-2xl font-bold">{title}</h2>
+      <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
       {entries.length === 0 ? (
-        <p className="text-lg text-muted">{children}</p>
+        <p className="rounded-3xl border border-dashed border-line-strong/50 px-5 py-4 text-lg text-muted">{children}</p>
       ) : (
         <ul className="flex flex-col gap-4">
           {entries.map((e) => (
@@ -101,30 +103,39 @@ function FeedCard({ entry, parentName }: { entry: FeedEntry; parentName: string 
     <Link
       href={`/kid/item/${entry._id}`}
       aria-label={name}
-      className={`block rounded-2xl border-2 p-5 [overflow-wrap:anywhere] hover:shadow-md ${
-        fake ? "border-fake bg-fake-tint" : "border-unsure bg-unsure-tint"
-      }`}
+      className="group flex items-center gap-4 rounded-3xl border border-line bg-surface p-5 shadow-card transition-shadow [overflow-wrap:anywhere] hover:shadow-lift"
     >
-      {/* Said in words, so color is never the only clue. */}
-      <p className={`font-bold ${fake ? "text-fake" : "text-unsure"}`}>
-        {fake ? "Looks fake" : "Not sure"}
-        {/* action is the decision; actionAppliedAt means Gmail really moved it (A6). */}
-        {verdict.action === "held" && verdict.actionAppliedAt === undefined && " · Being held…"}
-      </p>
-      <p className="text-xl font-bold">{`Says it's from ${claimedSender(verdict)}`}</p>
-      {verdict.subject && <p className="text-lg">{`“${senderText(verdict.subject)}”`}</p>}
-      <p className="text-muted">
-        <TimeAgo at={entry.createdAt} />
-      </p>
-      {kidAnswer && (
-        <p className="mt-2 font-bold">
-          {kidAnswer.answer === "scam" ? `You said it's a scam. ${parentName} was told.` : `You said it's fine.`}
-        </p>
-      )}
-      {/* Just a visual hint; the whole card is the link, so screen readers skip it. */}
-      <span aria-hidden="true" className="mt-2 inline-block font-bold text-action underline">
-        Look closer
+      <span
+        aria-hidden="true"
+        className={`hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl min-[420px]:flex ${
+          fake ? "bg-fake-tint text-fake" : "bg-unsure-tint text-unsure"
+        }`}
+      >
+        <Icon name={fake ? "shield" : "alert"} className="h-7 w-7" />
       </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {/* Said in words, so color is never the only clue. */}
+          <Pill tone={fake ? "fake" : "unsure"}>
+            {fake ? "Looks fake" : "Not sure"}
+            {/* action is the decision; actionAppliedAt means Gmail really moved it (A6). */}
+            {verdict.action === "held" && verdict.actionAppliedAt === undefined && " · Being held…"}
+          </Pill>
+          <span className="text-base text-muted">
+            <TimeAgo at={entry.createdAt} />
+          </span>
+        </div>
+        <p className="mt-2 text-xl font-bold">{`Says it's from ${claimedSender(verdict)}`}</p>
+        {verdict.subject && <p className="line-clamp-2 text-lg text-muted">{`“${senderText(verdict.subject)}”`}</p>}
+        {kidAnswer && (
+          <p className="mt-2 flex items-center gap-2 text-base font-semibold text-ink">
+            <Icon name="check" className="h-5 w-5 text-real" />
+            {kidAnswer.answer === "scam" ? `You said it's a scam. ${parentName} was told.` : `You said it's fine.`}
+          </p>
+        )}
+      </div>
+      {/* Just a visual hint; the whole card is the link. */}
+      <Icon name="chevronRight" className="h-7 w-7 text-muted transition-colors group-hover:text-action" />
     </Link>
   );
 }

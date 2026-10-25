@@ -99,6 +99,16 @@ test("keeps names to one plain line of at most 40 characters", async () => {
   expect(family!.kidName).toHaveLength(40);
 });
 
+test("names start with a capital, since screens greet with them (\"Hi Mom.\")", async () => {
+  const t = convexTest(schema, modules);
+  const { as } = await signedInKid(t);
+  const { familyId } = await as.mutation(api.families.createFamily, { ...newFamily, parentName: "mom", kidName: "matt" });
+  expect(await t.run((ctx) => ctx.db.get(familyId))).toMatchObject({ parentName: "Mom", kidName: "Matt" });
+  // A family saved before this rule is shown capitalized too.
+  await t.run((ctx) => ctx.db.patch(familyId, { parentName: "dad" }));
+  expect(await as.query(api.families.getMyFamily, {})).toMatchObject({ parentName: "Dad", kidName: "Matt" });
+});
+
 describe("getMyFamily", () => {
   test("is null when signed out or before setup", async () => {
     const t = convexTest(schema, modules);

@@ -40,9 +40,9 @@ describe("investigation panel", () => {
     render(<InvestigationPanel investigation={chase} />);
     expect(screen.getByRole("status")).toHaveTextContent("Finished checking. Here's what we found.");
     expect(screen.getByText(/A fake Chase email/)).toBeInTheDocument();
-    expect(screen.getByText("Pretending to be someone else.")).toBeInTheDocument();
+    expect(screen.getByText("Pretending to be someone else")).toBeInTheDocument();
     expect(screen.getByText("chase-secure-login.co")).toBeInTheDocument();
-    expect(screen.getByText("Dangerous.")).toBeInTheDocument();
+    expect(screen.getByText("Dangerous")).toBeInTheDocument();
     expect(screen.getByText(/It's already held/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Chase: How to spot fake emails" })).toHaveAttribute("rel", "noopener noreferrer");
   });
@@ -60,8 +60,8 @@ describe("investigation panel", () => {
       },
     };
     const { container } = render(<InvestigationPanel investigation={sue} />);
-    expect(screen.getByText("Looks fine.")).toBeInTheDocument();
-    expect(screen.getByText("Really them.")).toBeInTheDocument();
+    expect(screen.getByText("Looks fine")).toBeInTheDocument();
+    expect(screen.getByText("Really them")).toBeInTheDocument();
     expect(container.textContent).not.toMatch(BANNED);
   });
 
