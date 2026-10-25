@@ -387,6 +387,26 @@ describe("the kid's answer", () => {
   });
 });
 
+describe("when the parent asked", () => {
+  test("the parent always hears back, even when the kid writes no note", async () => {
+    const { t, kid, familyId, feedItemId } = await family();
+    await t.run(async (ctx) => {
+      const v = (await ctx.db.query("verdicts").collect())[0];
+      await ctx.db.patch(v._id, { askedAt: Date.now(), claimedOrg: undefined, level: "real", action: "none" });
+      const item = (await ctx.db.query("feedItems").collect())[0];
+      await ctx.db.patch(item._id, { kind: "asked" });
+    });
+    await kid.mutation(api.feed.answer, { feedItemId, answer: "fine" });
+    const calls = fakeGmail();
+    await t.action(internal.gmailActions.applyAnswer, { feedItemId });
+    const notes = noteText(calls);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("Lucas looked at the message you asked about and says it's fine. It's back in your inbox.");
+    expect(notes[0]).not.toContain("Lucas says:");
+    expect(familyId).toBeDefined();
+  });
+});
+
 describe("labels from day one", () => {
   test("setup creates the labels, so the parent can ask with \"Check with Lucas\" right away", async () => {
     const { t, familyId } = await family();

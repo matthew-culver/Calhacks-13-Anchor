@@ -363,7 +363,10 @@ export const applyAnswer = internalAction({
           else await modify(token, c.verdict.gmailMessageId, [labels.held], ["INBOX", labels.check]);
           if (labelsOnly) return;
           const kidWords = cleanKidNote(answer.note);
-          if (!kidWords) {
+          // Quiet mode: no note unless the kid wrote one. But when the parent asked, they always
+          // hear back, even if it's only "Lucas says it's fine".
+          const asked = c.verdict.askedAt !== undefined;
+          if (!kidWords && !asked) {
             await ctx.runMutation(internal.gmailActions.markAnswerApplied, { feedItemId });
             return;
           }
@@ -378,7 +381,7 @@ export const applyAnswer = internalAction({
             answer.answer === "fine"
               ? `${kid} looked at ${what} and says it's fine. It's back in your inbox.`
               : `${kid} looked at ${what} and says it's a scam. We moved it out of your inbox. You don't need to do anything.`,
-            `${kid} says: "${kidWords}"`,
+            ...(kidWords ? [`${kid} says: "${kidWords}"`] : []),
           ];
           await sendNote(ctx, token, c, labels, {
             key: `answer-${feedItemId}`,
