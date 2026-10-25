@@ -102,6 +102,18 @@ export const relationship = v.object({
 
 // ---------- Account: one row on the "My Accounts" page (no secrets, ever) ----------
 
+/** Kinds of email that show Mom really has and uses an account (A8 ranks by these). */
+export const accountSignal = v.union(
+  v.literal("sign_in"), // "new sign-in", "new device"
+  v.literal("security"), // security alerts, account changes
+  v.literal("password"), // password reset or change
+  v.literal("code"), // verification / one-time codes
+  v.literal("statement"), // statements, documents ready
+  v.literal("bill"), // bills, payments due, autopay
+  v.literal("order"), // orders, deliveries, prescriptions ready
+  v.literal("appointment"), // appointments, visits, test results
+);
+
 export const account = v.object({
   familyId: v.id("families"),
   orgName: v.string(), // "Kaiser Permanente"
@@ -114,6 +126,11 @@ export const account = v.object({
   loginUrl: v.optional(v.string()),
   firstSeen: v.number(), // earliest email in the imported history window
   messageCount: v.number(),
+  // ----- v2 (A8): rank by real use, not by email volume. All optional until A8 fills them. -----
+  rank: v.optional(v.number()), // higher = more important; screens sort by this, descending
+  signals: v.optional(v.array(accountSignal)), // why we think Mom really uses it
+  lastActivity: v.optional(v.number()), // newest account-type email (sign-in, statement, bill...)
+  loginUrlSource: v.optional(v.union(v.literal("curated"), v.literal("discovered"))),
 });
 
 // ---------- Verdict: the result for one email ----------
@@ -150,6 +167,50 @@ export const verdict = v.object({
   ),
   actionAppliedAt: v.optional(v.number()), // A6: the label/hold was applied in Gmail
   parentNoteSentAt: v.optional(v.number()), // so retries never send the parent note twice
+});
+
+// ---------- Investigation (A7): the AI agent's check of one suspicious email ----------
+// The kid's screen shows `steps` live as they're appended, then the `conclusion`.
+// Plain words only. Steps never quote the email's text.
+
+export const investigationStep = v.object({
+  at: v.number(),
+  kind: v.union(
+    v.literal("search"), // searched the web, e.g. "Looking up Chase's official email addresses"
+    v.literal("visit"), // looked at a page or where a link really goes
+    v.literal("check"), // a direct check: domain age, Google's danger list, Mom's history
+    v.literal("finding"), // something it learned: "This domain was registered 3 days ago"
+  ),
+  text: v.string(), // one short plain sentence
+});
+
+export const linkFinding = v.object({
+  site: v.string(), // registrable domain, e.g. "youtube.com"
+  verdict: v.union(v.literal("safe"), v.literal("unknown"), v.literal("dangerous")),
+  reason: v.string(), // plain sentence
+});
+
+export const investigation = v.object({
+  familyId: v.id("families"),
+  verdictId: v.id("verdicts"),
+  status: v.union(v.literal("running"), v.literal("done"), v.literal("failed")),
+  startedAt: v.number(),
+  finishedAt: v.optional(v.number()),
+  steps: v.array(investigationStep), // capped at 40
+  conclusion: v.optional(
+    v.object({
+      level: verdictLevel, // after the floor rule: never below the deterministic level
+      summary: v.string(), // 1-2 plain sentences for the kid
+      sender: v.object({
+        verdict: v.union(v.literal("genuine"), v.literal("unverified"), v.literal("impostor")),
+        reason: v.string(),
+      }),
+      links: v.array(linkFinding),
+      suggestion: v.optional(v.string()), // e.g. "Aunt Sue's account may be hacked. Maybe text her?"
+    }),
+  ),
+  // Official pages it relied on (only these can clear a brand email).
+  sources: v.optional(v.array(v.object({ title: v.string(), url: v.string() }))),
 });
 
 // ---------- FeedItem: what shows up in the kid's feed ----------
@@ -198,3 +259,7 @@ export type Verdict = Infer<typeof verdict>;
 export type KidAnswer = Infer<typeof kidAnswer>;
 export type FeedItem = Infer<typeof feedItem>;
 export type WeeklyRecap = Infer<typeof weeklyRecap>;
+export type AccountSignal = Infer<typeof accountSignal>;
+export type InvestigationStep = Infer<typeof investigationStep>;
+export type LinkFinding = Infer<typeof linkFinding>;
+export type Investigation = Infer<typeof investigation>;
