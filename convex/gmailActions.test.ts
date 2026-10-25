@@ -531,7 +531,7 @@ describe("turnOff", () => {
       await ctx.db.insert("relationships", { familyId, kind: "org", key: "kp.org", firstSeen: 1, lastSeen: 2, messageCount: 3, authPassRate: 1 });
       await ctx.db.insert("accounts", { familyId, orgName: "Kaiser", category: "health", officialDomains: ["kp.org"], firstSeen: 1, messageCount: 3 });
       await ctx.db.insert("anchorNotes", { familyId, gmailMessageId: "n" });
-      await ctx.db.insert("contactNames", { familyId, name: "sue miller", display: "Sue Miller", address: "sue.miller@gmail.com" });
+      await ctx.db.insert("contactNames", { familyId, name: "susan miller", display: "Sue Miller", address: "sue.miller@gmail.com" });
     });
     const calls = fakeGmail();
     await t.mutation(api.turnOff.turnOff, { parentToken });

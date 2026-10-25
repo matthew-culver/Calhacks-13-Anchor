@@ -139,7 +139,7 @@ async function check(raw: string) {
     ]) {
       await ctx.db.insert("relationships", { familyId, kind: "org", key, orgName, ...since, messageCount: 40, authPassRate: 1 });
     }
-    for (const [address, name, display] of [["matt.culver@gmail.com", "matt culver", "Matt Culver"], ["sue.miller@gmail.com", "sue miller", "Sue Miller"]]) {
+    for (const [address, name, display] of [["matt.culver@gmail.com", "matthew culver", "Matt Culver"], ["sue.miller@gmail.com", "susan miller", "Sue Miller"]]) {
       await ctx.db.insert("relationships", { familyId, kind: "person", key: address, ...since, messageCount: 25, parentSentCount: 10, authPassRate: 1 });
       await ctx.db.insert("contactNames", { familyId, name, display, address });
     }

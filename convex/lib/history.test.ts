@@ -550,7 +550,7 @@ describe("names of people Mom knows (impostor check)", () => {
     );
     expect(contacts).toEqual(
       expect.arrayContaining([
-        { name: "sue miller", display: "Sue Miller", address: "sue.miller@gmail.com" },
+        { name: "susan miller", display: "Sue Miller", address: "sue.miller@gmail.com" },
         { name: "lucas culver", display: "Lucas Culver", address: "lucasculver2023@gmail.com" },
       ]),
     );
@@ -571,9 +571,14 @@ describe("names of people Mom knows (impostor check)", () => {
   });
 
   test("folds names for comparing, and refuses things that aren't names", () => {
-    expect(contactName("Su\u0435  Miller")).toBe("sue miller"); // a Cyrillic е
-    expect(contactName('"Sue Miller"')).toBe("sue miller");
+    expect(contactName("Su\u0435  Miller")).toBe("susan miller"); // a Cyrillic е
+    expect(contactName('"Sue Miller"')).toBe("susan miller");
     for (const notName of ["", "sue@gmail.com", "Support", "x", "!!!"]) expect(contactName(notName), notName).toBeNull();
+    // A nickname in a full name is the same person; a lone first name must match exactly.
+    expect(contactName("Matthew Culver")).toBe(contactName("Matt Culver"));
+    expect(contactName("Bob Smith")).toBe("robert smith");
+    expect(contactName("Mike")).toBe("mike");
+    expect(contactName("Chris Lee")).toBe("chris lee"); // Christopher or Christine: left alone
   });
 
   test("Gmail addresses are one mailbox however they're dotted", () => {

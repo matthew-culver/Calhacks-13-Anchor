@@ -384,7 +384,26 @@ const NOT_A_NAME = new Set(
   "me info support team admin service help noreply no-reply notifications billing sales office contact customer service".split(" "),
 );
 
-/** A display name folded for comparing ("Suе  Miller" with a Cyrillic е → "sue miller"); null if it isn't a name. */
+// A first name and its everyday short form are one person: scammers often use the formal name
+// ("Matthew Culver" for Mom's "Matt Culver"). Only unambiguous ones (not Chris, Pat, Sam, Alex),
+// and only in a full name: a lone first name has to match exactly.
+const NICKNAMES: Record<string, string> = {
+  matt: "matthew", matty: "matthew", sue: "susan", susie: "susan", suzy: "susan", bob: "robert", bobby: "robert",
+  rob: "robert", robbie: "robert", bill: "william", billy: "william", will: "william", jim: "james", jimmy: "james",
+  mike: "michael", mikey: "michael", tom: "thomas", tommy: "thomas", dave: "david", dan: "daniel", danny: "daniel",
+  joe: "joseph", joey: "joseph", tony: "anthony", steve: "steven", stephen: "steven", rick: "richard", rich: "richard",
+  richie: "richard", eddie: "edward", ken: "kenneth", kenny: "kenneth", ron: "ronald", ronnie: "ronald",
+  don: "donald", jen: "jennifer", jenny: "jennifer", liz: "elizabeth", beth: "elizabeth", betty: "elizabeth",
+  kate: "katherine", katie: "katherine", kathy: "katherine", cathy: "katherine", catherine: "katherine",
+  peggy: "margaret", maggie: "margaret", barb: "barbara", debbie: "deborah", nick: "nicholas", andy: "andrew",
+  greg: "gregory", jeff: "jeffrey", larry: "lawrence", jerry: "gerald", cindy: "cynthia", sandy: "sandra",
+  becky: "rebecca", ben: "benjamin", charlie: "charles", chuck: "charles", hank: "henry", jack: "john", johnny: "john",
+};
+
+/**
+ * A display name folded for comparing: look-alike letters (a Cyrillic е), case, punctuation, and
+ * a nickname in a full name ("Matt Culver" → "matthew culver"). Null if it isn't a name.
+ */
 export function contactName(raw: string): string | null {
   if (!raw || raw.includes("@")) return null;
   const s = foldText(raw.slice(0, MAX_NAME * 2))
@@ -392,7 +411,9 @@ export function contactName(raw: string): string | null {
     .replace(/\s+/g, " ")
     .trim();
   if (s.length < 2 || s.length > MAX_NAME || !/\p{L}/u.test(s) || NOT_A_NAME.has(s)) return null;
-  return s;
+  const words = s.split(" ");
+  if (words.length >= 2 && NICKNAMES[words[0]]) words[0] = NICKNAMES[words[0]];
+  return words.join(" ");
 }
 
 /** A name as Mom's mail shows it, safe to put in a sentence. */

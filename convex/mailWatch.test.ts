@@ -507,7 +507,7 @@ describe("pollFamily", () => {
     ].join("\r\n");
     const knowsSue = async (t: Awaited<ReturnType<typeof activeFamily>>["t"], familyId: Id<"families">) =>
       t.run(async (ctx) => {
-        await ctx.db.insert("contactNames", { familyId, name: "sue miller", display: "Sue Miller", address: "sue.miller@gmail.com" });
+        await ctx.db.insert("contactNames", { familyId, name: "susan miller", display: "Sue Miller", address: "sue.miller@gmail.com" });
         await ctx.db.insert("relationships", {
           familyId, kind: "person", key: "sue.miller@gmail.com", firstSeen: Date.now() - 900 * DAY, lastSeen: Date.now() - 5 * DAY, messageCount: 30, parentSentCount: 12, authPassRate: 1,
         });
@@ -533,6 +533,14 @@ describe("pollFamily", () => {
       fakeWorld({ messages: { s2: fromSue("s2", "sue.miller.2026@gmail.com", "hi", "New address!", "Su\u0435 Miller") } });
       await t.action(internal.mailWatch.pollFamily, { familyId });
       expect((await levelOf(t, "s2"))?.level).toBe("unsure");
+    });
+
+    test("the formal name catches it too (\"Susan Miller\" for Sue)", async () => {
+      const { t, familyId } = await activeFamily();
+      await knowsSue(t, familyId);
+      fakeWorld({ messages: { s10: fromSue("s10", "susan.miller.help@gmail.com", "hi", "This is my new email.", "Susan Miller") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect((await levelOf(t, "s10"))?.level).toBe("unsure");
     });
 
     test("asking for gift cards from a new address is held as fake", async () => {
@@ -594,7 +602,7 @@ describe("pollFamily", () => {
       fakeWorld({ messages: { l1: fromSue("l1", "sue.miller@gmail.com", "photos", "Here are the photos from Sunday.") } });
       await t.action(internal.mailWatch.pollFamily, { familyId });
       expect(await t.run((ctx) => ctx.db.query("contactNames").collect())).toEqual([
-        expect.objectContaining({ name: "sue miller", display: "Sue Miller", address: "sue.miller@gmail.com" }),
+        expect.objectContaining({ name: "susan miller", display: "Sue Miller", address: "sue.miller@gmail.com" }),
       ]);
       fakeWorld({ messages: { l2: fromSue("l2", "sue.miller.help@gmail.com", "urgent", "I lost my phone, write me here.") } });
       await t.action(internal.mailWatch.pollFamily, { familyId });
