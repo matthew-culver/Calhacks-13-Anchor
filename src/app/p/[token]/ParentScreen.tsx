@@ -2,14 +2,25 @@
 
 import { useQuery } from "convex/react";
 import { ParentAccountList } from "@/components/AccountList";
+import { ParentRecapCard } from "@/components/RecapCard";
+import { useClientNow } from "@/components/TimeAgo";
+import { TurnOff } from "@/components/TurnOff";
 import { Screen } from "@/components/ui";
 import { api } from "../../../../convex/_generated/api";
 
-// The parent's page, opened from the link in their Gmail note. Big text, their accounts,
-// and the right words for every state of their protection. B5 adds "Turn it off".
+const MIN = 60 * 1000;
+
+// The parent's page, opened from the link in their Gmail note. Big text: this week's recap,
+// their accounts, the right words for every state of their protection, and "Turn it off".
 export function ParentScreen({ token, justConnected }: { token: string; justConnected?: boolean }) {
   const view = useQuery(api.families.getParentView, { parentToken: token });
   const accounts = useQuery(api.accounts.parentAccounts, justConnected ? "skip" : { parentToken: token });
+  // Rounded to the minute so the recap subscription isn't recreated on every render.
+  const now = useClientNow();
+  const recap = useQuery(
+    api.feed.parentWeeklyRecap,
+    justConnected || now === null ? "skip" : { parentToken: token, now: Math.floor(now / MIN) * MIN },
+  );
   const family = view?.kidName ?? "your family";
 
   // Person A's /gmail/callback lands here with ?connected=1 after Google says yes.
@@ -49,6 +60,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
     return (
       <Screen focusTitle title="Anchor needs your OK">
         <p className="text-xl">{`Tap the link ${kidName} sends you. It takes one tap.`}</p>
+        <TurnOff parentToken={token} kidName={kidName} />
       </Screen>
     );
   }
@@ -60,6 +72,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
         <p className="text-xl">
           We&apos;re still learning which places you deal with. This page fills in on its own.
         </p>
+        <TurnOff parentToken={token} kidName={kidName} />
       </Screen>
     );
   }
@@ -69,8 +82,10 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
       <p className="text-xl">
         {`Hi ${parentName}. These are the real websites you use. To sign in, tap a button here instead of a link in an email.`}
       </p>
+      {recap && <ParentRecapCard recap={recap} kidName={kidName} />}
       <ParentAccountList accounts={accounts} />
       <p className="text-lg text-muted">{`${kidName} sees only this list and the emails we set aside.`}</p>
+      <TurnOff parentToken={token} kidName={kidName} />
     </Screen>
   );
 }

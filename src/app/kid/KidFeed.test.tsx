@@ -67,10 +67,17 @@ describe("kid feed", () => {
     expect(cards("You answered")).toContainEqual(expect.stringContaining("You said it's fine."));
   });
 
-  it("shows this week's live numbers from the recap", () => {
+  it("shows this week's live numbers from the recap, and the good catches", () => {
     render(<KidFeed />);
     expect(screen.getByText("41 checked")).toBeInTheDocument();
     expect(screen.getByText("3 held")).toBeInTheDocument();
+    expect(screen.getByText("1 good catch with Mom this week.")).toBeInTheDocument();
+  });
+
+  it("leaves out the good-catch line on a week without one", () => {
+    fakeBackend.setQuery("feed:myWeeklyRecap", { weekStart: 0, checked: 9, held: 0, needAnswer: 0, goodCatches: 0 });
+    render(<KidFeed />);
+    expect(screen.queryByText(/good catch/)).toBeNull();
   });
 
   it("names a sender plainly when the email gave no brand or name", () => {
