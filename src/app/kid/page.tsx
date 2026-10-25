@@ -141,7 +141,11 @@ function FeedCard({ entry, parentName }: { entry: FeedEntry; parentName: string 
         {kidAnswer && (
           <p className="mt-2 flex items-center gap-2 text-base font-semibold text-ink">
             <Icon name="check" className="h-5 w-5 text-real" />
-            {kidAnswer.answer === "scam" ? `You said it's a scam. ${parentName} was told.` : `You said it's fine.`}
+            {kidAnswer.answer === "scam"
+              ? `You said it's a scam. ${parentName} was told.`
+              : asked
+                ? `You said it's fine. ${parentName} was told.`
+                : `You said it's fine.`}
           </p>
         )}
       </div>
