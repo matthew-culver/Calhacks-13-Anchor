@@ -16,6 +16,7 @@ import { gatherLinkIntel, parseEml, ruleLevel, runChecks } from "./checks/index"
 import { type HistoryContext, relationship } from "./checks/relationship";
 import { checkResult, verdictLevel } from "./contract";
 import { accessTokenFor } from "./googleAuth";
+import { actionsEnabled } from "./gmailActions";
 import { atLeast, explain, templateExplanation } from "./lib/explain";
 import { contactName, displayName, isAutomatedMailbox, keyFor, looksLikeAddress, MAX_CONTACTS, mailboxId } from "./lib/history";
 import { pressureSignals, SCAM_SIGNALS } from "./checks/pressure";
@@ -878,7 +879,7 @@ export const pollFamily = internalAction({
       checked = done;
       if (done && family.checkLabelId) await checkAsked(ctx, familyId, family, access.accessToken, family.checkLabelId);
       // The parent asks with the "Check with" label: if setup couldn't create it, try again.
-      if (done && !family.checkLabelId) await ctx.scheduler.runAfter(0, internal.gmailActions.prepareLabels, { familyId });
+      if (done && !family.checkLabelId && actionsEnabled()) await ctx.scheduler.runAfter(0, internal.gmailActions.prepareLabels, { familyId });
       return null;
     } finally {
       await ctx.runMutation(internal.mailWatch.releasePoll, { familyId, ...(checked && { checkedAt: Date.now() }) });
