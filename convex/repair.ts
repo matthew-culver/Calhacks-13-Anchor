@@ -1,7 +1,7 @@
 // Self-healing (runs every 5 minutes): anything that should have happened but didn't gets
 // another go. A Gmail outage, an expired token, or the safety switch being turned on later
 // must not leave a scam sitting in the inbox while the screens say "held".
-//   - flagged verdicts never applied in Gmail, or whose parent note never went out
+//   - flagged verdicts never applied in Gmail
 //   - kid answers never applied in Gmail
 //   - "off" families whose cleanup didn't finish
 
@@ -40,7 +40,7 @@ export const repairAll = internalMutation({
             }
             const verdict = await ctx.db.get(item.verdictId);
             if (!verdict || now - item.createdAt < GRACE_MS) continue;
-            if (verdict.actionAppliedAt === undefined || verdict.parentNoteSentAt === undefined) {
+            if (verdict.actionAppliedAt === undefined) {
               await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId: verdict._id });
             }
           }

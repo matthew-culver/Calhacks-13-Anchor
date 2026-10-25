@@ -155,8 +155,8 @@ describe("applyVerdict", () => {
     expect(calls).toHaveLength(0);
   });
 
-  test("fake: creates the labels once, holds the email out of the inbox, and tells the parent", async () => {
-    const { t, verdictId, familyId } = await family();
+  test("fake: creates the labels once and holds the email out of the inbox, quietly", async () => {
+    const { t, verdictId } = await family();
     const calls = fakeGmail();
     await t.action(internal.gmailActions.applyVerdict, { verdictId });
 
@@ -165,30 +165,23 @@ describe("applyVerdict", () => {
     const modify = calls.find((c) => c.path === "/messages/msg-1/modify")!;
     expect(modify.body).toEqual({ addLabelIds: ["Label_1"], removeLabelIds: ["INBOX"] });
 
-    const insert = calls.find((c) => c.method === "POST" && c.path === "/messages")!;
-    expect(insert.body!.labelIds).toEqual(["INBOX", "UNREAD", "Label_3"]);
-    const [note] = noteText(calls);
-    expect(note).toContain("We held a message pretending to be Chase. You don't need to do anything.");
-    expect(note).not.toContain("KID-ONLY DETAIL"); // the parent never gets Claude's text
-    expect(note).toMatch(/\/p\/[A-Za-z0-9_-]{43}/);
+    expect(noteText(calls)).toEqual([]); // A9: no note per held email
 
     const v = await t.run((ctx) => ctx.db.get(verdictId));
     expect(v!.actionAppliedAt).toBeGreaterThan(0);
-    expect(v!.parentNoteSentAt).toBeGreaterThan(0);
     const tokens = await t.run((ctx) => ctx.db.query("gmailTokens").first());
     expect(tokens).toMatchObject({ heldLabelId: "Label_1", checkLabelId: "Label_2", noteLabelId: "Label_3" });
-    const notes = await t.run((ctx) => ctx.db.query("anchorNotes").collect());
-    expect(notes).toEqual([expect.objectContaining({ familyId, gmailMessageId: "note-1" })]);
   });
 
   test("a note already sent by an earlier attempt is found, not sent twice", async () => {
-    const { t, verdictId } = await family();
-    const calls = fakeGmail({ alreadySent: [`verdict-${verdictId}`] });
-    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    const { t, kid, feedItemId } = await family({ level: "unsure" });
+    await kid.mutation(api.feed.answer, { feedItemId, answer: "scam", note: "Good catch, Mom." });
+    const calls = fakeGmail({ alreadySent: [`answer-${feedItemId}`] });
+    await t.action(internal.gmailActions.applyAnswer, { feedItemId });
     expect(calls.some((c) => c.method === "POST" && c.path === "/messages")).toBe(false);
     const notes = await t.run((ctx) => ctx.db.query("anchorNotes").collect());
     expect(notes.map((n) => n.gmailMessageId)).toEqual(["already-there"]);
-    expect((await t.run((ctx) => ctx.db.get(verdictId)))!.parentNoteSentAt).toBeGreaterThan(0);
+    expect((await t.run((ctx) => ctx.db.get(feedItemId)))!.answerAppliedAt).toBeGreaterThan(0);
   });
 
   test("a label that already exists (409, any case) is reused", async () => {
@@ -213,10 +206,11 @@ describe("applyVerdict", () => {
   });
 
   test("the parent note never quotes the sender's own words", async () => {
-    const { t, verdictId } = await family();
+    const { t, kid, verdictId, feedItemId } = await family({ level: "unsure" });
     await t.run((ctx) => ctx.db.patch(verdictId, { fromName: "Chase Support call 1-888-555-0142 visit chase-help.co", subject: "URGENT click here" }));
+    await kid.mutation(api.feed.answer, { feedItemId, answer: "scam", note: "Good catch, Mom." });
     const calls = fakeGmail();
-    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    await t.action(internal.gmailActions.applyAnswer, { feedItemId });
     const [note] = noteText(calls);
     expect(note).not.toContain("1-888");
     expect(note).not.toContain("chase-help");
@@ -246,16 +240,14 @@ describe("applyVerdict", () => {
     await t.action(internal.gmailActions.applyVerdict, { verdictId });
     expect(calls.some((c) => c.method === "POST" && c.path === "/labels")).toBe(false); // reused
     expect(calls.find((c) => c.path.endsWith("/modify"))!.body).toEqual({ addLabelIds: ["C"], removeLabelIds: [] });
-    expect(noteText(calls)[0]).toContain("Subject: =?UTF-8?B?");
+    expect(noteText(calls)).toEqual([]);
   });
 
-  test("an email deleted meanwhile is fine: nothing to move, the parent is still told", async () => {
+  test("an email deleted meanwhile is fine: nothing to move", async () => {
     const { t, verdictId } = await family();
     fakeGmail({ fail: { match: "/modify", status: 404, times: 1 } });
     await t.action(internal.gmailActions.applyVerdict, { verdictId });
-    const v = await t.run((ctx) => ctx.db.get(verdictId));
-    expect(v!.actionAppliedAt).toBeGreaterThan(0);
-    expect(v!.parentNoteSentAt).toBeGreaterThan(0);
+    expect((await t.run((ctx) => ctx.db.get(verdictId)))!.actionAppliedAt).toBeGreaterThan(0);
   });
 
   test("an expired token is refreshed once and the job carries on", async () => {
@@ -263,7 +255,7 @@ describe("applyVerdict", () => {
     const calls = fakeGmail({ fail: { match: "/labels", status: 401, times: 1 } });
     await t.action(internal.gmailActions.applyVerdict, { verdictId });
     expect(calls.filter((c) => c.path === "/token")).toHaveLength(1);
-    expect((await t.run((ctx) => ctx.db.get(verdictId)))!.parentNoteSentAt).toBeGreaterThan(0);
+    expect((await t.run((ctx) => ctx.db.get(verdictId)))!.actionAppliedAt).toBeGreaterThan(0);
   });
 
   test("a Gmail outage schedules a retry instead of losing the action", async () => {
@@ -287,10 +279,11 @@ describe("applyVerdict", () => {
     expect(scheduled.find((s) => s.name === "gmailActions:applyAnswer")?.args[0]).toMatchObject({ feedItemId, labelsOnly: true });
   });
 
-  test("searches for an earlier note by Message-ID without angle brackets", async () => {
-    const { t, verdictId } = await family();
+  test("searches for an earlier note by Message-ID before sending one", async () => {
+    const { t, kid, feedItemId } = await family({ level: "unsure" });
+    await kid.mutation(api.feed.answer, { feedItemId, answer: "scam", note: "Good catch, Mom." });
     const calls = fakeGmail();
-    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    await t.action(internal.gmailActions.applyAnswer, { feedItemId });
     expect(calls.some((c) => c.method === "GET" && c.path === "/messages")).toBe(true);
   });
 
@@ -306,6 +299,16 @@ describe("applyVerdict", () => {
 });
 
 describe("the kid's answer", () => {
+  test("without the kid's own words, an answer is applied quietly (no note)", async () => {
+    const { t, kid, feedItemId } = await family({ level: "unsure" });
+    await kid.mutation(api.feed.answer, { feedItemId, answer: "fine" });
+    const calls = fakeGmail();
+    await t.action(internal.gmailActions.applyAnswer, { feedItemId });
+    expect(calls.find((c) => c.path.endsWith("/modify"))!.body).toMatchObject({ addLabelIds: ["INBOX"] });
+    expect(noteText(calls)).toEqual([]);
+    expect((await t.run((ctx) => ctx.db.get(feedItemId)))!.answerAppliedAt).toBeGreaterThan(0);
+  });
+
   test("is refused when signed out, for another family's item, and the second time", async () => {
     const { t, kid, feedItemId } = await family();
     await expect(t.mutation(api.feed.answer, { feedItemId, answer: "scam" })).rejects.toThrow(/sign in/i);
@@ -381,6 +384,42 @@ describe("the kid's answer", () => {
     const again = fakeGmail();
     await t.action(internal.gmailActions.applyAnswer, { feedItemId });
     expect(again).toHaveLength(0);
+  });
+});
+
+describe("the weekly note", () => {
+  test("one calm summary with the week's numbers, at most once a week", async () => {
+    const { t, kid, familyId, feedItemId } = await family();
+    await kid.mutation(api.feed.answer, { feedItemId, answer: "scam" });
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 3; i++) {
+        await ctx.db.insert("verdicts", { familyId, gmailMessageId: `r${i}`, receivedAt: Date.now(), level: "real", ruleLevel: "real", fromDomain: "kp.org", action: "none" });
+      }
+    });
+    const calls = fakeGmail();
+    await t.action(internal.gmailActions.sendWeeklyNote, { familyId });
+    const notes = noteText(calls);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("This week Anchor checked 4 emails for you and kept 1 fake message out of your inbox. You didn't need to do anything.");
+    expect(notes[0]).toContain("Lucas looked at 1 message for you.");
+    expect(notes[0]).toContain('they\'re in the "Anchor: Held" folder');
+    const week = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+    const again = fakeGmail({ alreadySent: [`weekly-${familyId}-${week}`] });
+    await t.action(internal.gmailActions.sendWeeklyNote, { familyId });
+    expect(again.some((c) => c.method === "POST" && c.path === "/messages")).toBe(false);
+  });
+
+  test("says nothing in a week with no email, or with the safety switch off", async () => {
+    const { t, familyId } = await family();
+    await t.run(async (ctx) => {
+      for (const v of await ctx.db.query("verdicts").collect()) await ctx.db.delete(v._id);
+    });
+    const calls = fakeGmail();
+    await t.action(internal.gmailActions.sendWeeklyNote, { familyId });
+    expect(noteText(calls)).toEqual([]);
+    vi.stubEnv("ANCHOR_GMAIL_ACTIONS", "");
+    await t.mutation(internal.gmailActions.weeklyNotes, {});
+    expect(await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect())).toHaveLength(0);
   });
 });
 
