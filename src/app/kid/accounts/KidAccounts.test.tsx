@@ -27,9 +27,16 @@ const title = () => screen.getByRole("heading", { level: 1 });
 
 describe("kid My Accounts", () => {
   it("lists the parent's accounts with how long they've been in the email", () => {
-    render(<KidAccounts />);
-    expect(title()).toHaveTextContent("Mom's accounts");
-    expect(screen.getByText(/^Health care · In Mom's email for \d+ (year|years|months?) · 88 emails$/)).toBeInTheDocument();
+    // The mock's "now" (Oct 25, 2026); Kaiser was first seen 24 months before it.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.UTC(2026, 9, 25, 15, 0));
+    try {
+      render(<KidAccounts />);
+      expect(title()).toHaveTextContent("Mom's accounts");
+      expect(screen.getByText("Health care · In Mom's email for 2 years · 88 emails")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows Learning while A4 reads the history, then the list on its own", () => {

@@ -25,13 +25,14 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
   }
 
   if (accounts === undefined) {
-    return <Screen title="One moment..." />;
+    return <Screen focusTitle title="One moment..." />;
   }
   if (accounts.length === 0) {
     // Also what an unknown or turned-off link sees: nothing to reveal either way.
+    // A different title from the list's, so focus moves (and is announced) when it fills in.
     return (
-      <Screen title="Your accounts">
-        <p role="status" className="text-xl">
+      <Screen focusTitle title="Getting your accounts ready">
+        <p className="text-xl">
           We&apos;re still learning which places you deal with. This page fills in on its own.
         </p>
       </Screen>
@@ -39,7 +40,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
   }
 
   return (
-    <Screen title="Your accounts">
+    <Screen focusTitle title="Your accounts">
       <p className="text-xl">
         These are the real websites you use. To sign in, tap a button here instead of a link
         in an email.

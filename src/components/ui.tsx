@@ -55,11 +55,12 @@ export function BigButton({
   children: ReactNode;
 }) {
   const className = secondary ? secondaryButtonClass : bigButtonClass;
-  // Off-site links (like the Gmail connect redirect or an sms: link) get a plain <a>,
-  // not client routing.
+  // Off-site links (like a login page or an sms: link) get a plain <a>, not client routing.
+  // noreferrer: our page addresses can hold secret tokens (/p/<token>), and some in-app
+  // browsers would send the full address to the other site.
   if (href && !href.startsWith("/")) {
     return (
-      <a href={href} className={className}>
+      <a href={href} rel="noopener noreferrer" className={className}>
         {children}
       </a>
     );

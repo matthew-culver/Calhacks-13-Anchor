@@ -57,8 +57,13 @@ export function trustedLoginUrl(account: Pick<AccountView, "loginUrl" | "officia
     return null;
   }
   if (url.protocol !== "https:") return null;
+  // A real sign-in page needs no username, password or odd port in its address.
+  if (url.username || url.password || url.port) return null;
   const host = url.hostname.toLowerCase();
-  const official = account.officialDomains.some((d) => host === d || host.endsWith(`.${d}`));
+  const official = account.officialDomains.some((raw) => {
+    const d = raw.toLowerCase().replace(/^\.+|\.+$/g, "");
+    return d !== "" && (host === d || host.endsWith(`.${d}`));
+  });
   return official ? url.href : null;
 }
 
@@ -117,7 +122,7 @@ export function ParentAccountList({ accounts, now }: { accounts: AccountView[]; 
               {login ? (
                 <BigButton href={login} secondary>{`Open ${a.orgName}`}</BigButton>
               ) : (
-                <p className="text-lg text-muted">No sign-in page on file.</p>
+                <p className="text-lg text-muted">We don&apos;t have a sign-in page for this one yet.</p>
               )}
             </Card>
           </li>

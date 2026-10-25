@@ -24,12 +24,17 @@ describe("parent page", () => {
     );
   });
 
-  it("fills in on its own while the history is still being read", () => {
+  it("fills in on its own while the history is still being read, and announces each change", () => {
     fakeBackend.setQuery("accounts:parentAccounts", []);
     render(<ParentScreen token="ptok" />);
-    expect(screen.getByRole("status")).toHaveTextContent("This page fills in on its own.");
+    // Focus on the new title is what screen readers announce when the screen changes.
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Getting your accounts ready");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(screen.getByRole("main")).toHaveTextContent("This page fills in on its own.");
 
     act(() => fakeBackend.setQuery("accounts:parentAccounts", mockAccounts));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Your accounts");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
     expect(screen.getByRole("link", { name: "Open Wells Fargo" })).toBeInTheDocument();
   });
 
