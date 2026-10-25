@@ -495,7 +495,7 @@ export const markAnchorLabeled = internalMutation({
 
 // ---------- the weekly note (A9) ----------
 
-export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 type HeldMail = { claimedOrg?: string; checks?: { id: string; detail?: string }[] };
 
