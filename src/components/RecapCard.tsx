@@ -13,8 +13,8 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 
 function Stat({ label, value, className = "text-ink" }: { label: string; value: number; className?: string }) {
   return (
-    <div className="flex flex-col-reverse justify-end rounded-2xl bg-page px-3 py-3 sm:px-4">
-      <dt className="text-sm leading-snug font-semibold text-muted sm:text-base">{label}</dt>
+    <div className="flex flex-col-reverse justify-end rounded-2xl bg-page px-2.5 py-3 sm:px-4">
+      <dt className="text-sm leading-snug font-semibold [overflow-wrap:normal] text-muted sm:text-base">{label}</dt>
       <dd className={`text-3xl leading-tight font-bold tabular-nums sm:text-4xl ${className}`}>{value}</dd>
     </div>
   );
@@ -31,7 +31,7 @@ export function KidRecapCard({
   parentName: string;
 }) {
   return (
-    <Card>
+    <Card compact>
       <dl className="grid grid-cols-3 gap-2 sm:gap-3">
         {recap && <Stat label="Checked" value={recap.checked} />}
         {recap && <Stat label="Held" value={recap.held} className="text-fake" />}
