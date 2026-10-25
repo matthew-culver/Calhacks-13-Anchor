@@ -11,7 +11,7 @@ import { TurnOff } from "@/components/TurnOff";
 import { Watching } from "@/components/Watching";
 import { Pill, Screen } from "@/components/ui";
 import { useDemoMode } from "@/shared/demoMode";
-import { SAMPLE_FEED } from "@/shared/feedApi";
+import { useSampleFeed } from "@/shared/feedApi";
 import { mockRecap } from "@/shared/mock";
 import { useSampleImport } from "@/shared/sampleImport";
 import { api } from "../../../../convex/_generated/api";
@@ -39,7 +39,8 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
   const sample = useSampleImport(demo);
   // The emails the parent asked their kid about, and the answers.
   const liveFeed = useQuery(api.feed.parentFeed, demo || justConnected ? "skip" : { parentToken: token });
-  const questions = demo ? SAMPLE_FEED : liveFeed;
+  const sampleFeed = useSampleFeed(); // with the kid's answers from the sample kid pages in this tab
+  const questions = demo ? sampleFeed : liveFeed;
 
   const view = demo ? SAMPLE_VIEW : liveView;
   const accounts = demo ? sample.accounts : liveAccounts;

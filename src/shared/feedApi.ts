@@ -25,30 +25,56 @@ export const SAMPLE_FEED: FeedEntry[] = mockFeed.flatMap((item) => {
   return verdict ? [{ ...item, verdict }] : [];
 });
 
-// Demo mode only: answers given in this browser, by feed item id, laid over the sample feed.
-let demoAnswers: Record<string, KidAnswer> = {};
+// Demo mode only: answers given in this tab, by feed item id, laid over the sample feed. Kept
+// for the tab, so the parent's sample page (a full page load away) shows them too.
+const ANSWERS_KEY = "anchor.demoAnswers";
+const NO_ANSWERS: Record<string, KidAnswer> = {};
+let demoAnswers: Record<string, KidAnswer> | null = null; // read from the tab on first use
 const listeners = new Set<() => void>();
 const subscribe = (l: () => void) => {
   listeners.add(l);
   return () => listeners.delete(l);
 };
-const getDemoAnswers = () => demoAnswers;
+function getDemoAnswers(): Record<string, KidAnswer> {
+  if (demoAnswers === null) {
+    try {
+      demoAnswers = JSON.parse(sessionStorage.getItem(ANSWERS_KEY) ?? "{}") as Record<string, KidAnswer>;
+    } catch {
+      demoAnswers = {};
+    }
+  }
+  return demoAnswers;
+}
+const noAnswers = () => NO_ANSWERS;
 
 async function answerInDemo({ feedItemId, answer, note }: Answer): Promise<null> {
-  if (demoAnswers[feedItemId]) return null; // the first answer stands
+  const answers = getDemoAnswers();
+  if (answers[feedItemId]) return null; // the first answer stands
   const trimmed = note?.trim().slice(0, MAX_NOTE);
-  demoAnswers = { ...demoAnswers, [feedItemId]: { answer, ...(trimmed ? { note: trimmed } : {}), answeredAt: Date.now() } };
+  demoAnswers = { ...answers, [feedItemId]: { answer, ...(trimmed ? { note: trimmed } : {}), answeredAt: Date.now() } };
+  try {
+    sessionStorage.setItem(ANSWERS_KEY, JSON.stringify(demoAnswers));
+  } catch {
+    // Blocked storage: the answer lasts until the page reloads.
+  }
   listeners.forEach((l) => l());
   return null;
 }
+
+const withAnswers = (answers: Record<string, KidAnswer>): FeedEntry[] =>
+  SAMPLE_FEED.map((e) => (e.kidAnswer || !answers[e._id] ? e : { ...e, kidAnswer: answers[e._id] }));
 
 /** Newest first. `undefined` while loading, like useQuery. */
 export function useFeed(): FeedEntry[] | undefined {
   const demo = useDemoMode();
   const live = useQuery(api.feed.myFeed, demo ? "skip" : {});
-  const local = useSyncExternalStore(subscribe, getDemoAnswers, getDemoAnswers);
-  if (!demo) return live;
-  return SAMPLE_FEED.map((e) => (e.kidAnswer || !local[e._id] ? e : { ...e, kidAnswer: local[e._id] }));
+  const local = useSyncExternalStore(subscribe, getDemoAnswers, noAnswers);
+  return demo ? withAnswers(local) : live;
+}
+
+/** The sample emails with the answers given in this tab: what the parent's sample page shows. */
+export function useSampleFeed(): FeedEntry[] {
+  return withAnswers(useSyncExternalStore(subscribe, getDemoAnswers, noAnswers));
 }
 
 /**
@@ -65,5 +91,6 @@ export function useAnswerFeedItem(): (args: Answer) => Promise<null> {
 /** Tests only: forget answers given in demo mode. */
 export function resetMockFeed() {
   demoAnswers = {};
+  sessionStorage.removeItem(ANSWERS_KEY);
   listeners.forEach((l) => l());
 }

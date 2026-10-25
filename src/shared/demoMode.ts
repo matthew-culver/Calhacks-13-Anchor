@@ -47,9 +47,14 @@ export function useDemoMode({ sticky = true }: { sticky?: boolean } = {}): boole
   return demo;
 }
 
-/** "Leave the demo": forget it for this tab, wherever the link goes next. */
+/** "Leave the demo": forget it for this tab (and the sample answers), wherever the link goes next. */
 export function leaveDemo() {
   remember("0");
+  try {
+    sessionStorage.removeItem("anchor.demoAnswers");
+  } catch {
+    // Blocked storage: nothing was kept.
+  }
 }
 
 function remember(value: "1" | "0") {
