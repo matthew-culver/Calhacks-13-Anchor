@@ -229,3 +229,28 @@ describe("renewInvite", () => {
     await expect(stranger.as.mutation(api.families.renewInvite, {})).rejects.toThrow(/no family/i);
   });
 });
+
+describe("getParentView", () => {
+  test("gives the parent page the names and status, so 'off' and 'learning' look different", async () => {
+    const t = convexTest(schema, modules);
+    const { familyId } = await (await signedInKid(t)).as.mutation(api.families.createFamily, newFamily);
+    const parentToken = (await t.run((ctx) => ctx.db.get(familyId)))!.parentToken;
+
+    await t.run((ctx) => ctx.db.patch(familyId, { status: "learning" }));
+    expect(await t.query(api.families.getParentView, { parentToken })).toEqual({
+      parentName: "Mom",
+      kidName: "Lucas",
+      status: "learning",
+    });
+    await t.run((ctx) => ctx.db.patch(familyId, { status: "off" }));
+    expect((await t.query(api.families.getParentView, { parentToken }))?.status).toBe("off");
+  });
+
+  test("is null for an unknown, empty, or invite token", async () => {
+    const t = convexTest(schema, modules);
+    const { inviteToken } = await (await signedInKid(t)).as.mutation(api.families.createFamily, newFamily);
+    expect(await t.query(api.families.getParentView, { parentToken: "nope" })).toBeNull();
+    expect(await t.query(api.families.getParentView, { parentToken: "" })).toBeNull();
+    expect(await t.query(api.families.getParentView, { parentToken: inviteToken })).toBeNull();
+  });
+});

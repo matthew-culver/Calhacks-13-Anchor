@@ -29,12 +29,14 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
   - **Demo mode** builds My Accounts from a sample inbox (no Gmail needed): `npx convex run gmailImport:importSample '{"familyId":"<id>"}'`. Find the family id in the Convex dashboard under Data → families.
   - An org only counts as an account after 3 or more authenticated emails over at least 2 weeks (or after the parent wrote to it), so a scam, or one triggered email, can't plant one.
 - [ ] **Checkpoint 1 (hour 6):** a real Gmail connects and My Accounts appears.
-- [ ] **A5. New mail → verdict.** Notes from the A3 review:
+- [x] **A5. New mail → verdict.** Notes from the A3 review:
+  - Live: a cron checks every active family each minute (`convex/mailWatch.ts`). Six checks (A1's five plus `relationship`); Claude (`convex/lib/explain.ts`) writes only the kid's explanation and can raise the level, never lower it. The parent always gets a fixed calm message.
+  - Fails closed: an email over 5 MB, or one that fails 3 times, becomes "unsure, we couldn't check it". One poll per family at a time; after a week offline it re-checks the last 2 days.
   - **Refresh tokens expire after 7 days in Google's testing mode.** When Google's token endpoint answers `invalid_grant`, set the family to `needs_reconnect`, and the kid's screen offers a new link. **Reconnect the demo accounts right before presenting.**
   - Add a shared `refreshAccessToken` (in `convex/lib/oauth.ts`) used by both A4 and A5: refresh when `expiresAt - 60s < now`, then save the new `accessToken` and `expiresAt`.
   - A stale `historyId` makes Gmail's `history.list` return 404. Fall back to a fresh sync.
    Add a cron that polls each `active` family through the Gmail history API. Run the checks plus the `relationship` and `injection` checks, then Claude for the explanation (floor rule, banned-word filter). Write the `verdicts` and `feedItems`.
-- [ ] **A6. Gmail actions.** Create the labels, hold or label each email, and send the parent note once (`parentNoteSentAt`). Apply the kid's answers (release or hold, then send the note).
+- [ ] **A6. Gmail actions.** Also: skip Anchor's own parent notes in `newMessageIds` (label them, or add an `X-Anchor` header), or each note gets its own verdict. Add the `turnOff({ parentToken })` mutation for B5: delete the family's rows, revoke the Google grant, set status `off`. Create the labels, hold or label each email, and send the parent note once (`parentNoteSentAt`). Apply the kid's answers (release or hold, then send the note).
 - [ ] **Checkpoint 2 (hour 11): feature freeze.**
 
 ## Person B: the experience (`src/`)
@@ -76,7 +78,8 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
   - Kid: `useQuery(api.accounts.myAccounts)`. Parent: `useQuery(api.accounts.parentAccounts, { parentToken })`. Both return `{ _id, orgName, category, officialDomains, loginUrl?, firstSeen, messageCount }[]`, sorted by name.
   - While `getMyFamily().status === "learning"`, show "Learning who [parent] really deals with…". It takes under a minute.
   - Say "in your email for 2 years" rather than "customer since". It's mail seen, not proof of an account.
-- [ ] **B5. Weekly recap card** ("41 checked, 2 held, 0 need a call") and the parent's "Turn it off" button. Make "Turn it off" a button that triggers a mutation, never a plain link. Email scanners open links automatically and would switch it off. The parent page is view-only otherwise.
+  - On the parent page, call `api.families.getParentView({ parentToken })` alongside it. It returns `{ parentName, kidName, status }`, or `null` for a bad link, so the page can tell `learning` ("Getting to know your email…") from `off` ("Protection is off") and from an empty list.
+- [ ] **B5. Weekly recap card** ("41 checked, 2 held, 0 need a call") and the parent's "Turn it off" button. Data for the recap: `api.feed.myWeeklyRecap({ now })` and `api.feed.parentWeeklyRecap({ parentToken, now })`. Round `now` to the minute so the query isn't re-run every render. The feed is `api.feed.myFeed` / `api.feed.parentFeed`. The turn-off mutation comes in A6. Make "Turn it off" a button that triggers a mutation, never a plain link. Email scanners open links automatically and would switch it off. The parent page is view-only otherwise.
 - [ ] **Checkpoint 1 (hour 6):** swap mocks for real Convex queries where A's functions exist.
 - [ ] **B6. Accessibility pass** (ECC `accessibility` skill) on the parent screens.
 - [ ] **B7. Story:** a 60-second setup video, the pitch deck and the Devpost write-up.

@@ -17,8 +17,8 @@ import { sampleRecords } from "./lib/sampleHistory";
 const GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me";
 const WINDOW = "newer_than:2y -in:chats";
 /** Newest mail in general, plus older mail from known orgs (yearly senders like Medicare). */
-const MAX_RECENT = 2000;
-const MAX_FROM_ORGS = 1500;
+const MAX_RECENT = 1500; // with MAX_FROM_ORGS, keeps a big inbox well under the 10-minute action limit
+const MAX_FROM_ORGS = 1000;
 const PAGE_SIZE = 500;
 // Gmail allows ~250 quota units per user per second and messages.get costs 5: stay well under.
 const CONCURRENCY = 8;
