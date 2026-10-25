@@ -62,3 +62,36 @@ describe("relationship check", () => {
     expect(relationship(email("hello@newsletter.example"), undefined, {}).status).toBe("unknown");
   });
 });
+
+describe("familiar and trusted senders acting unlike themselves", () => {
+  const known = { sender: { messageCount: 40, firstSeen: y2024, authPassRate: 1 } };
+  const calm = { riskySites: [], scamPressure: false };
+
+  test("Aunt Sue linking YouTube, or a landlord portal we don't know, is fine: only dangerous links count", () => {
+    expect(relationship(email("sue@gmail.com"), undefined, known, "pass", calm).status).toBe("pass");
+  });
+
+  test("Aunt Sue linking a site our checks found dangerous is flagged as a possible hack", () => {
+    const r = relationship(email("sue@gmail.com"), undefined, known, "pass", { riskySites: ["secure-docs-view.top"], scamPressure: false });
+    expect(r.status).toBe("warn");
+    expect(r.plainReason).toContain("may have been hacked");
+  });
+
+  test("gift cards, wires, crypto or secrecy from someone you know are flagged", () => {
+    const r = relationship(email("sue@gmail.com"), undefined, known, "pass", { riskySites: [], scamPressure: true });
+    expect(r.plainReason).toContain("gift cards");
+  });
+
+  test("replies going to a different address are flagged", () => {
+    const e = { ...email("sue@gmail.com"), replyToAddress: "sue.help@outlook.com" };
+    expect(relationship(e, undefined, known, "pass", calm).status).toBe("warn");
+  });
+
+  test("the kid's own email about bills passes; their hacked account is named as theirs", () => {
+    const trusted = { trusted: { who: "Lucas" } };
+    expect(relationship(email("lucas@gmail.com"), undefined, trusted, "pass", calm)).toMatchObject({ status: "pass", plainReason: "This is from Lucas." });
+    const hacked = relationship(email("lucas@gmail.com"), undefined, trusted, "pass", { riskySites: [], scamPressure: true });
+    expect(hacked.status).toBe("warn");
+    expect(hacked.plainReason).toContain("Lucas's account may have been hacked");
+  });
+});

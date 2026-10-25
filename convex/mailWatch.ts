@@ -17,6 +17,9 @@ import { checkResult, verdictLevel } from "./contract";
 import { accessTokenFor } from "./googleAuth";
 import { atLeast, explain, templateExplanation } from "./lib/explain";
 import { keyFor } from "./lib/history";
+import { pressureSignals, SCAM_SIGNALS } from "./checks/pressure";
+import { cleanUrl, probeLink } from "./lib/linkProbe";
+import { classifySite, linkIsRisky, linkTarget } from "./lib/sites";
 import { GOOGLE_TIMEOUT_MS } from "./lib/oauth";
 
 const GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -137,19 +140,35 @@ export const alreadySeen = internalQuery({
 
 /** What the relationship check needs, looked up from A4's tables. */
 export const historyFor = internalQuery({
-  args: { familyId: v.id("families"), senderKey: v.string(), claimedOrg: v.optional(v.string()) },
+  args: { familyId: v.id("families"), senderKey: v.string(), senderAddress: v.string(), claimedOrg: v.optional(v.string()) },
   returns: v.object({
     sender: v.optional(
       v.object({ messageCount: v.number(), parentSentCount: v.optional(v.number()), firstSeen: v.number(), authPassRate: v.number() }),
     ),
     claimedBrandHistory: v.optional(v.object({ messageCount: v.number(), firstSeen: v.number(), isAccount: v.boolean() })),
+    trusted: v.optional(v.object({ who: v.string() })),
   }),
-  handler: async (ctx, { familyId, senderKey, claimedOrg }) => {
+  handler: async (ctx, { familyId, senderKey, senderAddress, claimedOrg }) => {
     const rel = await ctx.db
       .query("relationships")
       .withIndex("by_family_key", (q) => q.eq("familyId", familyId).eq("key", senderKey))
       .first();
     const result: HistoryContext = {};
+    // Family: the kid's own sign-in address, or a sender the kid marked "always trust".
+    const family = await ctx.db.get(familyId);
+    const address = senderAddress.toLowerCase();
+    if (family && address.includes("@")) {
+      const kid = await ctx.db.get(family.kidUserId);
+      if (kid?.email && kid.email.toLowerCase() === address) {
+        result.trusted = { who: family.kidName };
+      } else {
+        const marked = await ctx.db
+          .query("trustedSenders")
+          .withIndex("by_family_address", (q) => q.eq("familyId", familyId).eq("address", address))
+          .first();
+        if (marked) result.trusted = { who: "someone you trust" };
+      }
+    }
     if (rel) {
       result.sender = {
         messageCount: rel.messageCount,
@@ -277,7 +296,7 @@ export const saveVerdict = internalMutation({
     explanationForParent: v.string(),
     explanationForKid: v.string(),
   },
-  returns: v.null(),
+  returns: v.union(v.null(), v.id("verdicts")),
   handler: async (ctx, a) => {
     const family = await ctx.db.get(a.familyId);
     if (!family || family.status === "off") return null;
@@ -327,7 +346,7 @@ export const saveVerdict = internalMutation({
     });
     // A6: label or hold it in Gmail and tell the parent (no-op unless ANCHOR_GMAIL_ACTIONS is on).
     await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId });
-    return null;
+    return verdictId;
   },
 });
 
@@ -428,9 +447,59 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
   const history = await ctx.runQuery(internal.mailWatch.historyFor, {
     familyId,
     senderKey,
+    senderAddress: email.fromAddress,
     ...(base.claimedOrg !== undefined && { claimedOrg: base.claimedOrg }),
   });
-  const checks = [...base.checks, relationship(email, base.claimedOrg, history, claimStatus)];
+  const familiar =
+    history.trusted !== undefined ||
+    (history.sender !== undefined && (history.sender.messageCount >= 2 || (history.sender.parentSentCount ?? 0) > 0));
+
+  // Each distinct link, judged by where it really points (redirect wrappers unwrapped).
+  const seen = new Set<string>();
+  const linkFacts: {
+    shownText: string;
+    href: string;
+    site: string;
+    cls: "established" | "user_content" | "unknown";
+    ageDays?: number;
+    listedDangerous?: boolean;
+    risky: boolean;
+  }[] = [];
+  let probes = 0;
+  for (const l of email.links) {
+    const target = linkTarget(l.href);
+    const href = cleanUrl(target.url) ?? "";
+    if (!href || seen.has(href) || linkFacts.length >= 20) continue;
+    seen.add(href);
+    const c = classifySite(target.url);
+    const cls = target.viaRedirect && c.cls === "established" ? "unknown" : c.cls;
+    const intelFor = c.site ? intel[c.site] : undefined;
+    const fact = {
+      shownText: l.text.slice(0, 40),
+      href,
+      site: c.site,
+      cls,
+      ...(intelFor?.ageDays !== undefined && { ageDays: intelFor.ageDays }),
+      ...(intelFor?.listed !== undefined && { listedDangerous: intelFor.listed }),
+    };
+    // For someone Mom knows, look at where a non-established link really goes before judging:
+    // their link is only suspicious if our own checks find it dangerous.
+    const probe = familiar && cls !== "established" && probes < 3 ? (probes++, await probeLink(target.url)) : undefined;
+    linkFacts.push({ ...fact, risky: linkIsRisky({ ...fact, ...(probe && { probe }) }) });
+  }
+
+  // Ordinary money talk from family or familiar senders (bills, Venmo, "ASAP") isn't a scam
+  // signal; gift cards, wires, crypto and secrecy are.
+  const pressureCheck = base.checks.find((c) => c.id === "pressure");
+  const signals = pressureSignals(pressureCheck?.detail);
+  const scamPressure = signals.some((sig) => SCAM_SIGNALS.includes(sig));
+  const baseChecks = base.checks.map((c) =>
+    c.id === "pressure" && familiar && c.status === "fail" && !scamPressure
+      ? { ...c, status: "warn" as const, plainReason: "It mentions paying or a deadline, which is normal from someone you know." }
+      : c,
+  );
+  const behavior = { riskySites: linkFacts.filter((l) => l.risky).map((l) => l.site), scamPressure };
+  const checks = [...baseChecks, relationship(email, base.claimedOrg, history, claimStatus, behavior)];
   const floor = ruleLevel(checks);
 
   // Claude only for flagged mail: it explains and may raise the level. Real mail stays private.
@@ -454,7 +523,7 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
           overCap ? undefined : process.env.ANTHROPIC_API_KEY,
         );
 
-  await ctx.runMutation(internal.mailWatch.saveVerdict, {
+  const verdictId = await ctx.runMutation(internal.mailWatch.saveVerdict, {
     familyId,
     gmailMessageId: id,
     receivedAt: Number(msg.internalDate ?? Date.now()),
@@ -469,6 +538,35 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
     explanationForParent: explained?.explanationForParent ?? "",
     explanationForKid: explained?.explanationForKid ?? "",
   });
+
+  // A7: every suspicious email gets the AI investigator (facts only; never the body).
+  if (verdictId && explained) {
+    const brand = base.claimedOrg ? BRANDS.find((b) => b.name === base.claimedOrg) : undefined;
+    await ctx.scheduler.runAfter(0, internal.investigations.investigate, {
+      verdictId,
+      facts: {
+        ruleLevel: explained.level,
+        sender: {
+          name: email.fromName.slice(0, 120),
+          address: email.fromAddress.slice(0, 254),
+          domain: email.fromDomain || "unknown",
+          ...(email.replyToAddress && { replyTo: email.replyToAddress.slice(0, 254) }),
+        },
+        ...(base.claimedOrg !== undefined && { claimedOrg: base.claimedOrg }),
+        ...(brand && { officialDomains: brand.officialDomains }),
+        familiar,
+        checks,
+        links: linkFacts.map((l) => ({
+          shownText: l.shownText,
+          href: l.href,
+          site: l.site,
+          cls: l.cls,
+          ...(l.ageDays !== undefined && { ageDays: l.ageDays }),
+          ...(l.listedDangerous !== undefined && { listedDangerous: l.listedDangerous }),
+        })),
+      },
+    });
+  }
 }
 
 /** Errors that mean "stop this run and try again next minute", not "this email is bad". */

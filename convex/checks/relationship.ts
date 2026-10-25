@@ -11,12 +11,26 @@ import type { CheckResult, CheckStatus } from "../contract";
 import { BRANDS, isOfficialFor, registrableDomain } from "./brands";
 import type { ParsedEmail } from "./types";
 
+/**
+ * What this email does, for spotting a familiar or trusted sender acting unlike themselves (a
+ * hacked account). Only hard evidence counts: a link our own checks found dangerous (not just
+ * "a site we don't know": Aunt Sue's YouTube link and your landlord's portal are fine), the
+ * payment and secrecy signals scammers use (gift cards, wires, crypto, "don't tell anyone";
+ * NOT ordinary bills, Venmo or "ASAP"), or replies redirected to another address.
+ */
+export type Behavior = {
+  riskySites: string[]; // sites of links that failed our own checks (see sites.linkIsRisky)
+  scamPressure: boolean;
+};
+
 /** What the caller found in the parent's history (relationships + accounts tables). */
 export type HistoryContext = {
   /** The sender's own relationship row (by address for people, by domain for orgs). */
   sender?: { messageCount: number; parentSentCount?: number; firstSeen: number; authPassRate: number };
   /** For the brand the email claims to be: authenticated mail from its real domains seen before. */
   claimedBrandHistory?: { messageCount: number; firstSeen: number; isAccount: boolean };
+  /** Family: the kid's own sign-in address, or a sender the kid marked "always trust". */
+  trusted?: { who: string };
 };
 
 const yearOf = (ms: number) => new Date(ms).getUTCFullYear();
@@ -26,6 +40,7 @@ export function relationship(
   claimedOrg: string | undefined,
   history: HistoryContext,
   claimStatus: CheckStatus = "pass",
+  behavior?: Behavior,
 ): CheckResult {
   const brand = claimedOrg ? BRANDS.find((b) => b.name === claimedOrg) : undefined;
   const fromBrand = brand !== undefined && email.fromDomain !== "" && isOfficialFor(email.fromDomain, brand);
@@ -66,13 +81,36 @@ export function relationship(
   }
 
   const s = history.sender;
-  if (s && (s.messageCount >= 2 || (s.parentSentCount ?? 0) > 0)) {
-    const wrote = (s.parentSentCount ?? 0) > 0 ? " You've written to them too." : "";
+  const familiar = s !== undefined && (s.messageCount >= 2 || (s.parentSentCount ?? 0) > 0);
+  if (history.trusted || familiar) {
+    // Is this email unlike them? (Their account may have been taken over.)
+    const odd: string[] = [];
+    const risky = [...new Set(behavior?.riskySites ?? [])].filter(Boolean);
+    if (risky.length > 0) odd.push(`it links to ${risky.slice(0, 3).join(", ")}, which our checks found dangerous`);
+    if (behavior?.scamPressure) odd.push("it asks for gift cards, a wire transfer, cryptocurrency or secrecy");
+    if (email.replyToAddress && registrableDomain(email.replyToAddress.split("@")[1] ?? "") !== registrableDomain(email.fromDomain || "x")) {
+      odd.push("replies would go to a different address");
+    }
+    if (odd.length > 0) {
+      const who = history.trusted?.who;
+      return {
+        id: "relationship",
+        status: "warn",
+        plainReason: who
+          ? `This came from ${who}'s own address, but ${odd.join(" and ")}. ${who}'s account may have been hacked.`
+          : `This came from someone you know, but ${odd.join(" and ")}. Their account may have been hacked.`,
+        detail: history.trusted ? "trusted sender acting unusually" : `familiar sender (${s?.messageCount ?? 0} prior messages) acting unusually`,
+      };
+    }
+    if (history.trusted) {
+      return { id: "relationship", status: "pass", plainReason: `This is from ${history.trusted.who}.`, detail: "trusted family sender" };
+    }
+    const wrote = (s!.parentSentCount ?? 0) > 0 ? " You've written to them too." : "";
     return {
       id: "relationship",
       status: "pass",
-      plainReason: `You've gotten email from this sender since ${yearOf(s.firstSeen)}.${wrote}`,
-      detail: `${s.messageCount} prior messages from ${registrableDomain(email.fromDomain || "unknown")}`,
+      plainReason: `You've gotten email from this sender since ${yearOf(s!.firstSeen)}.${wrote}`,
+      detail: `${s!.messageCount} prior messages from ${registrableDomain(email.fromDomain || "unknown")}`,
     };
   }
   // A new sender with no brand claim is normal (a new newsletter, a new doctor's office):

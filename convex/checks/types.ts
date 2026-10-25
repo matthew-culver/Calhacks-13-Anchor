@@ -12,6 +12,7 @@ export type ParsedEmail = {
   fromAddress: string; // lowercased, e.g. "alerts@chase-secure-login.co"
   fromDomain: string; // lowercased part after the @
   multipleFrom: boolean; // more than one From address: mail apps disagree on which to show
+  replyToAddress?: string; // lowercased Reply-To, if different from From (replies go elsewhere)
   subject: string;
   // Every Authentication-Results header, top first. The top ones were added by the
   // receiving server (Gmail); anything below can be forged by the sender.
