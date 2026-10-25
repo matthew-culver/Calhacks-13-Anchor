@@ -197,6 +197,28 @@ describe("importHistory", () => {
     expect(new Set(rels.map((r) => r.key)).size).toBe(rels.length);
   });
 
+  test("mail Anchor flagged never counts as history, so a scammer can't become familiar by sending more", async () => {
+    const { t, familyId } = await connected();
+    const now = Date.now();
+    const scams: Msg[] = ["s1", "s2", "s3"].map((id, i) => ({ id, from: "Chase Bank <chillyisbad@gmail.com>", date: now - (i + 1) * DAY, labels: ["Label_held"] }));
+    const cleared: Msg = { id: "c1", from: "Aunt Sue <sue.new@gmail.com>", date: now - DAY };
+    const calls = fakeGoogle({ messages: [...inbox(now), ...scams, cleared, { ...cleared, id: "c2", date: now - 2 * DAY }] });
+    await t.run(async (ctx) => {
+      const verdict = { familyId, receivedAt: now, ruleLevel: "fake" as const, fromDomain: "gmail.com" };
+      for (const id of ["s1", "s2"]) await ctx.db.insert("verdicts", { ...verdict, gmailMessageId: id, level: "fake", action: "held" });
+      await ctx.db.insert("verdicts", { ...verdict, gmailMessageId: "s3", level: "unsure", ruleLevel: "unsure", action: "labeled_check" });
+      // The kid said "It's fine": that one is ordinary mail again.
+      await ctx.db.insert("verdicts", { ...verdict, gmailMessageId: "c1", level: "unsure", ruleLevel: "unsure", action: "released" });
+    });
+
+    await t.action(internal.gmailImport.importHistory, { familyId });
+    const rels = await t.run((ctx) => ctx.db.query("relationships").collect());
+    expect(rels.find((r) => r.key === "chillyisbad@gmail.com")).toBeUndefined();
+    expect(rels.find((r) => r.key === "sue.new@gmail.com")).toMatchObject({ messageCount: 2 });
+    // Flagged mail isn't even fetched.
+    expect(calls.some((c) => /\/messages\/s[123]$/.test(new URL(c.url).pathname))).toBe(false);
+  });
+
   test("refreshes an expired access token first and saves it", async () => {
     const { t, familyId } = await connected({ expiresAt: Date.now() - 1 });
     const calls = fakeGoogle({ messages: inbox() });
