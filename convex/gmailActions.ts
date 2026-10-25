@@ -415,6 +415,43 @@ export const releaseVerdict = internalAction({
   },
 });
 
+// ---------- labels from day one ----------
+
+export const labelsFor = internalQuery({
+  args: { familyId: v.id("families") },
+  returns: v.union(
+    v.null(),
+    v.object({ family: schema.doc("families"), labels: v.object({ held: v.optional(v.string()), check: v.optional(v.string()), note: v.optional(v.string()) }) }),
+  ),
+  handler: async (ctx, { familyId }) => {
+    const family = await ctx.db.get(familyId);
+    if (!family || family.status !== "active") return null;
+    const tokens = await ctx.db.query("gmailTokens").withIndex("by_family", (q) => q.eq("familyId", familyId)).unique();
+    return { family, labels: { held: tokens?.heldLabelId, check: tokens?.checkLabelId, note: tokens?.noteLabelId } };
+  },
+});
+
+/**
+ * Create the family's Gmail labels as soon as setup finishes, so "⚠ Check with [kid]" is there
+ * for the parent to ask with from day one (not only after Anchor first flags an email).
+ */
+export const prepareLabels = internalAction({
+  args: { familyId: v.id("families") },
+  returns: v.null(),
+  handler: async (ctx, { familyId }) => {
+    if (!actionsEnabled()) return null;
+    const found = await ctx.runQuery(internal.gmailActions.labelsFor, { familyId });
+    if (!found || (found.labels.held && found.labels.check && found.labels.note)) return null;
+    const c: LabelContext = { family: found.family, labels: found.labels };
+    try {
+      await withAccess(ctx, familyId, (token) => withLabels(ctx, c, token, async () => {}));
+    } catch (e) {
+      console.error(`gmailActions.prepareLabels failed: ${errorText(e)}`);
+    }
+    return null;
+  },
+});
+
 // ---------- the weekly note (A9) ----------
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;

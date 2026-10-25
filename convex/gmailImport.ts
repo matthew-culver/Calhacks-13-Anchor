@@ -394,7 +394,11 @@ export const saveImport = internalMutation({
         .unique();
       if (tokens) await ctx.db.patch(tokens._id, { historyId });
     }
-    if (family.status === "learning") await ctx.db.patch(familyId, { status: "active" });
+    if (family.status === "learning") {
+      await ctx.db.patch(familyId, { status: "active" });
+      // The "⚠ Check with [kid]" label exists from the start, so the parent can ask right away.
+      await ctx.scheduler.runAfter(0, internal.gmailActions.prepareLabels, { familyId });
+    }
     return null;
   },
 });

@@ -172,6 +172,9 @@ describe("importHistory", () => {
 
     const family = await t.run((ctx) => ctx.db.get(familyId));
     expect(family!.status).toBe("active");
+    // Going active creates the Gmail labels, so the parent can ask right away.
+    const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(scheduled.map((s) => s.name)).toContain("gmailActions:prepareLabels");
     const tokens = await t.run((ctx) => ctx.db.query("gmailTokens").first());
     expect(tokens!.historyId).toBe("98765");
   });

@@ -387,6 +387,23 @@ describe("the kid's answer", () => {
   });
 });
 
+describe("labels from day one", () => {
+  test("setup creates the labels, so the parent can ask with \"Check with Lucas\" right away", async () => {
+    const { t, familyId } = await family();
+    const calls = fakeGmail();
+    await t.action(internal.gmailActions.prepareLabels, { familyId });
+    const created = calls.filter((c) => c.method === "POST" && c.path === "/labels").map((c) => (c.body as { name?: string } | undefined)?.name);
+    expect(created).toEqual(["Anchor: Held", "⚠ Check with Lucas", "Anchor"]);
+    const tokens = await t.run((ctx) => ctx.db.query("gmailTokens").first());
+    expect(tokens).toMatchObject({ heldLabelId: "Label_1", checkLabelId: "Label_2", noteLabelId: "Label_3" });
+
+    // Already there: nothing to do.
+    const again = fakeGmail();
+    await t.action(internal.gmailActions.prepareLabels, { familyId });
+    expect(again.filter((c) => c.path === "/labels")).toEqual([]);
+  });
+});
+
 describe("the weekly note", () => {
   test("one calm summary with the week's numbers, at most once a week", async () => {
     const { t, kid, familyId, feedItemId } = await family();
