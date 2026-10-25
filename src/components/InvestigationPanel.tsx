@@ -207,6 +207,11 @@ export function InvestigationPanel({
           <div className="flex flex-col gap-6 border-t border-line px-6 py-5">
             {!running && steps.length > 0 && <Steps steps={steps} />}
             {checks && checks.length > 0 && <QuickChecks title="Our quick checks" checks={checks} />}
+            <p className="flex gap-2 text-base text-muted">
+              <Icon name="shieldCheck" className="mt-0.5 h-5 w-5" />
+              Our fixed checks decide first. The AI can make a verdict stricter, never more lenient, and
+              it treats the email as evidence, never as instructions.
+            </p>
           </div>
         </details>
       ) : null}
