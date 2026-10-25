@@ -53,7 +53,7 @@ describe("feed item detail", () => {
 
   it("removes hidden characters that could disguise who sent it", () => {
     render(<ItemScreen id="mock_feed_chase" />);
-    expect(screen.getByRole("main").textContent).not.toMatch(/[‪-‮⁦-⁩]/);
+    expect(screen.getByRole("main").textContent).not.toMatch(/[\u202a-\u202e\u2066-\u2069]/);
   });
 
   it("shows what it claims and every check in plain words, never the technical detail", () => {
