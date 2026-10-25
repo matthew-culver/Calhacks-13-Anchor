@@ -3,20 +3,44 @@
 
 import { render, screen, within } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockAccounts, mockRecap } from "@/shared/mock";
+import { fakeBackend } from "@/test/fakeBackend";
 import Home from "./page";
 import Start from "./start/page";
 import KidFeed from "./kid/page";
 import KidAccounts from "./kid/accounts/page";
 import { InviteScreen } from "./invite/[token]/InviteScreen";
 import { ParentScreen } from "./p/[token]/ParentScreen";
+import { ConnectProblemScreen } from "./connect-problem/ConnectProblemScreen";
 
 vi.mock("convex/react", async () => (await import("@/test/fakeBackend")).convexReact);
 vi.mock("@convex-dev/auth/react", async () => (await import("@/test/fakeBackend")).authReact);
 
 // From CLAUDE.md: plain words only, and never say "safe".
 const BANNED = /\b(safe|phishing|domain|dkim|spf|dmarc)\b/i;
+
+beforeEach(() => {
+  fakeBackend.reset();
+  fakeBackend.setQuery("families:getInvite", {
+    parentName: "Mom",
+    kidName: "Lucas",
+    kidEmail: "lucas@example.com",
+    status: "invited",
+    inviteExpiresAt: Date.now() + 24 * 60 * 60 * 1000,
+  });
+});
+
+const problemReasons = [
+  "invite_invalid",
+  "invite_expired",
+  "cancelled",
+  "session",
+  "wrong_account",
+  "missing_permission",
+  "already_protected",
+  "google_error",
+];
 
 const screens: [string, () => ReactElement][] = [
   ["/", () => <Home />],
@@ -25,6 +49,11 @@ const screens: [string, () => ReactElement][] = [
   ["/kid/accounts", () => <KidAccounts />],
   ["/invite/[token]", () => <InviteScreen token="tok123" />],
   ["/p/[token]", () => <ParentScreen token="tok123" />],
+  ["/p/[token]?connected=1", () => <ParentScreen token="tok123" justConnected />],
+  ...problemReasons.map((r): [string, () => ReactElement] => [
+    `/connect-problem?reason=${r}`,
+    () => <ConnectProblemScreen reason={r} />,
+  ]),
 ];
 
 describe.each(screens)("%s", (_route, renderScreen) => {
