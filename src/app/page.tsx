@@ -100,10 +100,10 @@ export default function Home() {
       <SiteHeader wide>
         <nav aria-label="Main" className="flex items-center gap-1">
           {/* Sample data, no sign-in: what a family sees, for anyone curious (judges too). */}
-          <Link href="/kid?demo=1" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold text-muted hover:bg-page hover:text-ink sm:px-4">
+          <Link href="/kid?demo=1" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold whitespace-nowrap text-muted hover:bg-page hover:text-ink sm:px-4">
             See a demo
           </Link>
-          <Link href="/start" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold text-action hover:bg-action-tint sm:px-4">
+          <Link href="/start" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold whitespace-nowrap text-action hover:bg-action-tint sm:px-4">
             Sign in
           </Link>
         </nav>

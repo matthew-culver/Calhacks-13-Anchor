@@ -40,10 +40,11 @@ export function Screen({
  * parent's page, the invite).
  */
 export function SiteHeader({ home = "/", children, wide }: { home?: string | null; children?: ReactNode; wide?: boolean }) {
+  // On a narrow phone with links beside it, the mark alone says Anchor (the links need the room).
   const brand = (
     <span className="flex items-center gap-3">
       <LogoMark className="h-10 w-10" />
-      <span className="text-2xl font-bold tracking-tight text-brand">Anchor</span>
+      <span className={`text-2xl font-bold tracking-tight whitespace-nowrap text-brand ${children ? "max-[439px]:sr-only" : ""}`}>Anchor</span>
     </span>
   );
   return (

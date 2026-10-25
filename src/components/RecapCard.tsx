@@ -13,9 +13,9 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 
 function Stat({ label, value, className = "text-ink" }: { label: string; value: number; className?: string }) {
   return (
-    <div className="flex flex-col-reverse justify-end rounded-2xl bg-page px-4 py-3">
-      <dt className="text-base font-semibold text-muted">{label}</dt>
-      <dd className={`text-4xl leading-tight font-bold tabular-nums ${className}`}>{value}</dd>
+    <div className="flex flex-col-reverse justify-end rounded-2xl bg-page px-3 py-3 sm:px-4">
+      <dt className="text-sm leading-snug font-semibold text-muted sm:text-base">{label}</dt>
+      <dd className={`text-3xl leading-tight font-bold tabular-nums sm:text-4xl ${className}`}>{value}</dd>
     </div>
   );
 }
@@ -32,7 +32,7 @@ export function KidRecapCard({
 }) {
   return (
     <Card>
-      <dl className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+      <dl className="grid grid-cols-3 gap-2 sm:gap-3">
         {recap && <Stat label="Checked" value={recap.checked} />}
         {recap && <Stat label="Held" value={recap.held} className="text-fake" />}
         <Stat label={needAnswer === 1 ? "Needs an answer" : "Need an answer"} value={needAnswer} className="text-unsure" />
