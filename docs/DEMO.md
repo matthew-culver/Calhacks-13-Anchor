@@ -92,11 +92,13 @@ Anchor page shows the question under "Your questions for Lucas" with your answer
 Reply, it comes straight to you. "She doesn't have to call me and read it out loud anymore. One
 move in Gmail and I've got it."
 
-**5b. Someone pretending to be family (30 s, optional).** Matt first sends Mom any normal
-email (Anchor learns the name he goes by). Then the scammer Gmail changes its display name to
-Matt's exact name and sends **email E**. Run the poll. It's flagged: "It uses the name Matthew
-Culver, someone you know, but from an address they've never used with you." "Spam filters
-don't know who your family is. Anchor does."
+**5b. Someone pretending to be family (30 s, optional).** The classic "Grandma, it's me" scam.
+The scammer Gmail changes its display name to the name of someone Mom knows and sends **email
+E**. On the current inbox, Anchor already knows **"Lucas Culver"** (from your other Gmail), so use
+that: a stranger pretending to be you. (Any family name works once that person has sent Mom one
+normal email; formal names count too, "Matthew" for "Matt".) Run the poll. It's flagged: "It uses
+the name Lucas Culver, someone you know, but from an address they've never used with you." "Spam
+filters don't know who your family is. Anchor does."
 
 **6. Quiet by design (20 s).** Run the weekly note command. Mom gets one calm email a week,
 only if something happened. "No alert per email. She just has a safer inbox."
@@ -150,8 +152,8 @@ Paste the link as plain text so Gmail makes it a link. Don't add a signature wit
 - Expect: **held**, "Their account may have been hacked"; the investigation reads the message
   (Matt is family) and explains why it doesn't sound like him.
 
-**E. Someone using Matt's name** (from the scammer Gmail, display name set to Matt's exact
-name as it shows in his own emails)
+**E. Someone using a family member's name** (from the scammer Gmail, display name set to
+"Lucas Culver", or to the name of anyone who has sent Mom a normal email)
 - Subject: `new email address`
 - Body:
   ```
@@ -159,7 +161,7 @@ name as it shows in his own emails)
   I need to ask you something important.
   ```
 - Expect: **Check with Lucas** (unsure): "It uses the name ..., someone you know, but from an
-  address they've never used with you." Matt must have sent Mom one normal email first.
+  address they've never used with you." If you add "buy gift cards and keep it secret", it's held.
 
 ## If something goes wrong
 
