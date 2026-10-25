@@ -94,9 +94,10 @@ export function authenticatedFor(authResults: string[], sender: Mailbox): boolea
   return headerAuth(email).status === "pass";
 }
 
-type Key = { kind: "org" | "person"; key: string };
+export type Key = { kind: "org" | "person"; key: string };
 
-function keyFor(m: Mailbox): Key {
+/** How a sender is keyed in `relationships`: by address for personal mailboxes, else by domain. */
+export function keyFor(m: Mailbox): Key {
   const registrable = registrableDomain(m.domain);
   if (FREEMAIL.has(registrable)) return { kind: "person", key: m.address };
   return { kind: "org", key: registrable };
