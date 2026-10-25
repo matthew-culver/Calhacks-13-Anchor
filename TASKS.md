@@ -24,7 +24,10 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
   2. **Exchange first, then consume.** On the callback: check the nonce matches the cookie, exchange the code, verify the ID token (`email_verified`), and require the Google email to equal `family.parentEmail` (lowercase, treat `googlemail.com` as `gmail.com`). Require scope `gmail.modify` only. Use `access_type=offline` and `prompt=consent`.
   3. **Connect in one internal mutation:** re-check status and expiry, insert `gmailTokens`, set `learning` and `connectedAt`, clear `inviteToken`, `inviteExpiresAt` and the nonce. If anything fails before this, the invite must still work.
   4. **Redirect** the parent to a page keyed by `parentToken` (the done screen), not back to `/invite/[token]`, which shows nothing once the invite is used.
-- [ ] **A4. History import → My Accounts.** Read 2 years of headers only. Build `relationships`, then `accounts` from a curated directory of about 40 common organizations (domains plus official login URL).
+- [x] **A4. History import → My Accounts.** Read 2 years of headers only. Build `relationships`, then `accounts` from a curated directory of about 40 common organizations (domains plus official login URL).
+  - Runs on its own after the parent connects. Status goes `learning` → `active`.
+  - **Demo mode** builds My Accounts from a sample inbox (no Gmail needed): `npx convex run gmailImport:importSample '{"familyId":"<id>"}'`. Find the family id in the Convex dashboard under Data → families.
+  - An org only counts as an account after 3 or more authenticated emails over at least 2 weeks (or after the parent wrote to it), so a scam, or one triggered email, can't plant one.
 - [ ] **Checkpoint 1 (hour 6):** a real Gmail connects and My Accounts appears.
 - [ ] **A5. New mail → verdict.** Notes from the A3 review:
   - **Refresh tokens expire after 7 days in Google's testing mode.** When Google's token endpoint answers `invalid_grant`, set the family to `needs_reconnect`, and the kid's screen offers a new link. **Reconnect the demo accounts right before presenting.**
@@ -69,7 +72,10 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
       | `google_error` | "Google had a hiccup. Please try again in a minute." |
       Use the reason only for the wording. Don't put tokens or emails in this URL.
 - [ ] **B3. Kid feed** from `mockFeed`: needs-answer items first, held items below. A detail view shows the plain checks. Add "It's fine" and "It's a scam" buttons plus an optional note.
-- [ ] **B4. My Accounts:** a kid version and a parent big-text version (`/p/[token]`). No link when `loginUrl` is empty.
+- [ ] **B4. My Accounts:** a kid version and a parent big-text version (`/p/[token]`). No link when `loginUrl` is empty. A4 is live:
+  - Kid: `useQuery(api.accounts.myAccounts)`. Parent: `useQuery(api.accounts.parentAccounts, { parentToken })`. Both return `{ _id, orgName, category, officialDomains, loginUrl?, firstSeen, messageCount }[]`, sorted by name.
+  - While `getMyFamily().status === "learning"`, show "Learning who [parent] really deals with…". It takes under a minute.
+  - Say "in your email for 2 years" rather than "customer since". It's mail seen, not proof of an account.
 - [ ] **B5. Weekly recap card** ("41 checked, 2 held, 0 need a call") and the parent's "Turn it off" button. Make "Turn it off" a button that triggers a mutation, never a plain link. Email scanners open links automatically and would switch it off. The parent page is view-only otherwise.
 - [ ] **Checkpoint 1 (hour 6):** swap mocks for real Convex queries where A's functions exist.
 - [ ] **B6. Accessibility pass** (ECC `accessibility` skill) on the parent screens.

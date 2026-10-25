@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as accounts from "../accounts.js";
 import type * as auth from "../auth.js";
 import type * as checks_brands from "../checks/brands.js";
 import type * as checks_claimedIdentity from "../checks/claimedIdentity.js";
@@ -24,9 +25,14 @@ import type * as checks_types from "../checks/types.js";
 import type * as contract from "../contract.js";
 import type * as families from "../families.js";
 import type * as gmailConnect from "../gmailConnect.js";
+import type * as gmailImport from "../gmailImport.js";
+import type * as googleAuth from "../googleAuth.js";
 import type * as http from "../http.js";
 import type * as lib_env from "../lib/env.js";
+import type * as lib_history from "../lib/history.js";
 import type * as lib_oauth from "../lib/oauth.js";
+import type * as lib_orgDirectory from "../lib/orgDirectory.js";
+import type * as lib_sampleHistory from "../lib/sampleHistory.js";
 import type * as lib_tokens from "../lib/tokens.js";
 
 import type {
@@ -36,6 +42,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accounts: typeof accounts;
   auth: typeof auth;
   "checks/brands": typeof checks_brands;
   "checks/claimedIdentity": typeof checks_claimedIdentity;
@@ -52,9 +59,14 @@ declare const fullApi: ApiFromModules<{
   contract: typeof contract;
   families: typeof families;
   gmailConnect: typeof gmailConnect;
+  gmailImport: typeof gmailImport;
+  googleAuth: typeof googleAuth;
   http: typeof http;
   "lib/env": typeof lib_env;
+  "lib/history": typeof lib_history;
   "lib/oauth": typeof lib_oauth;
+  "lib/orgDirectory": typeof lib_orgDirectory;
+  "lib/sampleHistory": typeof lib_sampleHistory;
   "lib/tokens": typeof lib_tokens;
 }>;
 

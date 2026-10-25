@@ -131,3 +131,35 @@ export function idTokenOk(claims: IdTokenClaims | null, clientId: string): claim
     (claims.iss === "https://accounts.google.com" || claims.iss === "accounts.google.com")
   );
 }
+
+export type RefreshResult =
+  | { ok: true; accessToken: string; expiresAt: number }
+  | { ok: false; reconnect: boolean }; // reconnect: Google revoked or expired the grant
+
+/**
+ * Trade the refresh token for a fresh access token. Google answers `invalid_grant` when the
+ * parent removed access or (in testing mode) after 7 days: then the parent must reconnect.
+ */
+export async function refreshAccessToken(
+  cfg: { clientId: string; clientSecret: string },
+  refreshToken: string,
+): Promise<RefreshResult> {
+  try {
+    const res = await fetch(GOOGLE_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }).toString(),
+      signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
+    });
+    const body = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error?: string };
+    if (!res.ok || !body.access_token) return { ok: false, reconnect: body.error === "invalid_grant" };
+    return { ok: true, accessToken: body.access_token, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 };
+  } catch {
+    return { ok: false, reconnect: false };
+  }
+}
