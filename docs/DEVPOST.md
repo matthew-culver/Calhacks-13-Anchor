@@ -116,14 +116,28 @@ twins: both of us should see what Mom gets, and whoever answers first is the one
 
 ## Prize tracks
 
-- **Meta, Bringing People Closer:** the family loop is the product: worry calls become a
-  one-tap answer in the kid's own words, and the parent can ask from inside Gmail.
-- **Anthropic:** a named community, a problem we live, it works on a real inbox, and Claude's
-  limits are enforced in code.
-- **Microsoft, Built for the Real World:** measured accuracy, a clear path to production
-  (Google verification), responsible design.
-- **Convex:** crons, scheduled jobs, actions, auth and live queries are the whole backend.
-- **People-First, Security (Armadin).**
+Sponsor tracks:
+
+- **Meta/Facebook: Bringing People Closer Together with AI:** the family loop is the product.
+  Worry calls become a one-tap answer in the kid's own words, the parent can ask from inside
+  Gmail, and the AI investigation is what lets the kid answer with confidence.
+- **Anthropic:** a named community (adult children of parents in their 70s who manage their own
+  email), a problem we live, it works on a real inbox, and Claude does the investigating with
+  its limits enforced in code (`docs/SECURITY.md`).
+- **Grand Prize: Built for the Real World (Microsoft):** a production-minded AI agent against
+  elder fraud. Measured accuracy (25 of 25 scams caught, 0 of 33 real emails held), a path to
+  production through Google's verification, responsible design, and it works end to end.
+- **Microsoft Customer Impact Award:** the same case as above.
+- **Best use of Convex:** Convex is the whole backend. Live queries update the kid's feed and the
+  investigation steps as they happen, a cron checks every family's mail each minute, scheduled
+  jobs retry Gmail actions, HTTP actions complete the parent's Google connection, and Convex
+  Auth signs in the kid.
+- **Best Security Hack, sponsored by Armadin:** prompt-injection defense, safe link following
+  (tracking codes stripped, private networks blocked), and every risk tied to a guard in code
+  and a test.
+
+Cal Hacks prizes: **Best People-First Hack**, plus **First / Second / Third Overall**, **Most
+Creative Hack**, **Most Technically Complex Hack** and **Hacker's Choice**.
 
 **Built with:** Convex, Next.js, TypeScript, Tailwind CSS, Gmail API, Google OAuth, Claude
 (Anthropic API with web search and web fetch), RDAP, Google Safe Browsing, Vitest.
