@@ -5,5 +5,12 @@ import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [Password],
+  providers: [
+    Password({
+      // One account per address, whatever the capitals: "Lucas@x.com" is "lucas@x.com".
+      profile(params) {
+        return { email: String(params.email ?? "").trim().toLowerCase() };
+      },
+    }),
+  ],
 });

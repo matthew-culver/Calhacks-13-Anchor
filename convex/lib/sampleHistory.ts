@@ -7,7 +7,7 @@ import type { HeaderRecord } from "./history";
 const DAY = 24 * 60 * 60 * 1000;
 const PASS = ["mx.google.com; spf=pass; dkim=pass; dmarc=pass (p=REJECT)"];
 const FAIL = ["mx.google.com; spf=fail; dkim=none; dmarc=fail (p=REJECT)"];
-const PARENT = "Mom <mom.culver@gmail.com>";
+const PARENT = "Mom <mom@example.com>";
 
 // [From, how many emails, first seen (days ago)]
 const SENDERS: [string, number, number][] = [
@@ -20,7 +20,7 @@ const SENDERS: [string, number, number][] = [
   ["Social Security <noreply@ssa.gov>", 4, 360],
   ["Amazon.com <shipment-tracking@amazon.com>", 120, 720],
   ["AARP <member@email.aarp.org>", 20, 500],
-  ["Aunt Sue <sue.culver@gmail.com>", 35, 720],
+  ["Aunt Sue <sue@example.com>", 35, 720],
   ["Lucas <lucas@example.com>", 50, 720],
   ["Sunrise Senior Center <news@sunrisecenter.org>", 17, 270],
 ];
@@ -34,7 +34,7 @@ export function sampleRecords(now = Date.now()): HeaderRecord[] {
     }
   }
   for (let i = 0; i < 12; i++) {
-    records.push({ from: PARENT, to: "Aunt Sue <sue.culver@gmail.com>", authResults: [], date: now - i * 30 * DAY, sent: true });
+    records.push({ from: PARENT, to: "Aunt Sue <sue@example.com>", authResults: [], date: now - i * 30 * DAY, sent: true });
   }
   records.push(
     { from: "Chase <alerts@chase.com>", to: PARENT, authResults: FAIL, date: now - 2 * DAY, sent: false },

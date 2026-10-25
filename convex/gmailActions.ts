@@ -8,6 +8,10 @@
 //   npx convex env set ANCHOR_GMAIL_ACTIONS on
 // With it off, verdicts and answers are still recorded; only the Gmail changes are skipped.
 // Scope is gmail.modify: labels, archive and insert. Anchor never sends or deletes mail.
+//
+// Rules for the parent note: it never quotes anything the email's sender wrote (names,
+// subjects), only our fixed sentences, the brand from our own list, and the kid's words with
+// links, addresses and numbers removed.
 
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
@@ -15,7 +19,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { type ActionCtx, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { accessTokenFor } from "./googleAuth";
 import { GmailError, gmailRequest } from "./lib/gmailApi";
-import { buildNote, cleanKidNote } from "./lib/parentNote";
+import { buildNote, cleanKidNote, noteMessageId } from "./lib/parentNote";
 import schema from "./schema";
 
 const MAX_ATTEMPTS = 3;
@@ -72,8 +76,18 @@ export const contextForVerdict = internalQuery({
   },
 });
 
+export const contextForFeedItem = internalQuery({
+  args: { feedItemId: v.id("feedItems") },
+  returns: v.union(v.null(), v.object({ verdictId: v.id("verdicts") })),
+  handler: async (ctx, { feedItemId }) => {
+    const item = await ctx.db.get(feedItemId);
+    return item ? { verdictId: item.verdictId } : null;
+  },
+});
+
+/** Save label ids, or clear them (all undefined) when Gmail says they no longer exist. */
 export const saveLabelIds = internalMutation({
-  args: { familyId: v.id("families"), held: v.string(), check: v.string(), note: v.string() },
+  args: { familyId: v.id("families"), held: v.optional(v.string()), check: v.optional(v.string()), note: v.optional(v.string()) },
   returns: v.null(),
   handler: async (ctx, { familyId, held, check, note }) => {
     const tokens = await ctx.db
@@ -85,35 +99,37 @@ export const saveLabelIds = internalMutation({
   },
 });
 
-export const markVerdict = internalMutation({
-  args: { verdictId: v.id("verdicts"), actionApplied: v.optional(v.boolean()), noteSent: v.optional(v.boolean()) },
+export const markActionApplied = internalMutation({
+  args: { verdictId: v.id("verdicts") },
   returns: v.null(),
-  handler: async (ctx, { verdictId, actionApplied, noteSent }) => {
-    const verdict = await ctx.db.get(verdictId);
-    if (!verdict) return null;
-    await ctx.db.patch(verdictId, {
-      ...(actionApplied && { actionAppliedAt: Date.now() }),
-      ...(noteSent && { parentNoteSentAt: Date.now() }),
-    });
+  handler: async (ctx, { verdictId }) => {
+    if (await ctx.db.get(verdictId)) await ctx.db.patch(verdictId, { actionAppliedAt: Date.now() });
     return null;
   },
 });
 
+/**
+ * Record a note we put in the parent's inbox AND mark what it was for, in one transaction, so
+ * a retry can never find "note sent" without the watcher also knowing to skip that message.
+ */
 export const recordNote = internalMutation({
-  args: { familyId: v.id("families"), gmailMessageId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.insert("anchorNotes", args);
-    return null;
+  args: {
+    familyId: v.id("families"),
+    gmailMessageId: v.string(),
+    verdictId: v.optional(v.id("verdicts")),
+    feedItemId: v.optional(v.id("feedItems")),
   },
-});
-
-export const markAnswerApplied = internalMutation({
-  args: { feedItemId: v.id("feedItems") },
   returns: v.null(),
-  handler: async (ctx, { feedItemId }) => {
-    const item = await ctx.db.get(feedItemId);
-    if (item) await ctx.db.patch(feedItemId, { answerAppliedAt: Date.now() });
+  handler: async (ctx, { familyId, gmailMessageId, verdictId, feedItemId }) => {
+    const family = await ctx.db.get(familyId);
+    if (!family || family.status === "off") return null; // turned off meanwhile: leave nothing behind
+    const known = await ctx.db
+      .query("anchorNotes")
+      .withIndex("by_family_message", (q) => q.eq("familyId", familyId).eq("gmailMessageId", gmailMessageId))
+      .first();
+    if (!known) await ctx.db.insert("anchorNotes", { familyId, gmailMessageId });
+    if (verdictId && (await ctx.db.get(verdictId))) await ctx.db.patch(verdictId, { parentNoteSentAt: Date.now() });
+    if (feedItemId && (await ctx.db.get(feedItemId))) await ctx.db.patch(feedItemId, { answerAppliedAt: Date.now() });
     return null;
   },
 });
@@ -122,48 +138,106 @@ export const markAnswerApplied = internalMutation({
 
 type Labels = { held: string; check: string; note: string };
 
+async function listLabels(accessToken: string) {
+  const res = await gmailRequest<{ labels?: { id: string; name: string }[] }>(accessToken, "/labels");
+  // Gmail label names are unique ignoring case.
+  return new Map((res.labels ?? []).map((l) => [l.name.toLowerCase(), l.id]));
+}
+
 async function ensureLabels(ctx: ActionCtx, c: Context, accessToken: string): Promise<Labels> {
   if (c.labels.held && c.labels.check && c.labels.note) return c.labels as Labels;
-  const wanted = { held: HELD_LABEL, check: checkLabelName(c.family.kidName), note: NOTE_LABEL };
-  const existing = await gmailRequest<{ labels?: { id: string; name: string }[] }>(accessToken, "/labels");
-  const byName = new Map((existing.labels ?? []).map((l) => [l.name, l.id]));
+  const wanted: Labels = { held: HELD_LABEL, check: checkLabelName(c.family.kidName), note: NOTE_LABEL };
+  let byName = await listLabels(accessToken);
   const ids: Partial<Labels> = {};
-  for (const [key, name] of Object.entries(wanted) as [keyof Labels, string][]) {
-    ids[key] =
-      byName.get(name) ??
-      (
-        await gmailRequest<{ id: string }>(accessToken, "/labels", {
-          method: "POST",
-          body: { name, labelListVisibility: "labelShow", messageListVisibility: "show" },
-        })
-      ).id;
+  for (const key of Object.keys(wanted) as (keyof Labels)[]) {
+    const name = wanted[key];
+    let id = byName.get(name.toLowerCase());
+    if (!id) {
+      try {
+        id = (
+          await gmailRequest<{ id: string }>(accessToken, "/labels", {
+            method: "POST",
+            body: { name, labelListVisibility: "labelShow", messageListVisibility: "show" },
+          })
+        ).id;
+      } catch (e) {
+        // 409: it exists after all (another action just made it, or different case). Use it.
+        if (!(e instanceof GmailError && e.status === 409)) throw e;
+        byName = await listLabels(accessToken);
+        id = byName.get(name.toLowerCase());
+        if (!id) throw e;
+      }
+    }
+    ids[key] = id;
   }
   await ctx.runMutation(internal.gmailActions.saveLabelIds, { familyId: c.family._id, ...(ids as Labels) });
+  c.labels = ids as Labels;
   return ids as Labels;
 }
 
 async function modify(accessToken: string, messageId: string, add: string[], remove: string[]) {
-  await gmailRequest(accessToken, `/messages/${encodeURIComponent(messageId)}/modify`, {
-    method: "POST",
-    body: { addLabelIds: add, removeLabelIds: remove },
-  });
+  try {
+    await gmailRequest(accessToken, `/messages/${encodeURIComponent(messageId)}/modify`, {
+      method: "POST",
+      body: { addLabelIds: add, removeLabelIds: remove },
+    });
+  } catch (e) {
+    if (!(e instanceof GmailError && e.status === 404)) throw e; // deleted meanwhile: nothing to move
+  }
 }
 
-async function insertNote(ctx: ActionCtx, accessToken: string, c: Context, labels: Labels, subject: string, lines: string[]) {
-  const site = process.env.SITE_URL?.replace(/\/+$/, "") ?? "";
-  const raw = buildNote({
-    to: c.family.parentEmail,
-    kidName: c.family.kidName,
-    subject,
-    lines,
-    parentPageUrl: `${site}/p/${c.family.parentToken}`,
+/** Run Gmail steps that use our labels; if Gmail says a cached label is gone (400), re-create once. */
+async function withLabels(ctx: ActionCtx, c: Context, token: string, steps: (labels: Labels) => Promise<void>) {
+  const usedCache = c.labels.held !== undefined && c.labels.check !== undefined && c.labels.note !== undefined;
+  try {
+    await steps(await ensureLabels(ctx, c, token));
+  } catch (e) {
+    if (!(e instanceof GmailError && e.status === 400 && usedCache)) throw e;
+    await ctx.runMutation(internal.gmailActions.saveLabelIds, { familyId: c.family._id });
+    c.labels = {};
+    await steps(await ensureLabels(ctx, c, token));
+  }
+}
+
+/** Put a plain-text note in the parent's inbox, exactly once per key. */
+async function sendNote(
+  ctx: ActionCtx,
+  token: string,
+  c: Context,
+  labels: Labels,
+  note: { key: string; subject: string; lines: string[]; verdictId?: Id<"verdicts">; feedItemId?: Id<"feedItems"> },
+) {
+  const site = process.env.SITE_URL?.replace(/\/+$/, "");
+  if (!site) throw new Error("SITE_URL is not set");
+  // Already sent by an earlier attempt that failed afterwards? Then just record it.
+  const existing = await gmailRequest<{ messages?: { id: string }[] }>(token, "/messages", {
+    params: { q: `rfc822msgid:${noteMessageId(note.key)}`, includeSpamTrash: "true", maxResults: "1" },
   });
-  const inserted = await gmailRequest<{ id: string }>(accessToken, "/messages", {
-    method: "POST",
-    params: { internalDateSource: "dateHeader" },
-    body: { raw, labelIds: ["INBOX", "UNREAD", labels.note] },
+  let id = existing.messages?.[0]?.id;
+  if (!id) {
+    const raw = buildNote({
+      messageId: note.key,
+      to: c.family.parentEmail,
+      kidName: c.family.kidName,
+      subject: note.subject,
+      lines: note.lines,
+      parentPageUrl: `${site}/p/${c.family.parentToken}`,
+    });
+    id = (
+      await gmailRequest<{ id: string }>(token, "/messages", {
+        method: "POST",
+        params: { internalDateSource: "dateHeader" },
+        body: { raw, labelIds: ["INBOX", "UNREAD", labels.note] },
+        retry: false, // a 5xx may still have stored it: the search above catches that next time
+      })
+    ).id;
+  }
+  await ctx.runMutation(internal.gmailActions.recordNote, {
+    familyId: c.family._id,
+    gmailMessageId: id,
+    ...(note.verdictId && { verdictId: note.verdictId }),
+    ...(note.feedItemId && { feedItemId: note.feedItemId }),
   });
-  await ctx.runMutation(internal.gmailActions.recordNote, { familyId: c.family._id, gmailMessageId: inserted.id });
 }
 
 /** Run a Gmail step with one forced token refresh on 401. Returns false if it can't run now. */
@@ -191,15 +265,7 @@ function nextDelay(attempt: number, what: string, why: string): number | null {
   return 30_000 * 2 ** (attempt - 1);
 }
 
-async function retryVerdict(ctx: ActionCtx, verdictId: Id<"verdicts">, attempt: number, why: string) {
-  const delay = nextDelay(attempt, "applyVerdict", why);
-  if (delay !== null) await ctx.scheduler.runAfter(delay, internal.gmailActions.applyVerdict, { verdictId, attempt: attempt + 1 });
-}
-
-async function retryAnswer(ctx: ActionCtx, feedItemId: Id<"feedItems">, attempt: number, why: string) {
-  const delay = nextDelay(attempt, "applyAnswer", why);
-  if (delay !== null) await ctx.scheduler.runAfter(delay, internal.gmailActions.applyAnswer, { feedItemId, attempt: attempt + 1 });
-}
+const errorText = (e: unknown) => (e instanceof GmailError ? e.message : e instanceof Error ? e.name : "error");
 
 // ---------- actions ----------
 
@@ -215,78 +281,89 @@ export const applyVerdict = internalAction({
     if (c.feedItem?.kidAnswer) return null; // the kid already decided; applyAnswer handles it
 
     try {
-      const ok = await withAccess(ctx, c.family._id, async (token) => {
-        const labels = await ensureLabels(ctx, c, token);
-        if (c.verdict.actionAppliedAt === undefined) {
-          try {
+      const ok = await withAccess(ctx, c.family._id, (token) =>
+        withLabels(ctx, c, token, async (labels) => {
+          if (c.verdict.actionAppliedAt === undefined) {
             if (c.verdict.level === "fake") await modify(token, c.verdict.gmailMessageId, [labels.held], ["INBOX"]);
             else await modify(token, c.verdict.gmailMessageId, [labels.check], []);
-          } catch (e) {
-            if (!(e instanceof GmailError && e.status === 404)) throw e; // deleted meanwhile: nothing to move
+            await ctx.runMutation(internal.gmailActions.markActionApplied, { verdictId });
           }
-          await ctx.runMutation(internal.gmailActions.markVerdict, { verdictId, actionApplied: true });
-        }
-        if (c.verdict.parentNoteSentAt === undefined) {
-          const subject =
-            c.verdict.level === "fake"
-              ? `We held a message pretending to be ${c.verdict.claimedOrg ?? "someone you know"}`
-              : `We asked ${c.family.kidName} about a message`;
-          await insertNote(ctx, token, c, labels, subject, [c.verdict.explanationForParent ?? ""]);
-          await ctx.runMutation(internal.gmailActions.markVerdict, { verdictId, noteSent: true });
-        }
-      });
-      if (!ok) await retryVerdict(ctx, verdictId, attempt, "no Gmail access right now");
+          if (c.verdict.parentNoteSentAt === undefined) {
+            const org = c.verdict.claimedOrg; // from our own brand list, never the sender's text
+            await sendNote(ctx, token, c, labels, {
+              key: `verdict-${verdictId}`,
+              subject: c.verdict.level === "fake" ? `We held a message pretending to be ${org ?? "someone you know"}` : `We asked ${c.family.kidName} about a message`,
+              lines: [c.verdict.explanationForParent ?? ""],
+              verdictId,
+            });
+          }
+        }),
+      );
+      if (!ok) {
+        const delay = nextDelay(attempt, "applyVerdict", "no Gmail access right now");
+        if (delay !== null) await ctx.scheduler.runAfter(delay, internal.gmailActions.applyVerdict, { verdictId, attempt: attempt + 1 });
+        return null;
+      }
+      // The kid may have answered while we were holding it: their answer must win in Gmail.
+      const after: Context | null = await ctx.runQuery(internal.gmailActions.contextForVerdict, { verdictId });
+      if (after?.feedItem?.kidAnswer) {
+        await ctx.scheduler.runAfter(0, internal.gmailActions.applyAnswer, { feedItemId: after.feedItem._id, labelsOnly: true });
+      }
     } catch (e) {
-      await retryVerdict(ctx, verdictId, attempt, e instanceof Error ? e.message : "error");
+      const delay = nextDelay(attempt, "applyVerdict", errorText(e));
+      if (delay !== null) await ctx.scheduler.runAfter(delay, internal.gmailActions.applyVerdict, { verdictId, attempt: attempt + 1 });
     }
     return null;
   },
 });
 
-export const contextForFeedItem = internalQuery({
-  args: { feedItemId: v.id("feedItems") },
-  returns: v.union(v.null(), v.object({ verdictId: v.id("verdicts") })),
-  handler: async (ctx, { feedItemId }) => {
-    const item = await ctx.db.get(feedItemId);
-    return item ? { verdictId: item.verdictId } : null;
-  },
-});
-
-/** After the kid answers: release or hold the email, then pass the kid's words to the parent. */
+/**
+ * After the kid answers: release or hold the email, then pass the kid's words to the parent.
+ * `labelsOnly` re-applies just the Gmail labels (when a hold landed after the answer).
+ */
 export const applyAnswer = internalAction({
-  args: { feedItemId: v.id("feedItems"), attempt: v.optional(v.number()) },
+  args: { feedItemId: v.id("feedItems"), attempt: v.optional(v.number()), labelsOnly: v.optional(v.boolean()) },
   returns: v.null(),
-  handler: async (ctx, { feedItemId, attempt = 1 }) => {
+  handler: async (ctx, { feedItemId, attempt = 1, labelsOnly }) => {
     if (!actionsEnabled()) return null;
     const ref = await ctx.runQuery(internal.gmailActions.contextForFeedItem, { feedItemId });
     if (!ref) return null;
     const c: Context | null = await ctx.runQuery(internal.gmailActions.contextForVerdict, { verdictId: ref.verdictId });
     const answer = c?.feedItem?.kidAnswer;
-    if (!c || !answer || c.family.status === "off" || c.feedItem?.answerAppliedAt !== undefined) return null;
+    if (!c || !answer || c.family.status === "off") return null;
+    if (!labelsOnly && c.feedItem?.answerAppliedAt !== undefined) return null;
 
+    const retry = async (why: string) => {
+      const delay = nextDelay(attempt, "applyAnswer", why);
+      if (delay !== null) {
+        await ctx.scheduler.runAfter(delay, internal.gmailActions.applyAnswer, { feedItemId, attempt: attempt + 1, ...(labelsOnly && { labelsOnly }) });
+      }
+    };
     try {
-      const ok = await withAccess(ctx, c.family._id, async (token) => {
-        const labels = await ensureLabels(ctx, c, token);
-        try {
+      const ok = await withAccess(ctx, c.family._id, (token) =>
+        withLabels(ctx, c, token, async (labels) => {
           if (answer.answer === "fine") await modify(token, c.verdict.gmailMessageId, ["INBOX"], [labels.held, labels.check]);
           else await modify(token, c.verdict.gmailMessageId, [labels.held], ["INBOX", labels.check]);
-        } catch (e) {
-          if (!(e instanceof GmailError && e.status === 404)) throw e;
-        }
-        const from = c.verdict.fromName || c.verdict.claimedOrg || "a sender";
-        const kidWords = cleanKidNote(answer.note);
-        const subject = answer.answer === "fine" ? `${c.family.kidName} says that message is fine` : `${c.family.kidName} says that message is a scam`;
-        const lines =
-          answer.answer === "fine"
-            ? [`${c.family.kidName} looked at the message from "${from}" and says it's fine. It's back in your inbox.`]
-            : [`${c.family.kidName} looked at the message from "${from}" and says it's a scam. We moved it out of your inbox. You don't need to do anything.`];
-        if (kidWords) lines.push(`${c.family.kidName} says: "${kidWords}"`);
-        await insertNote(ctx, token, c, labels, subject, lines);
-        await ctx.runMutation(internal.gmailActions.markAnswerApplied, { feedItemId });
-      });
-      if (!ok) await retryAnswer(ctx, feedItemId, attempt, "no Gmail access right now");
+          if (labelsOnly) return;
+          const kid = c.family.kidName;
+          const what = c.verdict.claimedOrg ? `the message that said it was from ${c.verdict.claimedOrg}` : "the message we asked about";
+          const kidWords = cleanKidNote(answer.note);
+          const lines =
+            answer.answer === "fine"
+              ? [`${kid} looked at ${what} and says it's fine. It's back in your inbox.`]
+              : [`${kid} looked at ${what} and says it's a scam. We moved it out of your inbox. You don't need to do anything.`];
+          if (kidWords) lines.push(`${kid} says: "${kidWords}"`);
+          await sendNote(ctx, token, c, labels, {
+            key: `answer-${feedItemId}`,
+            subject: answer.answer === "fine" ? `${kid} says that message is fine` : `${kid} says that message is a scam`,
+            lines,
+            feedItemId,
+          });
+        }),
+      );
+      if (!ok) await retry("no Gmail access right now");
     } catch (e) {
-      await retryAnswer(ctx, feedItemId, attempt, e instanceof Error ? e.message : "error");
+      await retry(errorText(e));
     }
     return null;
   },

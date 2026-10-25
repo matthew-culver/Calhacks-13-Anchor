@@ -14,6 +14,7 @@ beforeEach(() => {
   vi.stubEnv("GOOGLE_CLIENT_SECRET", "secret");
   vi.stubEnv("SITE_URL", "http://localhost:3000");
   vi.stubEnv("CONVEX_SITE_URL", "https://some.convex.site");
+  vi.stubEnv("ANCHOR_IMPORT_RATE", "100000"); // no pacing waits in tests
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -247,6 +248,16 @@ describe("importHistory", () => {
     await t.action(internal.gmailImport.importHistory, { familyId });
     await expect(t.action(internal.gmailImport.importSample, { familyId })).rejects.toThrow(/real Gmail history/);
   });
+});
+
+test("paces requests under Gmail's quota", async () => {
+  vi.stubEnv("ANCHOR_IMPORT_RATE", "400"); // 8 per batch -> at least 20 ms per batch
+  const { t, familyId } = await connected();
+  const many: Msg[] = Array.from({ length: 80 }, (_, i) => ({ id: `p${i}`, from: `Kaiser <x@kp.org>`, date: Date.now() - i * 3600_000 }));
+  fakeGoogle({ messages: many });
+  const started = Date.now();
+  await t.action(internal.gmailImport.importHistory, { familyId });
+  expect(Date.now() - started).toBeGreaterThanOrEqual(180); // 10 batches x 20 ms, with slack
 });
 
 describe("My Accounts queries", () => {

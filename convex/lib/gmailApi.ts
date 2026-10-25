@@ -17,7 +17,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function gmailRequest<T>(
   accessToken: string,
   path: string,
-  init: { method?: "GET" | "POST"; params?: Record<string, string>; body?: unknown } = {},
+  init: { method?: "GET" | "POST"; params?: Record<string, string>; body?: unknown; retry?: boolean } = {},
 ): Promise<T> {
   const url = new URL(`${GMAIL}${path}`);
   for (const [k, value] of Object.entries(init.params ?? {})) url.searchParams.set(k, value);
@@ -33,7 +33,8 @@ export async function gmailRequest<T>(
     });
     if (res.ok) return (res.status === 204 ? null : await res.json()) as T;
     const rateLimited = res.status === 429 || (res.status === 403 && /rateLimit/i.test(await res.clone().text()));
-    if ((rateLimited || res.status >= 500) && attempt < MAX_TRIES) {
+    // A 5xx after a POST may still have taken effect, so non-idempotent calls pass retry: false.
+    if ((rateLimited || (res.status >= 500 && init.retry !== false)) && attempt < MAX_TRIES) {
       const retryAfter = Number(res.headers.get("Retry-After"));
       await sleep(retryAfter > 0 ? Math.min(retryAfter, 10) * 1000 : 2 ** attempt * 250);
       continue;

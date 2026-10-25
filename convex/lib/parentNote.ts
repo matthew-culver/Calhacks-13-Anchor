@@ -33,13 +33,19 @@ export function cleanKidNote(note: string | undefined): string | undefined {
   const cleaned = oneLine(note, MAX_KID_NOTE)
     .replace(/\b(?:https?:\/\/|www\.)\S+/gi, "[link removed]")
     .replace(/\S+@\S+\.\S+/g, "[address removed]")
-    .replace(/\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|net|org|co|io|info|biz|us|xyz|ly|me|app|site|online)\b\S*/gi, "[link removed]")
+    // Any dotted name ending in letters (chase-help.ru, g00gle.link, bit.ly/x): a mangled word
+    // now and then beats a live link reaching the parent.
+    // A dot with no spaces ("chase-help.ru"), or spaced on both sides ("help . com"); a normal
+    // sentence end ("Mom. Love you") has a space only after the dot, so it's left alone.
+    .replace(/\b[a-z0-9-]+(?:(?:\.|\s+\.\s+)[a-z0-9-]+)*(?:\.|\s+\.\s+)[a-z]{2,}\b\S*/gi, "[link removed]")
+    .replace(/\bhxxps?\S*/gi, "[link removed]")
     .replace(/\+?\d[\d\s().-]{6,}\d/g, "[number removed]")
     .trim();
   return cleaned.length > 0 ? cleaned : undefined;
 }
 
 export type Note = {
+  messageId: string; // stable per note, e.g. "verdict-<id>", so a retry can find it already sent
   to: string; // the parent's address
   kidName: string;
   subject: string;
@@ -47,6 +53,11 @@ export type Note = {
   parentPageUrl: string; // our own /p/<parentToken> page
   date?: Date;
 };
+
+/** The RFC 822 Message-ID for a note key. Gmail can search for it: rfc822msgid:<id>. */
+export function noteMessageId(key: string): string {
+  return `<${key.replace(/[^A-Za-z0-9._-]/g, "")}@anchor.invalid>`;
+}
 
 /** base64url raw message for Gmail's messages.insert. */
 export function buildNote(note: Note): string {
@@ -61,6 +72,7 @@ export function buildNote(note: Note): string {
     `To: <${oneLine(note.to, 254).replace(/[<>]/g, "")}>`,
     `Subject: ${encodeWord(oneLine(note.subject, 120))}`,
     `Date: ${(note.date ?? new Date()).toUTCString()}`,
+    `Message-ID: ${noteMessageId(note.messageId)}`,
     "MIME-Version: 1.0",
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: 8bit",

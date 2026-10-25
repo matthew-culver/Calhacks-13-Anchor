@@ -42,6 +42,7 @@ import type * as lib_parentNote from "../lib/parentNote.js";
 import type * as lib_sampleHistory from "../lib/sampleHistory.js";
 import type * as lib_tokens from "../lib/tokens.js";
 import type * as mailWatch from "../mailWatch.js";
+import type * as repair from "../repair.js";
 import type * as turnOff from "../turnOff.js";
 
 import type {
@@ -85,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "lib/sampleHistory": typeof lib_sampleHistory;
   "lib/tokens": typeof lib_tokens;
   mailWatch: typeof mailWatch;
+  repair: typeof repair;
   turnOff: typeof turnOff;
 }>;
 

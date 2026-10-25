@@ -25,6 +25,8 @@ const MAX_PER_POLL = 20;
 const MAX_FAMILIES = 200;
 /** Bigger emails aren't downloaded (attachments could exhaust the action's memory). */
 const MAX_RAW_BYTES = 5 * 1024 * 1024;
+/** Claude explanations per family per hour; beyond that the fixed template is used. */
+const CLAUDE_PER_HOUR = 30;
 /** After this many failed tries an email becomes "unsure: we couldn't check it". */
 const MAX_FAILURES = 3;
 /** Stop starting new emails after this long, well inside the action time limit. */
@@ -213,6 +215,8 @@ export const recordFailure = internalMutation({
   args: { familyId: v.id("families"), gmailMessageId: v.string() },
   returns: v.number(),
   handler: async (ctx, { familyId, gmailMessageId }) => {
+    const family = await ctx.db.get(familyId);
+    if (!family || family.status === "off") return MAX_FAILURES; // turned off: stop retrying, write nothing
     const row = await ctx.db
       .query("pollFailures")
       .withIndex("by_family_message", (q) => q.eq("familyId", familyId).eq("gmailMessageId", gmailMessageId))
@@ -223,6 +227,19 @@ export const recordFailure = internalMutation({
     }
     await ctx.db.insert("pollFailures", { familyId, gmailMessageId, count: 1 });
     return 1;
+  },
+});
+
+/** Flagged emails in the last hour, to cap Claude calls when someone floods the inbox. */
+export const recentFlagged = internalQuery({
+  args: { familyId: v.id("families"), since: v.number() },
+  returns: v.number(),
+  handler: async (ctx, { familyId, since }) => {
+    const items = await ctx.db
+      .query("feedItems")
+      .withIndex("by_family_created", (q) => q.eq("familyId", familyId).gte("createdAt", since))
+      .take(CLAUDE_PER_HOUR + 1);
+    return items.length;
   },
 });
 
@@ -414,6 +431,10 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
   const floor = ruleLevel(checks);
 
   // Claude only for flagged mail: it explains and may raise the level. Real mail stays private.
+  // A flood of scam emails falls back to the template after CLAUDE_PER_HOUR in an hour.
+  const overCap =
+    floor !== "real" &&
+    (await ctx.runQuery(internal.mailWatch.recentFlagged, { familyId, since: Date.now() - 3600_000 })) >= CLAUDE_PER_HOUR;
   const explained =
     floor === "real"
       ? null
@@ -427,7 +448,7 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
             parentName: family.parentName,
             kidName: family.kidName,
           },
-          process.env.ANTHROPIC_API_KEY,
+          overCap ? undefined : process.env.ANTHROPIC_API_KEY,
         );
 
   await ctx.runMutation(internal.mailWatch.saveVerdict, {

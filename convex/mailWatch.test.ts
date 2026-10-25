@@ -325,6 +325,24 @@ describe("pollFamily", () => {
     expect(scheduled.map((s) => s.name)).toContain("gmailActions:applyVerdict");
   });
 
+  test("a flood of scam emails stops calling Claude after 30 in an hour", async () => {
+    const { t, familyId } = await activeFamily();
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 30; i++) {
+        const verdictId = await ctx.db.insert("verdicts", {
+          familyId, gmailMessageId: `old${i}`, receivedAt: Date.now(), level: "fake", ruleLevel: "fake", fromDomain: "x.co", action: "held",
+        });
+        await ctx.db.insert("feedItems", { familyId, verdictId, kind: "held", createdAt: Date.now() });
+      }
+    });
+    const calls = fakeWorld({ messages: { m1: fixture("chase-phish.eml") } });
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    expect(calls.some((c) => c.includes("api.anthropic.com"))).toBe(false);
+    const v = await t.run((ctx) => ctx.db.query("verdicts").withIndex("by_family_gmail_id", (q) => q.eq("familyId", familyId).eq("gmailMessageId", "m1")).first());
+    expect(v).toMatchObject({ level: "fake" }); // still held, with the fixed explanation
+    expect(v!.explanationForParent).toBe("We held a message pretending to be Chase. You don't need to do anything.");
+  });
+
   test("pollAll schedules one poll per active family", async () => {
     const { t } = await activeFamily();
     await t.mutation(internal.mailWatch.pollAll, {});

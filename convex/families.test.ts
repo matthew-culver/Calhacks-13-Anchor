@@ -254,3 +254,31 @@ describe("getParentView", () => {
     expect(await t.query(api.families.getParentView, { parentToken: inviteToken })).toBeNull();
   });
 });
+
+describe("hardening", () => {
+  test("names can't carry phone numbers, links or symbols into the parent's inbox", async () => {
+    const t = convexTest(schema, modules);
+    const { as } = await signedInKid(t);
+    for (const bad of ["Call 1-800-555-0100", "Lucas (visit evil.co)", "Lucas@home", "Mom <b>"]) {
+      await expect(as.mutation(api.families.createFamily, { ...newFamily, kidName: bad }), bad).rejects.toThrow(/letters/i);
+    }
+    // Real names in any language still work.
+    await as.mutation(api.families.createFamily, { ...newFamily, kidName: "José O'Neil-Núñez", parentName: "Mamá" });
+  });
+
+  test("after the parent turned protection off, the kid can set it up again", async () => {
+    const t = convexTest(schema, modules);
+    const { as } = await signedInKid(t);
+    const { familyId } = await as.mutation(api.families.createFamily, newFamily);
+    await t.run((ctx) => ctx.db.patch(familyId, { status: "off" }));
+    const again = await as.mutation(api.families.createFamily, newFamily);
+    expect(again.familyId).not.toEqual(familyId);
+    expect((await as.query(api.families.getMyFamily, {}))?.status).toBe("invited");
+  });
+
+  test("oversized tokens are ignored without a lookup", async () => {
+    const t = convexTest(schema, modules);
+    expect(await t.query(api.families.getInvite, { token: "x".repeat(10_000) })).toBeNull();
+    expect(await t.query(api.families.getParentView, { parentToken: "x".repeat(10_000) })).toBeNull();
+  });
+});

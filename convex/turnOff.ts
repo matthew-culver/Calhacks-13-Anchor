@@ -16,7 +16,7 @@ export const turnOff = mutation({
   args: { parentToken: v.string() },
   returns: v.null(),
   handler: async (ctx, { parentToken }) => {
-    if (parentToken.length === 0) return null;
+    if (parentToken.length === 0 || parentToken.length > 64) return null;
     const family = await ctx.db
       .query("families")
       .withIndex("by_parent_token", (q) => q.eq("parentToken", parentToken))
@@ -40,14 +40,25 @@ export const tokenForRevoke = internalQuery({
   },
 });
 
-/** Revoke Google access first (while we still have the token), then delete the data. */
+/** Revoke tries before giving up on Google (the rest of the data is deleted right away). */
+const MAX_REVOKE_TRIES = 5;
+
+/**
+ * Delete the email-derived data now, and revoke Google access. The Gmail token is deleted
+ * only after Google confirms the revoke (or says the grant is already gone), so a failed
+ * revoke is retried rather than leaving live access with no way to cancel it.
+ */
 export const revokeAndDelete = internalAction({
-  args: { familyId: v.id("families") },
+  args: { familyId: v.id("families"), attempt: v.optional(v.number()) },
   returns: v.null(),
-  handler: async (ctx, { familyId }) => {
-    const refreshToken = await ctx.runQuery(internal.turnOff.tokenForRevoke, { familyId });
-    if (refreshToken) {
-      try {
+  handler: async (ctx, { familyId, attempt = 1 }) => {
+    await ctx.runMutation(internal.turnOff.deleteFamilyData, { familyId, keepToken: true });
+    let revoked = false;
+    try {
+      const refreshToken = await ctx.runQuery(internal.turnOff.tokenForRevoke, { familyId });
+      if (!refreshToken) {
+        revoked = true; // nothing to revoke
+      } else {
         const res = await fetch(GOOGLE_REVOKE_URL, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -55,21 +66,27 @@ export const revokeAndDelete = internalAction({
           signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
         });
         // 400 means the grant was already gone (e.g. the parent removed it in Google). Fine.
-        if (!res.ok && res.status !== 400) console.error(`turnOff: Google revoke returned ${res.status}`);
-      } catch {
-        console.error("turnOff: Google revoke failed; deleting the token anyway");
+        revoked = res.ok || res.status === 400;
+        if (!revoked) console.error(`turnOff: Google revoke returned ${res.status}`);
       }
+    } catch {
+      console.error("turnOff: Google revoke failed");
     }
-    await ctx.runMutation(internal.turnOff.deleteFamilyData, { familyId });
+    if (revoked || attempt >= MAX_REVOKE_TRIES) {
+      if (!revoked) console.error("turnOff: giving up on the Google revoke; deleting the token");
+      await ctx.runMutation(internal.turnOff.deleteFamilyData, { familyId, keepToken: false });
+    } else {
+      await ctx.scheduler.runAfter(60_000 * attempt, internal.turnOff.revokeAndDelete, { familyId, attempt: attempt + 1 });
+    }
     return null;
   },
 });
 
 /** Delete a batch of every table's rows for this family; re-schedule until nothing is left. */
 export const deleteFamilyData = internalMutation({
-  args: { familyId: v.id("families") },
+  args: { familyId: v.id("families"), keepToken: v.optional(v.boolean()) },
   returns: v.null(),
-  handler: async (ctx, { familyId }) => {
+  handler: async (ctx, { familyId, keepToken }) => {
     const family = await ctx.db.get(familyId);
     if (!family || family.status !== "off") return null; // turned back on meanwhile: stop
 
@@ -85,9 +102,11 @@ export const deleteFamilyData = internalMutation({
     await sweep(await ctx.db.query("pollFailures").withIndex("by_family_message", (q) => q.eq("familyId", familyId)).take(BATCH));
     await sweep(await ctx.db.query("anchorNotes").withIndex("by_family_message", (q) => q.eq("familyId", familyId)).take(BATCH));
     await sweep(await ctx.db.query("oauthStates").withIndex("by_family", (q) => q.eq("familyId", familyId)).take(BATCH));
-    await sweep(await ctx.db.query("gmailTokens").withIndex("by_family", (q) => q.eq("familyId", familyId)).take(BATCH));
+    if (!keepToken) {
+      await sweep(await ctx.db.query("gmailTokens").withIndex("by_family", (q) => q.eq("familyId", familyId)).take(BATCH));
+    }
 
-    if (more) await ctx.scheduler.runAfter(0, internal.turnOff.deleteFamilyData, { familyId });
+    if (more) await ctx.scheduler.runAfter(0, internal.turnOff.deleteFamilyData, { familyId, ...(keepToken && { keepToken }) });
     return null;
   },
 });

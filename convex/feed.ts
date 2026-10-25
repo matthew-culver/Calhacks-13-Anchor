@@ -17,7 +17,11 @@ const RECAP_SCAN = 2000;
 
 export const MAX_NOTE = 280;
 
-/** One feed card: the feed item with its verdict attached (the shape the screens use). */
+/**
+ * One feed card: the feed item with its verdict attached (the shape the screens use).
+ * Note: whole documents go to the kid, so any field later added to `verdicts` reaches them too.
+ * Only flagged mail is ever in the feed, and real mail never has a feed item.
+ */
 const feedEntry = schema.doc("feedItems").extend({ verdict: schema.doc("verdicts") });
 
 /** Statuses whose feed the kid can see. Empty before the parent connects and after "off". */
@@ -34,7 +38,7 @@ async function kidFamily(ctx: QueryCtx): Promise<Doc<"families"> | null> {
 }
 
 async function parentFamily(ctx: QueryCtx, parentToken: string): Promise<Doc<"families"> | null> {
-  if (parentToken.length === 0) return null;
+  if (parentToken.length === 0 || parentToken.length > 64) return null;
   const family = await ctx.db
     .query("families")
     .withIndex("by_parent_token", (q) => q.eq("parentToken", parentToken))
@@ -133,8 +137,10 @@ export const answer = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    if ((await getAuthUserId(ctx)) === null) throw new ConvexError("Please sign in first.");
+    if ((args.note ?? "").length > 5000) throw new ConvexError("That note is too long.");
     const family = await kidFamily(ctx);
-    if (!family) throw new ConvexError("Please sign in first.");
+    if (!family) throw new ConvexError("Protection isn't on for your family right now.");
     const item = await ctx.db.get(args.feedItemId);
     if (!item || item.familyId !== family._id) throw new ConvexError("We couldn't find that message.");
     if (item.kidAnswer) throw new ConvexError("You already answered this one.");

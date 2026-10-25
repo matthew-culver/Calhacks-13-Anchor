@@ -23,10 +23,13 @@ afterEach(() => {
 type Call = { method: string; path: string; body: Record<string, unknown> | null };
 
 /** Fake Gmail. `labels` already exist; `fail` makes a path fail N times with a status. */
-function fakeGmail(opts: { labels?: { id: string; name: string }[]; fail?: { match: string; status: number; times: number } } = {}) {
+function fakeGmail(
+  opts: { labels?: { id: string; name: string }[]; fail?: { match: string; status: number; times: number; method?: string }; alreadySent?: string[] } = {},
+) {
   const calls: Call[] = [];
   let failures = opts.fail?.times ?? 0;
   let nextLabel = 1;
+  let nextNote = 1;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL, init?: RequestInit) => {
@@ -38,14 +41,18 @@ function fakeGmail(opts: { labels?: { id: string; name: string }[]; fail?: { mat
         if (url.pathname.endsWith("/revoke")) return json({});
         return json({ access_token: "fresh", expires_in: 3600 });
       }
-      if (opts.fail && failures > 0 && url.pathname.includes(opts.fail.match)) {
+      if (opts.fail && failures > 0 && url.pathname.includes(opts.fail.match) && (!opts.fail.method || opts.fail.method === (init?.method ?? "GET"))) {
         failures--;
         return json({}, opts.fail.status);
       }
       if (url.pathname.endsWith("/labels") && (init?.method ?? "GET") === "GET") return json({ labels: opts.labels ?? [] });
       if (url.pathname.endsWith("/labels")) return json({ id: `Label_${nextLabel++}` });
       if (url.pathname.endsWith("/modify")) return json({});
-      if (url.pathname.endsWith("/messages")) return json({ id: "note-1" });
+      if (url.pathname.endsWith("/messages") && (init?.method ?? "GET") === "GET") {
+        const q = url.searchParams.get("q") ?? "";
+        return json({ messages: (opts.alreadySent ?? []).some((k) => q.includes(k)) ? [{ id: "already-there" }] : [] });
+      }
+      if (url.pathname.endsWith("/messages")) return json({ id: `note-${nextNote++}` });
       return json({}, 404);
     }),
   );
@@ -107,6 +114,7 @@ const noteText = (calls: Call[]) =>
 describe("parent notes", () => {
   test("plain text with our own parent link, encoded headers", () => {
     const raw = buildNote({
+      messageId: "verdict-abc",
       to: "mom@gmail.com",
       kidName: "Lucas",
       subject: "We held a message pretending to be Chase",
@@ -119,12 +127,18 @@ describe("parent notes", () => {
     expect(text).toContain("Line one.");
     expect(text).toContain("See what Lucas sees, or turn Anchor off: http://localhost:3000/p/TOKEN");
     expect(text).not.toMatch(/<html/i);
+    expect(text).toContain("Message-ID: <verdict-abc@anchor.invalid>");
+    expect(text).toContain("\r\n\r\n"); // CRLF between headers and body
   });
 
   test("the kid's words keep their meaning but lose links, addresses and numbers", () => {
     expect(cleanKidNote("Good catch, Mom. Love you!")).toBe("Good catch, Mom. Love you!");
+    expect(cleanKidNote("It's real. Kaiser sends these.")).toBe("It's real. Kaiser sends these.");
     expect(cleanKidNote("go to https://evil.example/login now")).toBe("go to [link removed] now");
     expect(cleanKidNote("visit chase-help.com")).toBe("visit [link removed]");
+    for (const sneaky of ["paypal-help.ru", "chase.top", "chase-login.click", "g00gle.link", "chase - help . com", "hxxps://evil"]) {
+      expect(cleanKidNote(`see ${sneaky} now`), sneaky).toContain("[link removed]");
+    }
     expect(cleanKidNote("email me at x@evil.example")).toBe("email me at [address removed]");
     expect(cleanKidNote("call 1-888-555-0142")).toBe("call [number removed]");
     expect(cleanKidNote("   ")).toBeUndefined();
@@ -165,6 +179,56 @@ describe("applyVerdict", () => {
     expect(tokens).toMatchObject({ heldLabelId: "Label_1", checkLabelId: "Label_2", noteLabelId: "Label_3" });
     const notes = await t.run((ctx) => ctx.db.query("anchorNotes").collect());
     expect(notes).toEqual([expect.objectContaining({ familyId, gmailMessageId: "note-1" })]);
+  });
+
+  test("a note already sent by an earlier attempt is found, not sent twice", async () => {
+    const { t, verdictId } = await family();
+    const calls = fakeGmail({ alreadySent: [`verdict-${verdictId}`] });
+    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    expect(calls.some((c) => c.method === "POST" && c.path === "/messages")).toBe(false);
+    const notes = await t.run((ctx) => ctx.db.query("anchorNotes").collect());
+    expect(notes.map((n) => n.gmailMessageId)).toEqual(["already-there"]);
+    expect((await t.run((ctx) => ctx.db.get(verdictId)))!.parentNoteSentAt).toBeGreaterThan(0);
+  });
+
+  test("a label that already exists (409, any case) is reused", async () => {
+    const { t, verdictId } = await family();
+    const calls = fakeGmail({ fail: { match: "/labels", status: 409, times: 1, method: "POST" }, labels: [] });
+    // After the 409, the re-list finds it under different case.
+    vi.mocked(fetch).mockImplementationOnce(async () => new Response(JSON.stringify({ labels: [] }), { status: 200 }));
+    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    expect(calls.filter((c) => c.method === "POST" && c.path === "/labels").length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("a deleted Anchor label is re-created once instead of failing forever", async () => {
+    const { t, verdictId } = await family();
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("gmailTokens").first();
+      await ctx.db.patch(row!._id, { heldLabelId: "GONE", checkLabelId: "GONE2", noteLabelId: "GONE3" });
+    });
+    const calls = fakeGmail({ fail: { match: "/modify", status: 400, times: 1 } });
+    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    expect(calls.filter((c) => c.method === "POST" && c.path === "/labels")).toHaveLength(3);
+    expect((await t.run((ctx) => ctx.db.get(verdictId)))!.actionAppliedAt).toBeGreaterThan(0);
+  });
+
+  test("the parent note never quotes the sender's own words", async () => {
+    const { t, verdictId } = await family();
+    await t.run((ctx) => ctx.db.patch(verdictId, { fromName: "Chase Support call 1-888-555-0142 visit chase-help.co", subject: "URGENT click here" }));
+    const calls = fakeGmail();
+    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    const [note] = noteText(calls);
+    expect(note).not.toContain("1-888");
+    expect(note).not.toContain("chase-help");
+    expect(note).not.toContain("URGENT");
+  });
+
+  test("gives up after three attempts", async () => {
+    const { t, verdictId } = await family();
+    fakeGmail({ fail: { match: "/labels", status: 500, times: 100 } });
+    await t.action(internal.gmailActions.applyVerdict, { verdictId, attempt: 3 });
+    const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(scheduled.filter((s) => s.name === "gmailActions:applyVerdict")).toHaveLength(0);
   });
 
   test("running twice changes nothing the second time", async () => {
@@ -256,6 +320,25 @@ describe("the kid's answer", () => {
     expect((await t.run((ctx) => ctx.db.get(feedItemId)))!.kidAnswer).not.toHaveProperty("note");
   });
 
+  test("if the kid answered while the email was being held, their answer is re-applied", async () => {
+    const { t, verdictId, feedItemId } = await family();
+    fakeGmail();
+    // The answer lands mid-run: simulate by answering right after the hold's modify call.
+    vi.mocked(fetch).mockImplementation(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/modify")) {
+        await t.run((ctx) => ctx.db.patch(feedItemId, { kidAnswer: { answer: "fine", answeredAt: Date.now() } }));
+      }
+      if (url.pathname.endsWith("/labels") && (init?.method ?? "GET") === "POST") return new Response(JSON.stringify({ id: "L" }), { status: 200 });
+      if (url.pathname.endsWith("/messages") && (init?.method ?? "GET") === "GET") return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+      if (url.pathname.endsWith("/messages")) return new Response(JSON.stringify({ id: "n" }), { status: 200 });
+      return new Response(JSON.stringify({ labels: [] }), { status: 200 });
+    });
+    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(scheduled.find((s) => s.name === "gmailActions:applyAnswer")?.args[0]).toMatchObject({ feedItemId, labelsOnly: true });
+  });
+
   test("'It's fine' puts it back in the inbox and tells the parent, without links in the kid's words", async () => {
     const { t, kid, feedItemId } = await family({ level: "unsure" });
     await kid.mutation(api.feed.answer, { feedItemId, answer: "fine", note: "It's real, see https://x.example" });
@@ -263,7 +346,7 @@ describe("the kid's answer", () => {
     await t.action(internal.gmailActions.applyAnswer, { feedItemId });
     expect(calls.find((c) => c.path.endsWith("/modify"))!.body).toEqual({ addLabelIds: ["INBOX"], removeLabelIds: ["Label_1", "Label_2"] });
     const [note] = noteText(calls);
-    expect(note).toContain("says it's fine. It's back in your inbox.");
+    expect(note).toContain("Lucas looked at the message that said it was from Chase and says it's fine. It's back in your inbox.");
     expect(note).toContain('Lucas says: "It\'s real, see [link removed]"');
     expect((await t.run((ctx) => ctx.db.get(feedItemId)))!.answerAppliedAt).toBeGreaterThan(0);
   });
@@ -313,10 +396,22 @@ describe("turnOff", () => {
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     const revoke = calls.find((c) => c.path === "/revoke")!;
     expect(String(revoke.body!.form)).toContain("token=refresh-1");
-    for (const table of ["verdicts", "feedItems", "relationships", "accounts", "gmailTokens", "anchorNotes"] as const) {
+    for (const table of ["verdicts", "feedItems", "relationships", "accounts", "gmailTokens", "anchorNotes", "oauthStates", "pollFailures"] as const) {
       expect(await t.run((ctx) => ctx.db.query(table).collect()), table).toHaveLength(0);
     }
     expect(await t.query(api.families.getParentView, { parentToken })).toMatchObject({ status: "off" });
+    expect(await t.run((ctx) => ctx.db.query("users").collect())).toHaveLength(1); // the kid's login stays
+  });
+
+  test("a failed Google revoke is retried, and the token is kept until it works", async () => {
+    const { t, parentToken, familyId } = await family();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 503 })));
+    await t.mutation(api.turnOff.turnOff, { parentToken });
+    await t.action(internal.turnOff.revokeAndDelete, { familyId });
+    expect(await t.run((ctx) => ctx.db.query("gmailTokens").collect())).toHaveLength(1);
+    expect(await t.run((ctx) => ctx.db.query("verdicts").collect())).toHaveLength(0); // the rest is gone already
+    const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(scheduled.some((s) => s.name === "turnOff:revokeAndDelete" && (s.args[0] as { attempt?: number }).attempt === 2)).toBe(true);
   });
 
   test("an unknown link or a second tap does nothing", async () => {

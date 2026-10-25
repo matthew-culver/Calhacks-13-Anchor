@@ -58,7 +58,7 @@ export const parentAccounts = query({
   args: { parentToken: v.string() },
   returns: v.array(accountView),
   handler: async (ctx, { parentToken }) => {
-    if (parentToken.length === 0) return [];
+    if (parentToken.length === 0 || parentToken.length > 64) return [];
     const family = await ctx.db
       .query("families")
       .withIndex("by_parent_token", (q) => q.eq("parentToken", parentToken))
