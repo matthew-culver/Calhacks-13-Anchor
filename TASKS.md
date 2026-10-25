@@ -39,7 +39,9 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
 - [x] **A6. Gmail actions.** Also: skip Anchor's own parent notes in `newMessageIds` (label them, or add an `X-Anchor` header), or each note gets its own verdict. Add the `turnOff({ parentToken })` mutation for B5: delete the family's rows, revoke the Google grant, set status `off`. Create the labels, hold or label each email, and send the parent note once (`parentNoteSentAt`). Apply the kid's answers (release or hold, then send the note).
   - **Safety switch: OFF by default.** Nothing changes in anyone's Gmail until you run `npx convex env set ANCHOR_GMAIL_ACTIONS on`. Turn it off again with `npx convex env remove ANCHOR_GMAIL_ACTIONS`. With it off, verdicts and kid answers are still recorded, and a repair cron applies anything pending within about 5 minutes of turning it on.
   - What it does: fake mail moves to the "Anchor: Held" label (out of the inbox); unsure mail gets "⚠ Check with [kid]"; each one sends the parent a short plain-text note from "Anchor". Kid answers release or hold the email and send the parent the kid's words (links, addresses and numbers removed). The note never quotes the scammer's text.
-  - `api.turnOff.turnOff({ parentToken })`: off at once, Google access revoked (retried until it works), all email-derived data deleted. The kid can set up again afterwards.
+  - `api.turnOff.turnOff({ parentToken })`: off at once, Google access revoked (retried until it works), all email-derived data deleted. The kid can set up again once cleanup finishes (usually under a minute).
+  - Sign-in emails are now lowercased on the server. An account created with capital letters by some other route (the app already lowercased) would need re-creating.
+  - Before relying on it in the demo, check once with the switch on: a held email lands in "Anchor: Held", and exactly one note arrives per email.
 - [ ] **Checkpoint 2 (hour 11): feature freeze.**
 
 ## Person B: the experience (`src/`)

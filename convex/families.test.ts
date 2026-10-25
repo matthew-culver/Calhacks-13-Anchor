@@ -266,6 +266,25 @@ describe("hardening", () => {
     await as.mutation(api.families.createFamily, { ...newFamily, kidName: "José O'Neil-Núñez", parentName: "Mamá" });
   });
 
+  test("setting up again waits until turn-off has finished cleaning up", async () => {
+    const t = convexTest(schema, modules);
+    const { as } = await signedInKid(t);
+    const { familyId } = await as.mutation(api.families.createFamily, newFamily);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(familyId, { status: "off" });
+      await ctx.db.insert("gmailTokens", { familyId, refreshToken: "still-revoking" });
+    });
+    await expect(as.mutation(api.families.createFamily, newFamily)).rejects.toThrow(/still switching things off/i);
+    expect(await t.run((ctx) => ctx.db.get(familyId))).not.toBeNull(); // cleanup can still finish
+  });
+
+  test("a name that looks like a web address is refused", async () => {
+    const t = convexTest(schema, modules);
+    const { as } = await signedInKid(t);
+    await expect(as.mutation(api.families.createFamily, { ...newFamily, kidName: "Click chase-help.com" })).rejects.toThrow(/letters/i);
+    await as.mutation(api.families.createFamily, { ...newFamily, kidName: "J.R. Smith" }); // initials are fine
+  });
+
   test("after the parent turned protection off, the kid can set it up again", async () => {
     const t = convexTest(schema, modules);
     const { as } = await signedInKid(t);

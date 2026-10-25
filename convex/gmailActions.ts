@@ -211,7 +211,8 @@ async function sendNote(
   if (!site) throw new Error("SITE_URL is not set");
   // Already sent by an earlier attempt that failed afterwards? Then just record it.
   const existing = await gmailRequest<{ messages?: { id: string }[] }>(token, "/messages", {
-    params: { q: `rfc822msgid:${noteMessageId(note.key)}`, includeSpamTrash: "true", maxResults: "1" },
+    // Gmail's search takes the Message-ID without angle brackets.
+    params: { q: `rfc822msgid:${noteMessageId(note.key).slice(1, -1)}`, includeSpamTrash: "true", maxResults: "1" },
   });
   let id = existing.messages?.[0]?.id;
   if (!id) {
@@ -278,7 +279,14 @@ export const applyVerdict = internalAction({
     const c: Context | null = await ctx.runQuery(internal.gmailActions.contextForVerdict, { verdictId });
     if (!c || c.family.status === "off" || c.verdict.level === "real") return null;
     if (c.verdict.actionAppliedAt !== undefined && c.verdict.parentNoteSentAt !== undefined) return null;
-    if (c.feedItem?.kidAnswer) return null; // the kid already decided; applyAnswer handles it
+    if (c.feedItem?.kidAnswer) {
+      // The kid already decided; applyAnswer handles it. If our hold already landed, make sure
+      // the kid's answer is re-applied on top so it wins in Gmail.
+      if (c.verdict.actionAppliedAt !== undefined) {
+        await ctx.scheduler.runAfter(0, internal.gmailActions.applyAnswer, { feedItemId: c.feedItem._id, labelsOnly: true });
+      }
+      return null;
+    }
 
     try {
       const ok = await withAccess(ctx, c.family._id, (token) =>
@@ -312,6 +320,11 @@ export const applyVerdict = internalAction({
     } catch (e) {
       const delay = nextDelay(attempt, "applyVerdict", errorText(e));
       if (delay !== null) await ctx.scheduler.runAfter(delay, internal.gmailActions.applyVerdict, { verdictId, attempt: attempt + 1 });
+      // Even on failure: if the hold landed and the kid has answered meanwhile, their answer wins.
+      const after: Context | null = await ctx.runQuery(internal.gmailActions.contextForVerdict, { verdictId });
+      if (after?.feedItem?.kidAnswer && after.verdict.actionAppliedAt !== undefined) {
+        await ctx.scheduler.runAfter(0, internal.gmailActions.applyAnswer, { feedItemId: after.feedItem._id, labelsOnly: true });
+      }
     }
     return null;
   },

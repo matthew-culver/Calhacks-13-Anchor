@@ -42,7 +42,7 @@ function cleanName(raw: string, label: string): string {
   if (name.length === 0 || name.length > MAX_NAME) {
     throw new ConvexError(`${label} name must be 1 to ${MAX_NAME} characters.`);
   }
-  if (!NAME_CHARS.test(name)) {
+  if (!NAME_CHARS.test(name) || /\p{L}{2,}\.\p{L}{2,}/u.test(name)) {
     throw new ConvexError(`${label} name can only use letters, spaces, apostrophes, periods and hyphens.`);
   }
   return name;
@@ -71,9 +71,18 @@ export const createFamily = mutation({
     if (existing !== null && existing.status !== "off") {
       throw new ConvexError("You've already set up protection for someone.");
     }
-    // After the parent turned protection off, the kid can start over with a fresh family.
-    // (Turn-off already deleted that family's data; the old row only held names and status.)
-    if (existing !== null) await ctx.db.delete(existing._id);
+    // After the parent turned protection off, the kid can start over with a fresh family, but
+    // only once turn-off has finished cleaning up (data deleted, Google access revoked).
+    // Deleting the row earlier would orphan that cleanup and leave the token behind.
+    if (existing !== null) {
+      const leftover =
+        (await ctx.db.query("gmailTokens").withIndex("by_family", (q) => q.eq("familyId", existing._id)).first()) ??
+        (await ctx.db.query("verdicts").withIndex("by_family_received", (q) => q.eq("familyId", existing._id)).first()) ??
+        (await ctx.db.query("relationships").withIndex("by_family_key", (q) => q.eq("familyId", existing._id)).first()) ??
+        (await ctx.db.query("feedItems").withIndex("by_family_created", (q) => q.eq("familyId", existing._id)).first());
+      if (leftover) throw new ConvexError("We're still switching things off. Please try again in a few minutes.");
+      await ctx.db.delete(existing._id);
+    }
     const inviteToken = randomToken();
     const familyId = await ctx.db.insert("families", {
       parentName: cleanName(args.parentName, "Parent"),

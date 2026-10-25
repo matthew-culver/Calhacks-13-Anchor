@@ -45,7 +45,7 @@ const scheduledNames = async (t: Awaited<ReturnType<typeof familyWithItem>>["t"]
   (await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect())).map((s) => s.name);
 
 test("re-tries a hold that never reached Gmail", async () => {
-  const { t } = await familyWithItem({ age: 5 * 60_000 });
+  const { t } = await familyWithItem({ age: 10 * 60_000 });
   await t.mutation(internal.repair.repairAll, {});
   expect(await scheduledNames(t)).toContain("gmailActions:applyVerdict");
 });
@@ -54,26 +54,26 @@ test("leaves fresh and finished items alone", async () => {
   const fresh = await familyWithItem({ age: 10_000 });
   await fresh.t.mutation(internal.repair.repairAll, {});
   expect(await scheduledNames(fresh.t)).toEqual([]);
-  const done = await familyWithItem({ age: 5 * 60_000, applied: true });
+  const done = await familyWithItem({ age: 10 * 60_000, applied: true });
   await done.t.mutation(internal.repair.repairAll, {});
   expect(await scheduledNames(done.t)).toEqual([]);
 });
 
 test("re-tries a kid answer that never reached Gmail", async () => {
-  const { t } = await familyWithItem({ age: 5 * 60_000, answered: true });
+  const { t } = await familyWithItem({ age: 10 * 60_000, answered: true });
   await t.mutation(internal.repair.repairAll, {});
   expect(await scheduledNames(t)).toContain("gmailActions:applyAnswer");
 });
 
 test("does nothing in Gmail while the safety switch is off", async () => {
   vi.stubEnv("ANCHOR_GMAIL_ACTIONS", "");
-  const { t } = await familyWithItem({ age: 5 * 60_000 });
+  const { t } = await familyWithItem({ age: 10 * 60_000 });
   await t.mutation(internal.repair.repairAll, {});
   expect(await scheduledNames(t)).toEqual([]);
 });
 
 test("finishes a turn-off whose cleanup didn't complete", async () => {
-  const { t } = await familyWithItem({ age: 5 * 60_000, status: "off" });
+  const { t } = await familyWithItem({ age: 10 * 60_000, status: "off" });
   await t.mutation(internal.repair.repairAll, {});
   expect(await scheduledNames(t)).toContain("turnOff:revokeAndDelete");
 });

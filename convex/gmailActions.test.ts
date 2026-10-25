@@ -275,6 +275,25 @@ describe("applyVerdict", () => {
     expect(scheduled.find((s) => s.name === "gmailActions:applyVerdict")?.args[0]).toMatchObject({ verdictId, attempt: 2 });
   });
 
+  test("a failed hold still lets a kid's answer win", async () => {
+    const { t, verdictId, feedItemId } = await family();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(verdictId, { actionAppliedAt: Date.now() }); // hold landed earlier
+      await ctx.db.patch(feedItemId, { kidAnswer: { answer: "fine", answeredAt: Date.now() } });
+    });
+    fakeGmail();
+    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(scheduled.find((s) => s.name === "gmailActions:applyAnswer")?.args[0]).toMatchObject({ feedItemId, labelsOnly: true });
+  });
+
+  test("searches for an earlier note by Message-ID without angle brackets", async () => {
+    const { t, verdictId } = await family();
+    const calls = fakeGmail();
+    await t.action(internal.gmailActions.applyVerdict, { verdictId });
+    expect(calls.some((c) => c.method === "GET" && c.path === "/messages")).toBe(true);
+  });
+
   test("skips a family that turned protection off, and a verdict the kid already answered", async () => {
     const { t, verdictId, familyId, feedItemId } = await family();
     const calls = fakeGmail();

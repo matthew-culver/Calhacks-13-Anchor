@@ -84,6 +84,7 @@ export async function accessTokenFor(
 ): Promise<AccessResult> {
   const tokens = await ctx.runQuery(internal.googleAuth.getTokens, { familyId });
   if (tokens === null || tokens.status === "off") return { ok: false, reason: "not_connected" };
+  if (tokens.status === "needs_reconnect") return { ok: false, reason: "reconnect" }; // don't hammer Google
   if (!opts.force && tokens.accessToken && tokens.expiresAt && tokens.expiresAt - EARLY_MS > Date.now()) {
     return { ok: true, accessToken: tokens.accessToken };
   }

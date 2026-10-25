@@ -10,7 +10,7 @@ import { internalMutation } from "./_generated/server";
 import { actionsEnabled } from "./gmailActions";
 
 const LOOKBACK_MS = 48 * 60 * 60 * 1000; // older than this is left alone
-const GRACE_MS = 2 * 60 * 1000; // give the normal path time to finish first
+const GRACE_MS = 5 * 60 * 1000; // longer than a full retry chain, so repair never races it
 const MAX_FAMILIES = 200;
 const MAX_PER_FAMILY = 50;
 
@@ -19,7 +19,8 @@ export const repairAll = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     if (actionsEnabled()) {
-      for (const status of ["active", "needs_reconnect", "learning"] as const) {
+      // Not needs_reconnect: its Google access is dead until the parent reconnects.
+      for (const status of ["active", "learning"] as const) {
         const families = await ctx.db
           .query("families")
           .withIndex("by_status", (q) => q.eq("status", status))
@@ -28,6 +29,7 @@ export const repairAll = internalMutation({
           const items = await ctx.db
             .query("feedItems")
             .withIndex("by_family_created", (q) => q.eq("familyId", family._id).gte("createdAt", now - LOOKBACK_MS))
+            .order("desc") // newest first, so a flood can't starve recent items
             .take(MAX_PER_FAMILY);
           for (const item of items) {
             if (item.kidAnswer) {

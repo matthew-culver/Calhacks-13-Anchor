@@ -24,8 +24,9 @@ const PAGE_SIZE = 500;
 // messages a second. Each request takes up to ~1 s, so many must be in flight at once to get
 // near that; the pacing below keeps the rate just under it, so Gmail never answers "slow
 // down" (each of those costs a retry wait). Override with ANCHOR_IMPORT_RATE (messages/second).
-// Measured on a real ~2,500-message inbox: 8 in flight took about 400 s.
-const CONCURRENCY = 40;
+// Measured on a real ~2,500-message inbox: 8 in flight took 400+ s, 40 in flight 166 s. 20 keeps
+// clear of Gmail's separate limit on simultaneous requests per user.
+const CONCURRENCY = 20;
 const DEFAULT_RATE = 30; // leaves quota for the watcher and Gmail actions running alongside
 const MAX_RETRY_WAIT_MS = 10_000;
 const MAX_TRIES = 4;
