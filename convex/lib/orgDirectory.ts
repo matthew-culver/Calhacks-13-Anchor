@@ -106,6 +106,8 @@ export const ORGS: Org[] = [
   { name: "T-Mobile", category: "utility", domains: ["t-mobile.com"], loginUrl: "https://account.t-mobile.com/" },
   { name: "Spectrum", category: "utility", domains: ["spectrum.com", "spectrum.net", "charter.com"], loginUrl: "https://www.spectrum.net/" },
   { name: "Cox", category: "utility", domains: ["cox.com"], loginUrl: "https://www.cox.com/content/dam/cox/okta/signin.html" },
+  // Bills renters for utilities; conservice.com links its resident sign-in at this address.
+  { name: "Conservice", category: "utility", domains: ["conservice.com", "conservicemail.com"], loginUrl: "https://utilitiesinfo.conservice.com/" },
 
   // Shopping
   { name: "Amazon", category: "shopping", domains: ["amazon.com", "amazonpay.com"], loginUrl: "https://www.amazon.com/gp/sign-in.html" },
