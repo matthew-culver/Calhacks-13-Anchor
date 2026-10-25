@@ -114,7 +114,9 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
 - [x] **Heartbeat:** "Watching Mom's inbox · checked 2 minutes ago" on both sides (`gmailTokens.checkedAt`), with a plain warning if checks stop.
 - [x] **Weekly lesson:** one fixed "One thing to remember" from what was caught, plus how to ask the kid.
 - [x] **Accuracy eval:** `convex/accuracy.test.ts`, 44 labeled emails, report in `docs/ACCURACY.md`. Found and fixed missing impostor brands (Microsoft, Netflix, Zelle and more). A stranger's gift card/wire/crypto ask is now held.
-- [x] **Docs:** product README, `docs/DEVPOST.md` draft, demo scenes 5a/5b and judge Q&A in `docs/DEMO.md`.
+- [x] **Docs:** product README, `docs/DEVPOST.md` draft, demo scenes 5a/5b and judge Q&A in `docs/DEMO.md`, a 2-minute pitch in `docs/PITCH.md`, and `docs/DEPLOY.md` for a phone demo.
+- [x] **More of the loop:** the kid gets a browser alert when something needs them; the parent's page lists "Your questions for Lucas" with the answers; notes have Reply-To: the kid, so the parent can just reply; a parent who asked always hears back; labels exist from setup on.
+- [x] **Code review fixes:** no holding mail on "first email from this sender" alone; brand misfires (The UPS Store, Norton Healthcare, the surname McAfee, banks' Zelle notices, Google country sites, office.com, whole-word page titles); look-alike addresses ask the kid and "It's fine" is remembered; a ledger so Anchor's own label is never read as the parent asking (even after `demo:clearChecked` or a reconnect); asks are per conversation, not per email, with failures counted. Nicknames in full names match (Matt Culver = Matthew Culver).
 - [ ] **Morning:** rehearse every scene in `docs/DEMO.md` on the real inbox (especially 5a "Mom asks" and 5b "family impostor", which are new), then submit on Devpost by 9:00.
 
 ### Person B
