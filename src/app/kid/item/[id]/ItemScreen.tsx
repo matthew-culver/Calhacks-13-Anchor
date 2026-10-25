@@ -1,6 +1,6 @@
 "use client";
 
-import type { Infer } from "convex/values";
+import { ConvexError, type Infer } from "convex/values";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { KidGate, SampleDataNote } from "@/components/KidGate";
@@ -153,8 +153,10 @@ function AnswerForm({
     try {
       await answerFeedItem({ feedItemId: entry._id, answer, note });
       onAnswered();
-    } catch {
-      setError("That didn't go through. Please try again.");
+    } catch (err) {
+      // api.feed.answer's errors are already plain words ("You already answered this one.").
+      const plain = err instanceof ConvexError && typeof err.data === "string";
+      setError(plain ? err.data : "That didn't go through. Please try again.");
     } finally {
       setBusy(false);
     }
