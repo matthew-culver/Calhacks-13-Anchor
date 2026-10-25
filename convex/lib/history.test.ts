@@ -557,6 +557,14 @@ describe("names of people Mom knows (impostor check)", () => {
     expect(contacts.find((c) => c.name === "once only")).toBeUndefined();
   });
 
+  test("a bounce or notifications mailbox is never a contact, whatever it calls itself", () => {
+    const { contacts } = buildHistory(
+      [got("Mail Delivery Subsystem <mailer-daemon@googlemail.com>", 3), got("Mail Delivery Subsystem <mailer-daemon@googlemail.com>", 9)],
+      now,
+    );
+    expect(contacts).toEqual([]);
+  });
+
   test("a forged email can't teach us a name, and company senders aren't people", () => {
     const { contacts } = buildHistory(
       [

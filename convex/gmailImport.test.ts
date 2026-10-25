@@ -63,6 +63,8 @@ function fakeGoogle(
      * scheduled by earlier tests can still be running against the same fake.)
      */
     onList?: (q: string) => Promise<void>;
+    /** The account's Gmail labels. */
+    labels?: { id: string; name: string }[];
   } = {},
 ) {
   const messages = opts.messages ?? [];
@@ -86,6 +88,7 @@ function fakeGoogle(
         }
         return json({ emailAddress: "mom.culver@gmail.com", historyId: "98765" });
       }
+      if (url.pathname.endsWith("/labels")) return json({ labels: opts.labels ?? [] });
       if (url.pathname.endsWith("/messages")) {
         const q = url.searchParams.get("q") ?? "";
         if (auth === "Bearer access-1") await opts.onList?.(q);
@@ -223,6 +226,19 @@ describe("importHistory", () => {
     expect(rels.find((r) => r.key === "sue.new@gmail.com")).toMatchObject({ messageCount: 2 });
     // Flagged mail isn't even fetched.
     expect(calls.some((c) => /\/messages\/s[123]$/.test(new URL(c.url).pathname))).toBe(false);
+  });
+
+  test("held mail is skipped by Anchor's label in Gmail, even after its records were cleared", async () => {
+    const { t, familyId } = await connected();
+    const now = Date.now();
+    const scams: Msg[] = ["h1", "h2", "h3"].map((id, i) => ({ id, from: "Chase Bank <chillyisbad@gmail.com>", date: now - (i + 1) * DAY, labels: ["Label_held"] }));
+    // No verdicts at all (as after demo:clearChecked or a reconnect): only the Gmail label says so.
+    fakeGoogle({ messages: [...inbox(now), ...scams], labels: [{ id: "Label_held", name: "Anchor: Held" }, { id: "Label_check", name: "⚠ Check with Lucas" }] });
+    await t.action(internal.gmailImport.importHistory, { familyId });
+    const rels = await t.run((ctx) => ctx.db.query("relationships").collect());
+    expect(rels.find((r) => r.key === "chillyisbad@gmail.com")).toBeUndefined();
+    const contacts = await t.run((ctx) => ctx.db.query("contactNames").collect());
+    expect(contacts.find((c) => c.name.includes("chase"))).toBeUndefined();
   });
 
   test("refreshes an expired access token first and saves it", async () => {

@@ -326,7 +326,7 @@ const AUTOMATED_WORDS = new Set(
     "reception pharmacy rx records benefits claims").split(" "),
 );
 
-function isAutomatedMailbox(address: string): boolean {
+export function isAutomatedMailbox(address: string): boolean {
   const local = address.slice(0, address.lastIndexOf("@"));
   if (/no-?reply|do-?not-?reply/.test(local)) return true;
   return local.split(/[^a-z]+/).some((w) => AUTOMATED_WORDS.has(w));
@@ -592,7 +592,8 @@ export function buildHistory(
   };
   const called = (t: Tally, raw: string) => {
     const name = contactName(raw);
-    if (t.kind !== "person" || name === null) return;
+    // People only: never a bounce mailbox or a "notifications@" sender, whatever it calls itself.
+    if (t.kind !== "person" || name === null || isAutomatedMailbox(t.key)) return;
     t.names ??= new Map();
     const n = t.names.get(name) ?? { display: displayName(raw), count: 0 };
     n.count += 1;

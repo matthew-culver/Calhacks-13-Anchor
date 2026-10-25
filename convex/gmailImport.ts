@@ -149,6 +149,7 @@ async function fetchRecords(
   records: HeaderRecord[],
   every: number,
   progress: () => Promise<void>,
+  skipLabels: Set<string> = new Set(),
 ): Promise<void> {
   const rate = Number(process.env.ANCHOR_IMPORT_RATE) > 0 ? Number(process.env.ANCHOR_IMPORT_RATE) : DEFAULT_RATE;
   const minBatchMs = (CONCURRENCY * 1000) / rate;
@@ -171,6 +172,7 @@ async function fetchRecords(
       ),
     );
     for (const m of batch) {
+      if (m && (m.labelIds ?? []).some((l) => skipLabels.has(l))) continue; // Anchor held or flagged it
       const record = m && toRecord(m);
       if (record) records.push(record);
     }
@@ -202,11 +204,16 @@ async function runImport(ctx: ActionCtx, familyId: Id<"families">, accessToken: 
   const records: HeaderRecord[] = [];
   const progress = () => saveProgress(ctx, familyId, records, selfEmail);
   // Mail Anchor flagged never counts as history: otherwise a scammer whose emails were held
-  // would become a "familiar" sender on the next import, and get family-level trust.
+  // would become a "familiar" sender on the next import, and get family-level trust. Known by
+  // its verdict, and by Anchor's labels in Gmail, which outlast any reset of our own records.
   const flagged = new Set(await ctx.runQuery(internal.gmailImport.flaggedMessageIds, { familyId }));
+  const labelList = await gmail<{ labels?: { id: string; name: string }[] }>(accessToken, "/labels").catch(() => ({ labels: [] }));
+  const skipLabels = new Set(
+    (labelList.labels ?? []).filter((l) => l.name === "Anchor: Held" || l.name.startsWith("⚠ Check with")).map((l) => l.id),
+  );
 
   const firstIds = (await listIds(accessToken, FIRST_PASS, MAX_FIRST_PASS)).filter((id) => !flagged.has(id));
-  await fetchRecords(accessToken, firstIds, records, FIRST_SAVE_EVERY, progress);
+  await fetchRecords(accessToken, firstIds, records, FIRST_SAVE_EVERY, progress, skipLabels);
   await progress();
   console.log(`History import: first pass read ${firstIds.length} emails in ${Date.now() - started} ms`);
 
@@ -214,7 +221,7 @@ async function runImport(ctx: ActionCtx, familyId: Id<"families">, accessToken: 
   const recent = await listIds(accessToken, WINDOW, MAX_RECENT);
   const fromOrgs = await listFromOrgs(accessToken);
   const deepIds = [...new Set([...recent, ...fromOrgs])].filter((id) => !seen.has(id) && !flagged.has(id));
-  await fetchRecords(accessToken, deepIds, records, DEEP_SAVE_EVERY, progress);
+  await fetchRecords(accessToken, deepIds, records, DEEP_SAVE_EVERY, progress, skipLabels);
 
   await save(ctx, familyId, records, { historyId: profile.historyId, selfEmail });
   console.log(`History import: done, ${records.length} emails in ${Date.now() - started} ms`);

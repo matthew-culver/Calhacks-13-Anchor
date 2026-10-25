@@ -17,7 +17,7 @@ import { type HistoryContext, relationship } from "./checks/relationship";
 import { checkResult, verdictLevel } from "./contract";
 import { accessTokenFor } from "./googleAuth";
 import { atLeast, explain, templateExplanation } from "./lib/explain";
-import { contactName, displayName, keyFor, looksLikeAddress, MAX_CONTACTS, mailboxId } from "./lib/history";
+import { contactName, displayName, isAutomatedMailbox, keyFor, looksLikeAddress, MAX_CONTACTS, mailboxId } from "./lib/history";
 import { pressureSignals, SCAM_SIGNALS } from "./checks/pressure";
 import { cleanUrl, probeLink } from "./lib/linkProbe";
 import { classifySite, linkIsRisky, linkTarget } from "./lib/sites";
@@ -613,7 +613,8 @@ async function checkOne(
   // names too; this keeps up between imports).
   const authenticated = checks.some((c) => c.id === "header_auth" && c.status === "pass");
   if (familiar && floor === "real" && authenticated && senderName !== null && email.fromAddress.includes("@")) {
-    const isPerson = keyFor({ address: email.fromAddress.toLowerCase(), domain: email.fromDomain }).kind === "person";
+    const address = email.fromAddress.toLowerCase();
+    const isPerson = keyFor({ address, domain: email.fromDomain }).kind === "person" && !isAutomatedMailbox(address);
     if (isPerson) {
       await ctx.runMutation(internal.mailWatch.learnName, {
         familyId,
