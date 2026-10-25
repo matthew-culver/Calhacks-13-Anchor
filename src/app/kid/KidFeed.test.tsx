@@ -83,6 +83,13 @@ describe("kid feed", () => {
     expect(screen.getByText("1 good catch with Mom this week.")).toBeInTheDocument();
   });
 
+  it("shows what Mom's Sunday note will say, word for word, folded away", () => {
+    fakeBackend.setQuery("feed:myWeeklyNote", { subject: "This week: 1 fake message kept away from you", lines: ["Lucas looked at 1 message for you."] });
+    render(<KidFeed />);
+    expect(screen.getByText("What Mom gets on Sunday")).toBeInTheDocument();
+    expect(screen.getByText("Lucas looked at 1 message for you.")).toBeInTheDocument();
+  });
+
   it("leaves out the good-catch line on a week without one", () => {
     fakeBackend.setQuery("feed:myWeeklyRecap", { weekStart: 0, checked: 9, held: 0, needAnswer: 0, goodCatches: 0 });
     render(<KidFeed />);

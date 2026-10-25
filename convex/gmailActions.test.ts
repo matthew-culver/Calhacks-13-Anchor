@@ -515,6 +515,21 @@ describe("the weekly note", () => {
     );
   });
 
+  test("the kid can preview it word for word; nobody else can, and there's none in an empty week", async () => {
+    const { t, kid, familyId } = await family();
+    const preview = await kid.query(api.feed.myWeeklyNote, { now: Date.now() });
+    const calls = fakeGmail();
+    await t.action(internal.gmailActions.sendWeeklyNote, { familyId });
+    for (const line of preview!.lines) expect(noteText(calls)[0]).toContain(line);
+    expect(preview!.subject).toBe("This week: 1 fake message kept away from you");
+
+    expect(await t.query(api.feed.myWeeklyNote, { now: Date.now() })).toBeNull(); // signed out
+    await t.run(async (ctx) => {
+      for (const v of await ctx.db.query("verdicts").collect()) await ctx.db.delete(v._id);
+    });
+    expect(await kid.query(api.feed.myWeeklyNote, { now: Date.now() })).toBeNull();
+  });
+
   test("says nothing in a week with no email, or with the safety switch off", async () => {
     const { t, familyId } = await family();
     await t.run(async (ctx) => {

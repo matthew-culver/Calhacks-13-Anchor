@@ -18,7 +18,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { type ActionCtx, internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { type ActionCtx, internalAction, internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
 import { accessTokenFor } from "./googleAuth";
 import { GmailError, gmailRequest } from "./lib/gmailApi";
 import { buildNote, cleanKidNote, noteMessageId } from "./lib/parentNote";
@@ -495,7 +495,7 @@ export const markAnchorLabeled = internalMutation({
 
 // ---------- the weekly note (A9) ----------
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 type HeldMail = { claimedOrg?: string; checks?: { id: string; detail?: string }[] };
 
@@ -536,28 +536,52 @@ export const weekStats = internalQuery({
     const family = await ctx.db.get(familyId);
     if (!family || family.status !== "active") return null;
     const tokens = await ctx.db.query("gmailTokens").withIndex("by_family", (q) => q.eq("familyId", familyId)).unique();
-    const verdicts = await ctx.db
-      .query("verdicts")
-      .withIndex("by_family_received", (q) => q.eq("familyId", familyId).gte("receivedAt", since))
-      .take(5000);
-    const items = await ctx.db
-      .query("feedItems")
-      .withIndex("by_family_created", (q) => q.eq("familyId", familyId).gte("createdAt", since))
-      .take(1000);
-    const held = verdicts.filter((x) => x.action === "held");
-    const lesson = weeklyLesson(held);
     return {
       family,
       labels: { held: tokens?.heldLabelId, check: tokens?.checkLabelId, note: tokens?.noteLabelId },
-      checked: verdicts.length,
-      held: held.length,
-      kidLooked: items.filter((i) => i.kidAnswer).length,
-      ...(lesson !== undefined && { lesson }),
+      ...(await weekNumbers(ctx, familyId, since)),
     };
   },
 });
 
+type WeekNumbers = { checked: number; held: number; kidLooked: number; lesson?: string };
+
+/** The week's numbers behind the weekly note (and the kid's preview of it). */
+export async function weekNumbers(ctx: QueryCtx, familyId: Id<"families">, since: number): Promise<WeekNumbers> {
+  const verdicts = await ctx.db
+    .query("verdicts")
+    .withIndex("by_family_received", (q) => q.eq("familyId", familyId).gte("receivedAt", since))
+    .take(5000);
+  const items = await ctx.db
+    .query("feedItems")
+    .withIndex("by_family_created", (q) => q.eq("familyId", familyId).gte("createdAt", since))
+    .take(1000);
+  const held = verdicts.filter((x) => x.action === "held");
+  const lesson = weeklyLesson(held);
+  return {
+    checked: verdicts.length,
+    held: held.length,
+    kidLooked: items.filter((i) => i.kidAnswer).length,
+    ...(lesson !== undefined && { lesson }),
+  };
+}
+
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** The weekly note's words: fixed sentences, so the kid's preview is exactly what the parent gets. */
+export function weeklyNote(n: WeekNumbers, kid: string): { subject: string; lines: string[] } {
+  const lines = [
+    n.held > 0
+      ? `This week Anchor checked ${plural(n.checked, "email", "emails")} for you and kept ${plural(n.held, "fake message", "fake messages")} out of your inbox. You didn't need to do anything.`
+      : `This week Anchor checked ${plural(n.checked, "email", "emails")} for you. Nothing fake got through, and you didn't need to do anything.`,
+  ];
+  if (n.kidLooked > 0) lines.push(`${kid} looked at ${plural(n.kidLooked, "message", "messages")} for you.`);
+  if (n.lesson) lines.push(`One thing to remember: ${n.lesson}`);
+  lines.push(`Not sure about an email? Move it to the "⚠ Check with ${kid}" folder, and ${kid} will look at it for you.`);
+  if (n.held > 0) lines.push(`If you ever want to see them, they're in the "Anchor: Held" folder.`);
+  const subject = n.held > 0 ? `This week: ${plural(n.held, "fake message", "fake messages")} kept away from you` : "Your week with Anchor";
+  return { subject, lines };
+}
 
 /** One calm summary for the parent, at most once per week (the note key dedupes). */
 export const sendWeeklyNote = internalAction({
@@ -569,26 +593,11 @@ export const sendWeeklyNote = internalAction({
     const stats = await ctx.runQuery(internal.gmailActions.weekStats, { familyId, since: now - WEEK_MS });
     if (!stats || stats.checked === 0) return null; // nothing happened: say nothing
     const c: LabelContext = { family: stats.family, labels: stats.labels };
-    const kid = stats.family.kidName;
-    const lines = [
-      stats.held > 0
-        ? `This week Anchor checked ${plural(stats.checked, "email", "emails")} for you and kept ${plural(stats.held, "fake message", "fake messages")} out of your inbox. You didn't need to do anything.`
-        : `This week Anchor checked ${plural(stats.checked, "email", "emails")} for you. Nothing fake got through, and you didn't need to do anything.`,
-    ];
-    if (stats.kidLooked > 0) lines.push(`${kid} looked at ${plural(stats.kidLooked, "message", "messages")} for you.`);
-    if (stats.lesson) lines.push(`One thing to remember: ${stats.lesson}`);
-    lines.push(`Not sure about an email? Move it to the "⚠ Check with ${kid}" folder, and ${kid} will look at it for you.`);
-    if (stats.held > 0) lines.push(`If you ever want to see them, they're in the "Anchor: Held" folder.`);
+    const { subject, lines } = weeklyNote(stats, stats.family.kidName);
     const week = Math.floor(now / WEEK_MS);
     try {
       await withAccess(ctx, familyId, (token) =>
-        withLabels(ctx, c, token, (labels) =>
-          sendNote(ctx, token, c, labels, {
-            key: `weekly-${familyId}-${week}`,
-            subject: stats.held > 0 ? `This week: ${plural(stats.held, "fake message", "fake messages")} kept away from you` : "Your week with Anchor",
-            lines,
-          }),
-        ),
+        withLabels(ctx, c, token, (labels) => sendNote(ctx, token, c, labels, { key: `weekly-${familyId}-${week}`, subject, lines })),
       );
     } catch (e) {
       console.error(`gmailActions.sendWeeklyNote failed: ${errorText(e)}`);

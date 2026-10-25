@@ -7,6 +7,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { weeklyRecap } from "./contract";
+import { weekNumbers, weeklyNote } from "./gmailActions";
 import schema from "./schema";
 
 const FEED_SIZE = 50;
@@ -112,6 +113,18 @@ export const myWeeklyRecap = query({
   handler: async (ctx, { now }) => {
     const family = await kidFamily(ctx);
     return family ? recapOf(ctx, family._id, now) : null;
+  },
+});
+
+/** What the parent's weekly note would say right now, word for word. Null when there'd be no note. */
+export const myWeeklyNote = query({
+  args: { now: v.number() },
+  returns: v.union(v.null(), v.object({ subject: v.string(), lines: v.array(v.string()) })),
+  handler: async (ctx, { now }) => {
+    const family = await kidFamily(ctx);
+    if (!family || family.status !== "active") return null;
+    const numbers = await weekNumbers(ctx, family._id, now - WEEK_MS);
+    return numbers.checked === 0 ? null : weeklyNote(numbers, family.kidName);
   },
 });
 

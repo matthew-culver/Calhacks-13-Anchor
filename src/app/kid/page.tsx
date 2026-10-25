@@ -9,9 +9,10 @@ import { AlertsButton, useNewItemAlerts } from "@/components/Alerts";
 import { Icon, Spinner } from "@/components/icons";
 import { TimeAgo, useClientNow } from "@/components/TimeAgo";
 import { Watching } from "@/components/Watching";
+import { WeeklyNotePreview } from "@/components/WeeklyNotePreview";
 import { BigButton, Pill, Screen } from "@/components/ui";
 import { useFeed, type FeedEntry } from "@/shared/feedApi";
-import { mockRecap } from "@/shared/mock";
+import { mockRecap, mockWeeklyNote } from "@/shared/mock";
 import { claimedSender, senderText } from "@/shared/senderText";
 import { api } from "../../../convex/_generated/api";
 
@@ -29,6 +30,8 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
   const now = useClientNow();
   const liveRecap = useQuery(api.feed.myWeeklyRecap, !demo && now !== null ? { now: Math.floor(now / MIN) * MIN } : "skip");
   const recap = demo ? mockRecap : liveRecap;
+  const liveNote = useQuery(api.feed.myWeeklyNote, !demo && now !== null ? { now: Math.floor(now / MIN) * MIN } : "skip");
+  const weeklyNote = demo ? mockWeeklyNote : liveNote;
   const { parentName } = family;
   useNewItemAlerts(feed, parentName);
 
@@ -51,6 +54,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
         </div>
       )}
       <KidRecapCard recap={recap} needAnswer={needAnswer} parentName={parentName} />
+      <WeeklyNotePreview note={weeklyNote} parentName={parentName} />
 
       {family.status === "learning" && (
         <p role="status" className="flex items-center gap-3 rounded-2xl bg-action-tint px-5 py-4 text-lg text-action">

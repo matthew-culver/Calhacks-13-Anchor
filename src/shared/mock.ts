@@ -287,3 +287,15 @@ export const mockRecap: WeeklyRecap = {
   needAnswer: 1, // USPS
   goodCatches: 1, // Medicare
 };
+
+/** The parent's weekly note for the sample week, as api.feed.myWeeklyNote words it. */
+export const mockWeeklyNote = {
+  subject: "This week: 3 fake messages kept away from you",
+  lines: [
+    "This week Anchor checked 41 emails for you and kept 3 fake messages out of your inbox. You didn't need to do anything.",
+    "Lucas looked at 1 message for you.",
+    "One thing to remember: scammers pretended to be Chase this week. To check on an account, use the button on your Anchor page, not a link in an email.",
+    'Not sure about an email? Move it to the "⚠ Check with Lucas" folder, and Lucas will look at it for you.',
+    'If you ever want to see them, they\'re in the "Anchor: Held" folder.',
+  ],
+};
