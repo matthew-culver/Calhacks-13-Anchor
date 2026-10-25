@@ -1,0 +1,30 @@
+X-Anchor-Expected-Level: unsure
+X-Anchor-Expected-Checks: header_auth=pass; claimed_identity=warn; link_audit=warn; pressure=warn; injection=pass
+Delivered-To: mom.demo@gmail.com
+Received: from out.parcel-update-center.com (out.parcel-update-center.com. [198.51.100.201])
+        by mx.google.com with ESMTPS id r9si112233qke.21.2026.10.22.07.31.44
+        for <mom.demo@gmail.com>;
+        Wed, 22 Oct 2026 07:31:44 -0700 (PDT)
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@parcel-update-center.com header.s=k1 header.b=Qw3Er4Ty;
+       spf=pass (google.com: domain of notice@parcel-update-center.com designates 198.51.100.201 as permitted sender) smtp.mailfrom=notice@parcel-update-center.com;
+       dmarc=pass (p=QUARANTINE sp=QUARANTINE dis=NONE) header.from=parcel-update-center.com
+From: Delivery Notice <notice@parcel-update-center.com>
+To: mom.demo@gmail.com
+Subject: USPS: Your package could not be delivered
+Date: Wed, 22 Oct 2026 07:31:40 -0700
+Message-ID: <n-55120@parcel-update-center.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+
+Hello,
+
+We tried to deliver your package today but no one was available to sign
+for it. Please schedule a new delivery time within 48 hours, or the
+package will be returned to the sender.
+
+Schedule redelivery: https://bit.ly/3xRdlvry
+
+Tracking number: 9400 1000 0000 0000 0000 00
+
+Delivery Notice Team

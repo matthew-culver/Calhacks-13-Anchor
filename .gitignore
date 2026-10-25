@@ -26,3 +26,6 @@ npm-debug.log*
 # OS
 .DS_Store
 *.pem
+
+# Real family emails used as test fixtures
+convex/checks/fixtures/private/

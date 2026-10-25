@@ -1,0 +1,61 @@
+X-Anchor-Expected-Level: real
+X-Anchor-Expected-Checks: header_auth=pass; claimed_identity=pass; link_audit=pass; pressure=pass; injection=pass
+Delivered-To: mom.demo@gmail.com
+Received: from mail182.us1.mcsv.net (mail182.us1.mcsv.net. [198.2.182.10])
+        by mx.google.com with ESMTPS id t5si554433qtp.10.2026.10.19.06.00.03
+        for <mom.demo@gmail.com>;
+        Sun, 19 Oct 2026 06:00:03 -0700 (PDT)
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@riversidegardenclub.org header.s=k2 header.b=Pl0Km9Nj;
+       dkim=pass header.i=@mcsv.net header.s=k3 header.b=Hb7Gv6Fc;
+       spf=pass (google.com: domain of bounce-mc.us1_12345.6789-mom.demo=gmail.com@mail182.us1.mcsv.net designates 198.2.182.10 as permitted sender) smtp.mailfrom="bounce-mc.us1_12345.6789-mom.demo=gmail.com@mail182.us1.mcsv.net";
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=riversidegardenclub.org
+From: "Riverside Garden Club" <news@riversidegardenclub.org>
+To: mom.demo@gmail.com
+Subject: =?UTF-8?Q?Apple_harvest_week_and_the_fall_plant_sale_=F0=9F=8D=8E?=
+Date: Sun, 19 Oct 2026 06:00:00 -0700
+Message-ID: <6f3a.1234@riversidegardenclub.org>
+List-Unsubscribe: <https://riversidegardenclub.us1.list-manage.com/unsubscribe?u=abc&id=def>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="_----------=_MCPart_77"
+
+--_----------=_MCPart_77
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Hi neighbors,
+
+It's apple harvest week! Bring a basket to the community orchard on
+Saturday from 9 to noon. Our fall plant sale is the week after, and
+volunteers are always welcome. Hot cider will be served =E2=80=94 free for=
+ members.
+
+Read the full newsletter: https://riversidegardenclub.org/news/october
+
+See you in the garden,
+Margaret, club secretary
+
+--_----------=_MCPart_77
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<html><body>
+<span style=3D"display:none!important;font-size:1px;color:#ffffff">Apple harve=
+st week, the fall plant sale, and hot cider</span>
+<h1>Riverside Garden Club</h1>
+<p>Hi neighbors,</p>
+<p>It's apple harvest week! Bring a basket to the community orchard on
+Saturday from 9 to noon. Our fall plant sale is the week after, and
+volunteers are always welcome. Hot cider will be served &mdash; free for
+members.</p>
+<p><a href=3D"https://riversidegardenclub.us1.list-manage.com/track/click?u=3D=
+abc&amp;id=3D123">Read the full newsletter</a></p>
+<p><a href=3D"https://riversidegardenclub.org/volunteer">Sign up to volunte=
+er</a></p>
+<p>See you in the garden,<br>Margaret, club secretary</p>
+<p style=3D"font-size:11px;color:#666666"><a href=3D"https://riversidegarde=
+nclub.us1.list-manage.com/unsubscribe?u=3Dabc&amp;id=3Ddef">Unsubscribe</a>=
+</p>
+</body></html>
+
+--_----------=_MCPart_77--

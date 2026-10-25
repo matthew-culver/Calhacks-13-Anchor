@@ -1,0 +1,55 @@
+X-Anchor-Expected-Level: fake
+X-Anchor-Expected-Checks: claimed_identity=fail; link_audit=fail; header_auth=pass; injection=pass
+Delivered-To: dad.demo@gmail.com
+Received: from mail.chase-secure-login.co (mail.chase-secure-login.co. [203.0.113.45])
+        by mx.google.com with ESMTPS id x12si123456qtb.55.2026.10.20.08.14.02
+        for <dad.demo@gmail.com>;
+        Mon, 20 Oct 2026 08:14:02 -0700 (PDT)
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@chase-secure-login.co header.s=s1 header.b=AbCdEf12;
+       spf=pass (google.com: domain of alerts@chase-secure-login.co designates 203.0.113.45 as permitted sender) smtp.mailfrom=alerts@chase-secure-login.co;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=chase-secure-login.co
+From: Chase <alerts@chase-secure-login.co>
+To: dad.demo@gmail.com
+Subject: Unusual sign-in activity on your Chase account
+Date: Mon, 20 Oct 2026 08:14:00 -0700
+Message-ID: <20261020151400.4471@chase-secure-login.co>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b1_chase"
+
+--b1_chase
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+Dear Customer,
+
+We noticed an unusual sign-in to your Chase account from a new device.
+If this was not you, please review the activity within 24 hours or your
+account will be locked for your protection.
+
+Review activity: https://chase-secure-login.co/verify?id=88213
+
+Thank you,
+Chase Fraud Prevention
+
+--b1_chase
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html><body style=3D"font-family:Arial,sans-serif">
+<div style=3D"display:none">Action needed on your account</div>
+<table width=3D"600"><tr><td>
+<img src=3D"https://chase-secure-login.co/static/chase-logo.png" alt=3D"Chase">
+<p>Dear Customer,</p>
+<p>We noticed an unusual sign-in to your Chase account from a new device.
+If this was not you, please review the activity within 24 hours or your
+account will be locked for your protection.</p>
+<p><a href=3D"https://chase-secure-login.co/verify?id=3D88213" style=3D"backg=
+round:#117aca;color:#ffffff;padding:12px 24px">Review activity</a></p>
+<p>Or sign in at <a href=3D"https://chase-secure-login.co/login">www.chase.com=
+</a></p>
+<p>Thank you,<br>Chase Fraud Prevention</p>
+</td></tr></table>
+</body></html>
+
+--b1_chase--
