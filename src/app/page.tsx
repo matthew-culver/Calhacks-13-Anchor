@@ -142,7 +142,7 @@ export default function Home() {
               ["0 of 20", "real emails set aside by mistake, family bills included"],
               ["1 minute", "for every new email to be checked, day and night"],
             ].map(([n, label]) => (
-              <div key={n} className="flex flex-col-reverse rounded-3xl border border-line bg-surface p-6 shadow-card">
+              <div key={n} className="flex flex-col-reverse justify-end rounded-3xl border border-line bg-surface p-6 shadow-card">
                 <dt className="text-lg text-muted">{label}</dt>
                 <dd className="text-4xl font-bold tracking-tight text-ink">{n}</dd>
               </div>
