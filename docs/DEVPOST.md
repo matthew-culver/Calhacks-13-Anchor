@@ -107,7 +107,8 @@ automated tests in all. Full table: `docs/ACCURACY.md`.
 
 Google's verification and security review to leave testing mode (today only test users can
 connect, and connections expire every 7 days), Outlook, Yahoo and AOL (many parents don't use
-Gmail), and real-time push instead of a one-minute check.
+Gmail), real-time push instead of a one-minute check, and siblings sharing the watch (we're
+twins: both of us should see what Mom gets, and whoever answers first is the one she hears from).
 
 ## Prize tracks
 
