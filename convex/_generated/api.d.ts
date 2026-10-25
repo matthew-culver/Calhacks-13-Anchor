@@ -8,7 +8,11 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as contract from "../contract.js";
+import type * as families from "../families.js";
+import type * as http from "../http.js";
+import type * as lib_tokens from "../lib/tokens.js";
 
 import type {
   ApiFromModules,
@@ -17,7 +21,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   contract: typeof contract;
+  families: typeof families;
+  http: typeof http;
+  "lib/tokens": typeof lib_tokens;
 }>;
 
 /**
