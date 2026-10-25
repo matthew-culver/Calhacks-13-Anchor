@@ -99,11 +99,26 @@ describe("connect screen, live (B10)", () => {
     expect(screen.getByRole("link", { name: "Open Medicare" })).toBeInTheDocument();
   });
 
-  it("when the import is done, invites her to tap one to sign in", () => {
+  it("when the import is done, lets her know she can tap one whenever she needs it", () => {
     seedParent("active");
     render(<ParentScreen token="ptok" justConnected />);
-    expect(screen.getByRole("status")).toHaveTextContent("These are the real websites you use. Tap one to sign in.");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "These are the real websites you use. Whenever you need one, tap it to sign in.",
+    );
     expect(screen.getByRole("heading", { level: 2, name: "Money" })).toBeInTheDocument();
+  });
+
+  it("doesn't say \"tap one\" before it knows the import is finished", () => {
+    fakeBackend.setQuery("families:getParentView", undefined);
+    render(<ParentScreen token="ptok" justConnected />);
+    expect(screen.getByRole("status")).toHaveTextContent("Still finding more…");
+  });
+
+  it("doesn't say \"finding\" forever when the import found nothing", () => {
+    seedParent("active");
+    fakeBackend.setQuery("accounts:parentAccounts", []);
+    render(<ParentScreen token="ptok" justConnected />);
+    expect(screen.getByRole("status")).toHaveTextContent("We didn't find any yet. We'll keep looking.");
   });
 });
 

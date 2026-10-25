@@ -42,7 +42,8 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
   // "we didn't type any of this".
   if (justConnected) {
     const found = accounts ?? [];
-    const finding = demo ? !sample.done : view?.status === "learning" || found.length === 0;
+    // Still importing until the status says otherwise (and while it hasn't loaded yet).
+    const finding = demo ? !sample.done : view === undefined || view?.status === "learning";
     return (
       <Screen title="You're done">
         <p className="text-xl">You don&apos;t need to do anything else.</p>
@@ -53,11 +54,13 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
         <section className="flex flex-col gap-4">
           <h2 className="text-2xl font-bold">Your accounts</h2>
           <p role="status" className="text-lg">
-            {found.length === 0
-              ? "Finding the places you use…"
-              : finding
-                ? "Still finding more…"
-                : "These are the real websites you use. Tap one to sign in."}
+            {finding
+              ? found.length === 0
+                ? "Finding the places you use…"
+                : "Still finding more…"
+              : found.length === 0
+                ? "We didn't find any yet. We'll keep looking."
+                : "These are the real websites you use. Whenever you need one, tap it to sign in."}
           </p>
           {found.length > 0 && <ParentAccountList accounts={found} />}
         </section>
