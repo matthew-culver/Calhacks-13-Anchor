@@ -71,8 +71,9 @@ function Item({ id, parentName, demo }: { id: string; parentName: string; demo: 
       <Card compact>
         <div className="flex flex-col gap-2 [overflow-wrap:anywhere]">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <Pill tone={fake ? "fake" : "unsure"}>
-              {fake ? "Looks fake" : "Not sure"}
+            {/* A real email only shows up here when the parent asked about it. */}
+            <Pill tone={fake ? "fake" : verdict.level === "real" ? "real" : "unsure"}>
+              {fake ? "Looks fake" : verdict.level === "real" ? "Looks real" : "Not sure"}
               {held && (verdict.actionAppliedAt === undefined ? " · Being held…" : " · Held")}
             </Pill>
             <span className="text-base text-muted">
