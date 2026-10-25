@@ -42,7 +42,12 @@ function subscribe(listener: () => void) {
 
 const readClock = () => (clock ??= Date.now());
 
+/** The current time to the minute, or null on the server and the first paint. */
+export function useClientNow(): number | null {
+  return useSyncExternalStore(subscribe, readClock, () => null);
+}
+
 export function TimeAgo({ at }: { at: number }) {
-  const now = useSyncExternalStore(subscribe, readClock, () => null);
+  const now = useClientNow();
   return now === null ? null : <>{timeAgo(at, now)}</>;
 }

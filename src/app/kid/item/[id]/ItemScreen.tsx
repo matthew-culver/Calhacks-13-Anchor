@@ -1,12 +1,13 @@
 "use client";
 
 import type { Infer } from "convex/values";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { KidGate, SampleDataNote } from "@/components/KidGate";
 import { TimeAgo } from "@/components/TimeAgo";
 import { BigButton, Card, Screen } from "@/components/ui";
 import { MAX_NOTE, useAnswerFeedItem, useFeed, type FeedEntry } from "@/shared/feedApi";
-import { mockFamily } from "@/shared/mock";
-import { senderText } from "@/shared/senderText";
+import { claimedSender, senderText } from "@/shared/senderText";
 import type { checkStatus } from "../../../../../convex/contract";
 
 // One flagged email, up close (B3): what it claims, what we checked in plain words, and the
@@ -20,10 +21,17 @@ const STATUS: Record<Infer<typeof checkStatus>, { mark: string; label: string; c
 };
 
 export function ItemScreen({ id }: { id: string }) {
+  return (
+    <KidGate>
+      {(family, demo) => <Item id={id} parentName={family.parentName} demo={demo} />}
+    </KidGate>
+  );
+}
+
+function Item({ id, parentName, demo }: { id: string; parentName: string; demo: boolean }) {
   const feed = useFeed();
   // Set when the kid answers on this visit, so focus moves to the result (not on a later visit).
   const [justAnswered, setJustAnswered] = useState(false);
-  const parentName = mockFamily.parentName;
 
   if (feed === undefined) return <Screen title="One moment..." />;
   const entry = feed.find((e) => e._id === id);
@@ -36,9 +44,13 @@ export function ItemScreen({ id }: { id: string }) {
   }
 
   const { verdict, kidAnswer } = entry;
-  const who = senderText(verdict.claimedOrg ?? verdict.fromName ?? verdict.fromDomain);
+  const who = claimedSender(verdict);
   return (
     <Screen title={`Says it's from ${who}`}>
+      <Link href="/kid" className="-mt-4 inline-flex min-h-tap items-center self-start text-lg font-bold text-action underline">
+        ← Back to this week
+      </Link>
+      {demo && <SampleDataNote />}
       <Card>
         <div className="[overflow-wrap:anywhere]">
           {verdict.subject && <p className="text-xl font-bold">{`“${senderText(verdict.subject)}”`}</p>}

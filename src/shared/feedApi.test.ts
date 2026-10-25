@@ -1,13 +1,21 @@
 // The mock answer has to behave like the real one will, so the screens are tested honestly.
 
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeBackend } from "@/test/fakeBackend";
+import { seedSignedInKid } from "@/test/seed";
 import { MAX_NOTE, resetMockFeed, useAnswerFeedItem, useFeed } from "./feedApi";
 import { mockFeed } from "./mock";
 
 const usps = mockFeed.find((f) => f._id === "mock_feed_usps")!._id;
 
-beforeEach(() => resetMockFeed());
+vi.mock("convex/react", async () => (await import("@/test/fakeBackend")).convexReact);
+
+beforeEach(() => {
+  fakeBackend.reset();
+  seedSignedInKid();
+  resetMockFeed();
+});
 
 function setup() {
   const feed = renderHook(() => useFeed());
