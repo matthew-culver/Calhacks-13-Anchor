@@ -81,6 +81,14 @@ const CASES: Case[] = [
   { group: "Facebook notification (she uses Facebook)", kind: "real", from: "Facebook <notification@facebookmail.com>", subject: "Sue Miller commented on your photo", body: "Sue Miller commented: Beautiful garden!" },
   { group: "First-ever Venmo receipt", kind: "real", from: "Venmo <venmo@venmo.com>", subject: "Matt Culver paid you $25.00", body: "Matt Culver paid you $25.00 for lunch." },
   { group: "Friend's newsletter about a gift card raffle", kind: "real", from: "Oakdale Library <events@oakdalelibrary.org>", subject: "Book sale Saturday", body: "Join us for the book sale! Every visitor is entered in a raffle for a $25 bookstore gift card." },
+  // From the code review: names and words the new brand list must not mistake for impostors.
+  { group: "The UPS Store pickup notice", kind: "real", from: "The UPS Store <store1234@theupsstore.com>", subject: "Your package is ready for pickup", body: "Your package is ready at The UPS Store on Main St." },
+  { group: "Norton Healthcare (a hospital, not the antivirus)", kind: "real", from: "Norton Healthcare <myhealth@nortonhealthcare.org>", subject: "Your appointment is tomorrow", body: "We'll see you tomorrow at 9am at Norton Brownsboro Hospital." },
+  { group: "A neighbor named McAfee", kind: "real", from: "Tom McAfee <tom.mcafee55@gmail.com>", subject: "Neighborhood watch on Thursday", body: "Hi neighbor! We're meeting Thursday at 7pm at my place." },
+  { group: "Credit union Zelle notice", kind: "real", from: "Golden 1 Credit Union <alerts@golden1.com>", subject: "You received $50.00 with Zelle", body: "Matt Culver sent you $50.00 with Zelle. It's in your checking account." },
+  { group: "Friend sends a Google Maps link on google.ca", kind: "real", from: "Sue Miller <sue.miller@gmail.com>", subject: "lunch spot", body: "Let's meet here: https://www.google.ca/maps/place/Oakdale+Diner" },
+  { group: "Title company wire instructions", kind: "real", from: "Pacific Title <escrow@pacifictitle.com>", subject: "Wire instructions for your closing", body: "Please wire the funds to the account below by Friday. Call our office to confirm before you send." },
+  { group: "Store gift card promotion", kind: "real", from: "Target <TargetNews@em.target.com>", subject: "Give a gift card that arrives immediately", body: "Send a Target GiftCard by email. It arrives immediately." },
   { group: "City water bill", kind: "real", from: "City of Oakdale Water <billing@oakdalewater.gov>", subject: "Your water bill", body: "Your water bill for October is $42.10." },
 ];
 

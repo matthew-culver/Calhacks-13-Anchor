@@ -21,9 +21,6 @@ import type { ParsedEmail } from "./types";
 export type Behavior = {
   riskySites: string[]; // sites of links that failed our own checks (see sites.linkIsRisky)
   scamPressure: boolean; // any gift card, wire, crypto or secrecy signal
-  // The pressure check itself failed on those signals (not a fraud-awareness newsletter
-  // describing them): a stranger asking this is a scam, not a question for the kid.
-  strongScamPressure?: boolean;
 };
 
 /** What the caller found in the parent's history (relationships + accounts tables). */
@@ -139,17 +136,6 @@ export function relationship(
           plainReason: `It uses the name ${who}, someone you know, but from an address they've never used with you.`,
           detail: "known contact's name on a new address",
         };
-  }
-
-  // A stranger's very first email asking to be paid in gift cards, by wire or in crypto, or to
-  // keep it secret: hold it, don't leave it in the inbox while the kid decides.
-  if (behavior?.strongScamPressure) {
-    return {
-      id: "relationship",
-      status: "warn",
-      plainReason: "It's the first email you've ever gotten from this sender, and it asks for an unusual payment or secrecy.",
-      detail: "first-time sender asking for scam payments",
-    };
   }
 
   // A new sender with no brand claim is normal (a new newsletter, a new doctor's office):

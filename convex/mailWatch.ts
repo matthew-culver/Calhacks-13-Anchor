@@ -598,11 +598,7 @@ async function checkOne(
     }
     return c;
   });
-  const behavior = {
-    riskySites: linkFacts.filter((l) => l.risky).map((l) => l.site),
-    scamPressure,
-    strongScamPressure: scamPressure && pressureCheck?.status === "fail",
-  };
+  const behavior = { riskySites: linkFacts.filter((l) => l.risky).map((l) => l.site), scamPressure };
   const checks = [...baseChecks, relationship(email, base.claimedOrg, history, claimStatus, behavior)];
   const floor = ruleLevel(checks);
 

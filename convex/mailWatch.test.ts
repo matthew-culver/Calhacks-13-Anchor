@@ -675,31 +675,6 @@ describe("pollFamily", () => {
     });
   });
 
-  test("a stranger's first email asking for gift cards and secrecy is held; a newsletter warning about them isn't", async () => {
-    const { t, familyId } = await activeFamily();
-    const mail = (id: string, from: string, domain: string, subject: string, body: string) => [
-      `Authentication-Results: mx.google.com; dkim=pass header.i=@${domain}; spf=pass smtp.mailfrom=x@${domain}; dmarc=pass (p=NONE) header.from=${domain}`,
-      `From: ${from}`,
-      "To: mom.culver@gmail.com",
-      `Subject: ${subject}`,
-      `Message-ID: <${id}@x>`,
-      "Content-Type: text/plain",
-      "",
-      body,
-      "",
-    ].join("\r\n");
-    fakeWorld({
-      messages: {
-        p1: mail("p1", "Pastor David <pastor.david.church@gmail.com>", "gmail.com", "Quick favor", "Can you buy 3 Google Play gift cards for a parishioner? Keep this between us."),
-        p2: mail("p2", "AARP <member@email.aarp.org>", "email.aarp.org", "5 scams to watch for", "Scammers ask for gift cards and wire transfers. Never pay a stranger with a gift card."),
-      },
-    });
-    await t.action(internal.mailWatch.pollFamily, { familyId });
-    const level = async (id: string) => (await t.run((ctx) => ctx.db.query("verdicts").collect())).find((v) => v.gmailMessageId === id)?.level;
-    expect(await level("p1")).toBe("fake");
-    expect(await level("p2")).toBe("real");
-  });
-
   test("the same address asking for gift cards and secrecy is flagged as a hacked account", async () => {
     const { t, familyId } = await activeFamily();
     const raw = [

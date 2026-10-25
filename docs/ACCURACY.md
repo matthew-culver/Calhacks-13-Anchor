@@ -1,6 +1,6 @@
 # How accurate is Anchor?
 
-A labeled set of 50 emails, run through Anchor's whole pipeline: the scams are built from the
+A labeled set of 57 emails, run through Anchor's whole pipeline: the scams are built from the
 patterns the FTC and AARP warn older adults about; the real mail is what a parent actually
 gets, including the family emails other filters flag (bills, Venmo, links from family). It runs
 with no AI and no network, so this is Anchor's floor: the AI investigator can only make a
@@ -12,10 +12,10 @@ email is ever held, or a scam is missed).
 | | |
 |---|---|
 | Scams caught | **24 of 24** (100%) |
-| Scams held automatically (Mom never sees them) | 22 of 24 |
-| Scams sent to the kid to decide | 2 |
-| Real emails held by mistake | **0 of 26** |
-| Real emails that asked the kid | 4 of 26 |
+| Scams held automatically (Mom never sees them) | 19 of 24 |
+| Scams sent to the kid to decide | 5 |
+| Real emails held by mistake | **0 of 33** |
+| Real emails that asked the kid | 6 of 33 |
 
 ## Scams
 
@@ -32,9 +32,9 @@ email is ever held, or a scam is missed).
 | Tech support, phone number only | Held as fake | This email says it is from Microsoft, but it was not sent by Microsoft. It tries to rush you. |
 | Streaming payment failed | Held as fake | This email says it is from Netflix, but it was not sent by Netflix. A link goes to a fake copy of the Netflix website. |
 | Bank transfer app | Held as fake | This email says it is from Zelle, but it was not sent by Zelle. A link goes to a fake copy of the Zelle website. |
-| Gift cards for the pastor | Held as fake | It asks you to pay with gift cards and keep it a secret. It's the first email you've ever gotten from this sender, and it asks for an unusual payment or secrecy. |
-| Lottery prize, pay by wire | Held as fake | It pushes you to pay with a wire transfer, which real companies don't ask for. It's the first email you've ever gotten from this sender, and it asks for an unusual payment or secrecy. |
-| Romance, cryptocurrency | Held as fake | It asks you to pay with cryptocurrency and keep it a secret. It's the first email you've ever gotten from this sender, and it asks for an unusual payment or secrecy. |
+| Gift cards for the pastor | Asked the kid | It asks you to pay with gift cards and keep it a secret. |
+| Lottery prize, pay by wire | Asked the kid | It pushes you to pay with a wire transfer, which real companies don't ask for. |
+| Romance, cryptocurrency | Asked the kid | It asks you to pay with cryptocurrency and keep it a secret. |
 | Son's account hacked, gift cards | Held as fake | It asks you to pay with gift cards and keep it a secret. This came from someone you know, but it asks for gift cards, a wire transfer, cryptocurrency or secrecy. Their account may have been hacked. |
 | Son's name, new address, money | Asked the kid | It mentions paying with a payment app. It uses the name Matt Culver, someone you know, but from an address they've never used with you. |
 | Friend's address faked with a typo | Held as fake | The address is made to look like Sue Miller's, but it isn't theirs. Someone may be pretending to be Sue Miller. |
@@ -73,6 +73,13 @@ email is ever held, or a scam is missed).
 | Facebook notification (she uses Facebook) | Left alone | Nothing odd. |
 | First-ever Venmo receipt | Asked the kid | This is the first email you've ever gotten from Venmo. |
 | Friend's newsletter about a gift card raffle | Left alone | Nothing odd. |
+| The UPS Store pickup notice | Asked the kid | This is the first email you've ever gotten from UPS. |
+| Norton Healthcare (a hospital, not the antivirus) | Left alone | Nothing odd. |
+| A neighbor named McAfee | Left alone | Nothing odd. |
+| Credit union Zelle notice | Left alone | Nothing odd. |
+| Friend sends a Google Maps link on google.ca | Left alone | Nothing odd. |
+| Title company wire instructions | Left alone | Nothing odd. |
+| Store gift card promotion | Asked the kid | It pushes you to pay with gift cards, which real companies don't ask for. |
 | City water bill | Left alone | Nothing odd. |
 | Kaiser appointment (test file) | Left alone | Nothing odd. |
 | Newsletter (test file) | Left alone | Nothing odd. |

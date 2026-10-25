@@ -84,10 +84,18 @@ export function linkTarget(href: string): { url: string; viaRedirect: boolean } 
 }
 
 /** A sign-in page that names a brand it isn't (a fake Microsoft/Chase login on some site). */
+// Each brand name as a whole word: "UPS" in "UPS Sign In", never in "Support Groups".
+const TITLE_ALIASES = BRANDS.map((b) => ({
+  brand: b,
+  patterns: b.aliases.map((a) => new RegExp(`(^|[^a-z0-9])${a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^a-z0-9])`)),
+}));
+
 export function titleImpersonates(title: string | undefined, site: string | undefined): boolean {
   if (!title || !site) return false;
   const t = title.toLowerCase();
-  return BRANDS.some((b) => b.aliases.some((a) => t.includes(a)) && !b.officialDomains.includes(site) && !(b.sharedDomains ?? []).includes(site));
+  return TITLE_ALIASES.some(
+    ({ brand, patterns }) => patterns.some((p) => p.test(t)) && !brand.officialDomains.includes(site) && !(brand.sharedDomains ?? []).includes(site),
+  );
 }
 
 /**

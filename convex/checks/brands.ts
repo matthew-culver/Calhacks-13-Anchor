@@ -37,17 +37,21 @@ export const BRANDS: Brand[] = [
   // Tech support, streaming, payment apps, parcels and antivirus: the other names scammers use
   // most with older adults (the accuracy eval found these missing). Free mailbox domains anyone
   // can sign up for are shared, never proof of who sent an email.
-  { name: "Microsoft", officialDomains: ["microsoft.com", "microsoftonline.com", "office.com"], sharedDomains: ["outlook.com", "hotmail.com", "live.com", "msn.com"], aliases: ["microsoft", "microsoft support", "microsoft account", "windows support", "windows defender"], domainKeys: ["microsoft", "windowsdefender"] },
-  { name: "Google", officialDomains: ["google.com", "youtube.com"], sharedDomains: ["gmail.com", "googlemail.com", "blogspot.com"], aliases: ["google", "google support", "google account", "gmail team"], ambiguous: true, domainKeys: ["google", "gmail"] },
+  // Not office.com: Sway and Forms pages there are published by anyone.
+  { name: "Microsoft", officialDomains: ["microsoft.com", "microsoftonline.com"], sharedDomains: ["outlook.com", "hotmail.com", "live.com", "msn.com"], aliases: ["microsoft", "microsoft support", "microsoft account", "windows support", "windows defender"], domainKeys: ["microsoft", "windowsdefender"] },
+  { name: "Google", officialDomains: ["google.com", "youtube.com", "g.co", "google.ca", "google.co.uk", "google.com.au", "google.de", "google.fr", "google.es", "google.it", "google.ie", "google.co.nz", "google.co.in", "google.com.mx", "google.co.jp", "google.com.br", "google.nl"], sharedDomains: ["gmail.com", "googlemail.com", "blogspot.com", "goo.gl"], aliases: ["google", "google support", "google account", "gmail team"], ambiguous: true, domainKeys: ["google", "gmail"] },
   { name: "Netflix", officialDomains: ["netflix.com"], aliases: ["netflix", "netflix support", "netflix billing"], domainKeys: ["netflix"] },
-  { name: "Zelle", officialDomains: ["zelle.com", "zellepay.com"], aliases: ["zelle", "zelle pay", "zelle support"], domainKeys: ["zelle", "zellepay"] },
+  // Ambiguous: banks and credit unions send "You received money with Zelle" from their own domains.
+  { name: "Zelle", officialDomains: ["zelle.com", "zellepay.com"], aliases: ["zelle", "zelle pay", "zelle support"], ambiguous: true, domainKeys: ["zelle", "zellepay"] },
   { name: "Venmo", officialDomains: ["venmo.com"], aliases: ["venmo", "venmo support"], domainKeys: ["venmo"] },
   { name: "Facebook", officialDomains: ["facebook.com", "facebookmail.com", "meta.com"], aliases: ["facebook", "facebook security", "facebook support", "meta support"], domainKeys: ["facebook", "facebookmail"] },
   { name: "Social Security", officialDomains: ["ssa.gov"], aliases: ["social security", "social security administration", "ssa"], domainKeys: ["socialsecurity", "ssa"] },
-  { name: "UPS", officialDomains: ["ups.com"], aliases: ["ups", "ups delivery", "ups my choice", "united parcel service"], ambiguous: true, domainKeys: ["ups"], wordLikeKeys: true },
+  { name: "UPS", officialDomains: ["ups.com", "theupsstore.com"], aliases: ["ups", "ups delivery", "ups my choice", "united parcel service"], ambiguous: true, domainKeys: ["ups"], wordLikeKeys: true },
   { name: "FedEx", officialDomains: ["fedex.com"], aliases: ["fedex", "fedex delivery", "federal express"], domainKeys: ["fedex"] },
-  { name: "Norton", officialDomains: ["norton.com", "nortonlifelock.com"], aliases: ["norton", "norton antivirus", "norton 360", "norton security", "nortonlifelock"], ambiguous: true, domainKeys: ["norton", "nortonlifelock"], wordLikeKeys: true },
-  { name: "McAfee", officialDomains: ["mcafee.com"], aliases: ["mcafee", "mcafee antivirus", "mcafee security"], domainKeys: ["mcafee"] },
+  // Norton is also a surname and a hospital system (Norton Healthcare), so only the product
+  // names count in a web address; impostor emails are still caught by the name they use.
+  { name: "Norton", officialDomains: ["norton.com", "nortonlifelock.com"], aliases: ["norton", "norton antivirus", "norton 360", "norton security", "nortonlifelock"], ambiguous: true, domainKeys: ["nortonlifelock", "norton360"], wordLikeKeys: true },
+  { name: "McAfee", officialDomains: ["mcafee.com"], aliases: ["mcafee", "mcafee antivirus", "mcafee security"], ambiguous: true, domainKeys: ["mcafee"] },
   { name: "Geek Squad", officialDomains: ["bestbuy.com", "geeksquad.com"], aliases: ["geek squad", "geeksquad", "best buy geek squad"], domainKeys: ["geeksquad"] },
 ];
 
