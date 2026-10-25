@@ -270,7 +270,12 @@ export const investigate = internalAction({
     ];
     const investigationId = await ctx.runMutation(internal.investigations.start, { verdictId, steps: opening });
     if (!investigationId) return null; // already done, capped, or turned off
-    const add = (steps: ReturnType<typeof step>[]) => ctx.runMutation(internal.investigations.addSteps, { investigationId, steps });
+    // Each line once: two links to one site, or two pages read there, aren't news to the kid.
+    const said = new Set(opening.map((s) => s.text));
+    const add = async (steps: ReturnType<typeof step>[]) => {
+      const fresh = steps.filter((s) => !said.has(s.text) && said.add(s.text));
+      if (fresh.length > 0) await ctx.runMutation(internal.investigations.addSteps, { investigationId, steps: fresh });
+    };
     const links: Facts["links"] = facts.links.map((l) => ({ ...l, risky: linkIsRisky(l) }));
     const fullFacts: Facts = { ...facts, links };
     let finished = false;

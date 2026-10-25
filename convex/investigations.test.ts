@@ -120,6 +120,23 @@ describe("investigate", () => {
     expect(scheduled.map((s) => s.name)).toContain("gmailActions:applyVerdict");
   });
 
+  test("says each step once, even when several links go to the same site", async () => {
+    const { t, verdictId, feedItemId, kid } = await setup();
+    const calls = fakeWorld({ answer: answer() });
+    const link = facts().links[0];
+    await t.action(internal.investigations.investigate, {
+      verdictId,
+      facts: facts({ links: [link, { ...link, shownText: "Sign in", href: "https://chase-verify.top/verify" }] }),
+    });
+
+    const texts = (await kid.query(api.investigations.forFeedItem, { feedItemId }))!.steps.map((s) => s.text);
+    expect(texts.filter((s) => s.startsWith("Following the link to chase-verify.top"))).toHaveLength(1);
+    expect(texts.filter((s) => s === "The page at chase-verify.top asks for a password.")).toHaveLength(1);
+    expect(new Set(texts).size).toBe(texts.length);
+    // Both links are still followed: two paths on one site can lead to different places.
+    expect(calls.filter((u) => u.startsWith("https://chase-verify.top/"))).toHaveLength(2);
+  });
+
   test("clears a first-contact email from the company's real, authenticated address", async () => {
     const { t, verdictId, feedItemId } = await setup();
     const real = answer({ level: "real", summary: "This came from Chase's real address.", sender: { verdict: "genuine", reason: "chase.com is Chase's." }, links: [] });
