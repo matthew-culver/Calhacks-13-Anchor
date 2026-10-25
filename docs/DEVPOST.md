@@ -8,9 +8,13 @@ the worry calls.
 
 **For:** adult children of parents in their 70s who manage their own email.
 
+**Elevator pitch** (Devpost limit 200 characters): Anchor quietly keeps scams out of our parents'
+Gmail. It knows who they really deal with, a Claude agent shows their kid why each fake was
+caught, and Mom hears back in her kid's words.
+
 ## Inspiration
 
-We're twin brothers, and our parents are 73. **[you: one real moment, like the email your mom
+We're twin brothers, and our parents are in their 70s. **[you: one real moment, like the email your mom
 almost answered, or the call that started with "is this real?"]** Scam emails now look exactly
 like the real thing, and the advice we give our parents ("check the address", "don't click
 links") asks them to be security experts. Spam filters guess from the message alone. We wanted
@@ -107,6 +111,21 @@ The full list, each risk with its guard in code and the test that proves it, is 
 - Keeping an AI agent with web access safe on hostile input, and making sure its words never
   contradict what our checks found.
 
+## Accomplishments that we're proud of
+
+- It works end to end on a real Gmail inbox: one-tap setup, real accounts, real scams held live.
+- 25 of 25 scams caught and 0 of 33 real emails held on our test set.
+- A scam email with hidden instructions telling the AI to let it through is held anyway.
+- The parent's whole job is one tap. They install nothing and learn nothing.
+
+## What we learned
+
+- The hard part of scam protection isn't spotting a bad email. It's knowing what's normal for
+  one person.
+- Limits enforced in code (what the AI sees, which way it can move a verdict) make an AI agent
+  far more trustworthy than prompt instructions alone.
+- Designing for our parents makes every screen better for everyone.
+
 ## What's next
 
 Google's verification and security review to leave testing mode (today only test users can
@@ -141,3 +160,39 @@ Creative Hack**, **Most Technically Complex Hack** and **Hacker's Choice**.
 
 **Built with:** Convex, Next.js, TypeScript, Tailwind CSS, Gmail API, Google OAuth, Claude
 (Anthropic API with web search and web fetch), RDAP, Google Safe Browsing, Vitest.
+
+Tags for the "Built with" field: `typescript` `next.js` `react` `tailwindcss` `convex`
+`convex-auth` `gmail-api` `google-oauth` `anthropic` `claude` `google-safe-browsing` `rdap`
+`vitest`
+
+## Additional info
+
+**What AI tools did you use this weekend?** **[you: add any others, like ChatGPT or Copilot]**
+
+Claude Code (Anthropic's coding agent) was our main pair programmer: writing and reviewing code,
+running tests, accessibility audits, and drafting our docs and pitch deck. Inside the product,
+we use Claude (claude-opus-5-5) through the Anthropic API.
+
+**Did you implement a generative AI model or API? How and why?**
+
+Yes. Anchor uses Claude (claude-opus-5-5) through the Anthropic API, with its web search and web
+fetch tools, as an AI investigator for suspicious emails.
+
+How: our deterministic checks run first (sender authentication, look-alike addresses, link
+unwrapping, site age, Google Safe Browsing, the parent's own email history) and set a verdict
+floor. For anything suspicious, Claude then investigates the way a careful person would: it
+looks up the company's real email addresses on the web, follows each link (tracking codes
+stripped, private networks blocked) to see where it really goes and what the page asks for,
+and judges whether the sender, the message and the link fit together. Each step streams live to
+the kid's screen through Convex, and Claude returns a fixed, structured verdict on the sender and
+each link, with sources.
+
+Why: this is the research a careful adult child would do by hand in a chatbot for every
+suspicious email, and no parent can do it on their own. Claude makes it automatic and explains
+the result in plain words.
+
+Kept in bounds, in code: Claude can make a verdict stricter but never lower a deterministic red
+flag. Email text is treated as untrusted data, never instructions, and after reading it Claude
+can only raise a verdict. Its sources must come from its own tool results. Clearing an email
+requires our own curated data, never the model's opinion. Steps and cost are capped per family.
+The parent never sees model-written text, only fixed plain sentences and their kid's own words.
