@@ -8,6 +8,7 @@
 import type { GenericId } from "convex/values";
 import type {
   Account,
+  AccountSignal,
   Family,
   FeedItem,
   Verdict,
@@ -51,6 +52,9 @@ const acct = (
   loginUrl: string | undefined,
   months: number,
   messageCount: number,
+  // v2 (A8): how much Mom really uses it, and the account-type emails that show it.
+  rank: number,
+  signals: AccountSignal[],
 ): Row<Account, "accounts"> => ({
   _id: id<"accounts">(`mock_account_${n}`),
   _creationTime: now - 3 * DAY,
@@ -61,17 +65,28 @@ const acct = (
   loginUrl,
   firstSeen: monthsAgo(months),
   messageCount,
+  rank,
+  signals,
+  ...(signals.length > 0 && { lastActivity: now - (n % 5 + 1) * DAY }),
+  ...(loginUrl && { loginUrlSource: "curated" as const }),
 });
 
+// Ranked by real use (bills, statements, sign-in alerts), not by how much mail they send:
+// Amazon sends the most email but isn't the most important account.
 export const mockAccounts: Row<Account, "accounts">[] = [
-  acct(1, "Kaiser Permanente", "health", ["kp.org", "kaiserpermanente.org"], "https://healthy.kaiserpermanente.org/", 24, 88),
-  acct(2, "Wells Fargo", "bank", ["wellsfargo.com", "wf.com"], "https://connect.secure.wellsfargo.com/auth/login/present", 24, 140),
-  acct(3, "CVS Pharmacy", "pharmacy", ["cvs.com"], "https://www.cvs.com/account/login", 19, 41),
-  acct(4, "PG&E", "utility", ["pge.com"], "https://m.pge.com/#login", 24, 48),
-  acct(5, "Medicare", "government", ["medicare.gov"], "https://www.medicare.gov/account/login", 14, 12),
-  acct(6, "Amazon", "shopping", ["amazon.com"], "https://www.amazon.com/ap/signin", 24, 210),
+  acct(1, "Kaiser Permanente", "health", ["kp.org", "kaiserpermanente.org"], "https://healthy.kaiserpermanente.org/", 24, 88, 90, ["appointment", "sign_in", "code"]),
+  acct(2, "Wells Fargo", "bank", ["wellsfargo.com", "wf.com"], "https://connect.secure.wellsfargo.com/auth/login/present", 24, 140, 95, ["statement", "bill", "sign_in"]),
+  acct(3, "CVS Pharmacy", "pharmacy", ["cvs.com"], "https://www.cvs.com/account/login", 19, 41, 75, ["order"]),
+  acct(4, "PG&E", "utility", ["pge.com"], "https://m.pge.com/#login", 24, 48, 70, ["bill"]),
+  acct(5, "Medicare", "government", ["medicare.gov"], "https://www.medicare.gov/account/login", 14, 12, 80, ["statement"]),
+  acct(6, "Amazon", "shopping", ["amazon.com"], "https://www.amazon.com/ap/signin", 24, 210, 55, ["order", "sign_in"]),
   // Not in the curated directory yet, so there's no verified link. The UI must not show one.
-  acct(7, "Sunrise Senior Center", "other", ["sunrisecenter.org"], undefined, 9, 17),
+  acct(7, "Sunrise Senior Center", "other", ["sunrisecenter.org"], undefined, 9, 17, 10, []),
+  acct(8, "Social Security", "government", ["ssa.gov"], "https://secure.ssa.gov/RIL/SiView.action", 24, 9, 65, ["statement", "security"]),
+  acct(9, "AARP Medicare Supplement", "insurance", ["aarpmedicareplans.com", "uhc.com"], "https://www.aarpmedicareplans.com/", 24, 22, 60, ["bill", "statement"]),
+  acct(10, "Xfinity", "utility", ["xfinity.com", "comcast.net"], "https://login.xfinity.com/login", 24, 36, 50, ["bill"]),
+  acct(11, "Costco", "shopping", ["costco.com"], "https://www.costco.com/LogonForm", 16, 30, 35, ["order"]),
+  acct(12, "Walgreens", "pharmacy", ["walgreens.com"], "https://www.walgreens.com/login.jsp", 6, 8, 20, ["order"]),
 ];
 
 const verdictBase = { familyId, _creationTime: now };
