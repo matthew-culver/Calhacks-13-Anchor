@@ -1,7 +1,6 @@
 "use client";
 
 import { useConvexAuth, useQuery } from "convex/react";
-import { useState } from "react";
 import { KidAccountList } from "@/components/AccountList";
 import { BigButton, Screen } from "@/components/ui";
 import { api } from "../../../../convex/_generated/api";
@@ -12,7 +11,6 @@ export default function KidAccounts() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const family = useQuery(api.families.getMyFamily, isAuthenticated ? {} : "skip");
   const accounts = useQuery(api.accounts.myAccounts, isAuthenticated ? {} : "skip");
-  const [now] = useState(() => Date.now());
 
   if (!isLoading && !isAuthenticated) {
     return (
@@ -70,7 +68,7 @@ export default function KidAccounts() {
           {`Nothing yet. A place shows up here after it has sent ${parentName} several real emails.`}
         </p>
       ) : (
-        <KidAccountList accounts={accounts} parentName={parentName} now={now} />
+        <KidAccountList accounts={accounts} parentName={parentName} />
       )}
     </Screen>
   );

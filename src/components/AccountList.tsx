@@ -2,6 +2,7 @@
 // Same rows for both: "the parent sees exactly what the kid sees".
 
 import type { FunctionReturnType } from "convex/server";
+import { useState } from "react";
 import { BigButton, Card } from "@/components/ui";
 import type { api } from "../../convex/_generated/api";
 
@@ -19,6 +20,16 @@ const CATEGORY: Record<AccountView["category"], string> = {
 };
 
 const DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * The time to measure "how long" from, read once when the list first shows. Read here, not in
+ * the page: lists only render in the browser after data arrives, while pages are also
+ * prerendered at build time, where Next.js refuses a clock value. Tests pass a fixed `now`.
+ */
+function useNow(now?: number): number {
+  const [mountedAt] = useState(() => Date.now());
+  return now ?? mountedAt;
+}
 
 /** "2 years", "9 months", "a few weeks": how long this sender has been in the inbox. */
 export function howLong(firstSeen: number, now: number): string {
@@ -59,8 +70,9 @@ export function KidAccountList({
 }: {
   accounts: AccountView[];
   parentName: string;
-  now: number;
+  now?: number;
 }) {
+  const at = useNow(now);
   return (
     <ul className="flex flex-col gap-4">
       {accounts.map((a) => {
@@ -70,7 +82,7 @@ export function KidAccountList({
             <Card>
               <h2 className="text-xl font-bold">{a.orgName}</h2>
               <p className="text-muted">
-                {`${CATEGORY[a.category]} · In ${parentName}'s email for ${howLong(a.firstSeen, now)} · ${a.messageCount} emails`}
+                {`${CATEGORY[a.category]} · In ${parentName}'s email for ${howLong(a.firstSeen, at)} · ${a.messageCount} emails`}
               </p>
               {/* Only the verified login page from our directory, never a link from an email. */}
               {login && (
@@ -91,7 +103,8 @@ export function KidAccountList({
 }
 
 /** Parent version: big text, one big button per place, nothing else to read. */
-export function ParentAccountList({ accounts, now }: { accounts: AccountView[]; now: number }) {
+export function ParentAccountList({ accounts, now }: { accounts: AccountView[]; now?: number }) {
+  const at = useNow(now);
   return (
     <ul className="flex flex-col gap-6">
       {accounts.map((a) => {
@@ -100,7 +113,7 @@ export function ParentAccountList({ accounts, now }: { accounts: AccountView[]; 
           <li key={a._id}>
             <Card>
               <h2 className="text-2xl font-bold">{a.orgName}</h2>
-              <p className="mb-4 text-lg text-muted">{`In your email for ${howLong(a.firstSeen, now)}`}</p>
+              <p className="mb-4 text-lg text-muted">{`In your email for ${howLong(a.firstSeen, at)}`}</p>
               {login ? (
                 <BigButton href={login} secondary>{`Open ${a.orgName}`}</BigButton>
               ) : (

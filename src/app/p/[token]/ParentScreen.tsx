@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { useState } from "react";
 import { ParentAccountList } from "@/components/AccountList";
 import { Screen } from "@/components/ui";
 import { api } from "../../../../convex/_generated/api";
@@ -11,7 +10,6 @@ import { api } from "../../../../convex/_generated/api";
 // token, and a wrong name would be a stranger's.
 export function ParentScreen({ token, justConnected }: { token: string; justConnected?: boolean }) {
   const accounts = useQuery(api.accounts.parentAccounts, justConnected ? "skip" : { parentToken: token });
-  const [now] = useState(() => Date.now());
 
   // Person A's /gmail/callback lands here with ?connected=1 after Google says yes.
   if (justConnected) {
@@ -46,7 +44,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
         These are the real websites you use. To sign in, tap a button here instead of a link
         in an email.
       </p>
-      <ParentAccountList accounts={accounts} now={now} />
+      <ParentAccountList accounts={accounts} />
       <p className="text-lg text-muted">
         Your family sees only this list and the emails we set aside.
       </p>
