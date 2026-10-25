@@ -192,7 +192,11 @@ function AnswerForm({
           name="note"
           rows={3}
           maxLength={MAX_NOTE}
-          placeholder={`Good catch, ${parentName}. That one's fake. Love you.`}
+          placeholder={
+            entry.kind === "asked"
+              ? `Thanks for asking, ${parentName}! Here's what I think...`
+              : `Good catch, ${parentName}. That one's fake. Love you.`
+          }
           value={note}
           onChange={(e) => setNote(e.target.value)}
           className="rounded-2xl border-2 border-line-strong bg-surface p-4 text-xl placeholder:text-muted/70 focus:border-action"
