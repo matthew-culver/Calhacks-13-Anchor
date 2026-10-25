@@ -69,12 +69,56 @@ describe("parent page", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("shows only the done screen right after connecting, with the real kid's name", () => {
+  it("right after connecting: says you're done, with the real kid's name, and nothing to decide", () => {
     render(<ParentScreen token="ptok" justConnected />);
     expect(title()).toHaveTextContent("You're done");
+    expect(screen.getByRole("main")).toHaveTextContent("You don't need to do anything else.");
     expect(screen.getByRole("main")).toHaveTextContent("Lucas hears about anything we're not sure of.");
-    expect(screen.queryByRole("link")).toBeNull();
+    // No "Turn it off" on the screen Mom sees the moment she connects.
     expect(screen.queryByRole("button")).toBeNull();
+  });
+});
+
+describe("connect screen, live (B10)", () => {
+  it("says it's finding her accounts before any arrive", () => {
+    seedParent("learning");
+    fakeBackend.setQuery("accounts:parentAccounts", []);
+    render(<ParentScreen token="ptok" justConnected />);
+    expect(screen.getByRole("status")).toHaveTextContent("Finding the places you use…");
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("shows accounts as they arrive, and keeps saying it's still finding more", () => {
+    seedParent("learning");
+    fakeBackend.setQuery("accounts:parentAccounts", mockAccounts.slice(0, 2));
+    render(<ParentScreen token="ptok" justConnected />);
+    expect(screen.getByRole("status")).toHaveTextContent("Still finding more…");
+    expect(screen.getByRole("link", { name: "Open Wells Fargo" })).toBeInTheDocument();
+
+    act(() => fakeBackend.setQuery("accounts:parentAccounts", mockAccounts));
+    expect(screen.getByRole("link", { name: "Open Medicare" })).toBeInTheDocument();
+  });
+
+  it("when the import is done, lets her know she can tap one whenever she needs it", () => {
+    seedParent("active");
+    render(<ParentScreen token="ptok" justConnected />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "These are the real websites you use. Whenever you need one, tap it to sign in.",
+    );
+    expect(screen.getByRole("heading", { level: 2, name: "Money" })).toBeInTheDocument();
+  });
+
+  it("doesn't say \"tap one\" before it knows the import is finished", () => {
+    fakeBackend.setQuery("families:getParentView", undefined);
+    render(<ParentScreen token="ptok" justConnected />);
+    expect(screen.getByRole("status")).toHaveTextContent("Still finding more…");
+  });
+
+  it("doesn't say \"finding\" forever when the import found nothing", () => {
+    seedParent("active");
+    fakeBackend.setQuery("accounts:parentAccounts", []);
+    render(<ParentScreen token="ptok" justConnected />);
+    expect(screen.getByRole("status")).toHaveTextContent("We didn't find any yet. We'll keep looking.");
   });
 });
 

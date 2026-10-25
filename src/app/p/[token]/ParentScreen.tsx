@@ -22,28 +22,48 @@ const SAMPLE_VIEW = { parentName: "Mom", kidName: "Lucas", status: "active" as c
 export function ParentScreen({ token, justConnected }: { token: string; justConnected?: boolean }) {
   const demo = useDemoMode();
   const liveView = useQuery(api.families.getParentView, demo ? "skip" : { parentToken: token });
-  const liveAccounts = useQuery(api.accounts.parentAccounts, demo || justConnected ? "skip" : { parentToken: token });
+  // Also right after connecting: the done screen shows the accounts arriving live (B10).
+  const liveAccounts = useQuery(api.accounts.parentAccounts, demo ? "skip" : { parentToken: token });
   // Rounded to the minute so the recap subscription isn't recreated on every render.
   const now = useClientNow();
   const liveRecap = useQuery(
     api.feed.parentWeeklyRecap,
     demo || justConnected || now === null ? "skip" : { parentToken: token, now: Math.floor(now / MIN) * MIN },
   );
-  const sample = useSampleImport(demo && !justConnected);
+  const sample = useSampleImport(demo);
 
   const view = demo ? SAMPLE_VIEW : liveView;
   const accounts = demo ? sample.accounts : liveAccounts;
   const recap = demo ? mockRecap : liveRecap;
   const family = view?.kidName ?? "your family";
 
-  // Person A's /gmail/callback lands here with ?connected=1 after Google says yes.
+  // Person A's /gmail/callback lands here with ?connected=1 after Google says yes. Below the
+  // reassurance, Mom watches her accounts appear and sort themselves as the import runs (B10):
+  // "we didn't type any of this".
   if (justConnected) {
+    const found = accounts ?? [];
+    // Still importing until the status says otherwise (and while it hasn't loaded yet).
+    const finding = demo ? !sample.done : view === undefined || view?.status === "learning";
     return (
       <Screen title="You're done">
         <p className="text-xl">You don&apos;t need to do anything else.</p>
         <p className="text-lg text-muted">
           {`We'll quietly set aside scam emails, and ${family} hears about anything we're not sure of.`}
         </p>
+        {demo && <SampleDataNote />}
+        <section className="flex flex-col gap-4">
+          <h2 className="text-2xl font-bold">Your accounts</h2>
+          <p role="status" className="text-lg">
+            {finding
+              ? found.length === 0
+                ? "Finding the places you use…"
+                : "Still finding more…"
+              : found.length === 0
+                ? "We didn't find any yet. We'll keep looking."
+                : "These are the real websites you use. Whenever you need one, tap it to sign in."}
+          </p>
+          {found.length > 0 && <ParentAccountList accounts={found} />}
+        </section>
       </Screen>
     );
   }
