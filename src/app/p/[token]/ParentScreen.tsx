@@ -8,7 +8,7 @@ import { useClientNow } from "@/components/TimeAgo";
 import { Icon } from "@/components/icons";
 import { TurnOff } from "@/components/TurnOff";
 import { Watching } from "@/components/Watching";
-import { Screen } from "@/components/ui";
+import { Pill, Screen } from "@/components/ui";
 import { useDemoMode } from "@/shared/demoMode";
 import { mockRecap } from "@/shared/mock";
 import { useSampleImport } from "@/shared/sampleImport";
@@ -68,7 +68,15 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
     // Still importing until the status says otherwise (and while it hasn't loaded yet).
     const finding = demo ? !sample.done : view === undefined || view?.status === "learning";
     return (
-      <Screen title="You're done">
+      <Screen
+        title="You're done"
+        before={
+          <Pill tone="real">
+            <Icon name="shieldCheck" className="h-5 w-5" />
+            Protection is on
+          </Pill>
+        }
+      >
         <p className="text-xl">You don&apos;t need to do anything else.</p>
         <p className="text-lg text-muted">
           {`We'll quietly set aside scam emails, and ${family} hears about anything we're not sure of.`}
