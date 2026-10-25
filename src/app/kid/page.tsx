@@ -52,7 +52,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
       )}
 
       <FeedSection title="Needs your answer" entries={waiting} parentName={parentName}>
-        {`Nothing to answer. We'll let you know when ${parentName} gets an email we're not sure about.`}
+        {`Nothing to answer. We'll let you know when ${parentName} gets an email we're not sure about, or asks you about one.`}
       </FeedSection>
       <FeedSection title="We held these" entries={heldItems} parentName={parentName}>
         Nothing held this week.

@@ -176,6 +176,16 @@ name as it shows in his own emails)
 - **"Why not just a spam filter?"** Filters guess from the message alone. Anchor knows who Mom
   really deals with (her family, her bank, her doctor), so it can leave her son's bill reminder
   alone and still catch the same son's hacked account asking for gift cards.
+- **"How accurate is it?"** On our labeled test set of 44 emails (`docs/ACCURACY.md`, re-run by
+  `convex/accuracy.test.ts`): 24 of 24 scams caught, 19 held automatically, 0 of 20 real emails
+  held. Its first run missed tech-support and streaming impostors; we added those brands, and the
+  test now fails the build if a real email is ever held.
+- **"What if someone pretends to be family?"** Anchor learns the names of the people Mom writes
+  to. A stranger using one of those names from a new address is flagged; a look-alike address is
+  held as fake.
+- **"Does Mom ever start the conversation?"** Yes: she moves any email to "⚠ Check with Lucas" in
+  Gmail, and it lands in the kid's feed with the AI investigation. The answer comes back to her in
+  the kid's words.
 - **"Can a scammer game the history?"** Mail Anchor flagged never counts toward "someone Mom
   knows", and a familiar sender is still flagged for a dangerous link, gift cards, wires,
   crypto, secrecy, or talking like a company ("your account is locked").
