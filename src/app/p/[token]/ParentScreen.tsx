@@ -1,17 +1,23 @@
-import { Screen } from "@/components/ui";
-import { mockFamily } from "@/shared/mock";
+"use client";
 
-// B4 adds the big-text My Accounts list here, and B5 the "Turn it off" button.
-// Mock data until Checkpoint 1, when the token looks up the real family.
+import { useQuery } from "convex/react";
+import { useState } from "react";
+import { ParentAccountList } from "@/components/AccountList";
+import { Screen } from "@/components/ui";
+import { api } from "../../../../convex/_generated/api";
+
+// The parent's page, opened from the link in their Gmail note. B4: their accounts in big text.
+// B5 adds the "Turn it off" button. No names here yet: there's no family lookup by parent
+// token, and a wrong name would be a stranger's.
 export function ParentScreen({ token, justConnected }: { token: string; justConnected?: boolean }) {
-  const family = token ? mockFamily : null;
+  const accounts = useQuery(api.accounts.parentAccounts, justConnected ? "skip" : { parentToken: token });
+  const [now] = useState(() => Date.now());
 
   // Person A's /gmail/callback lands here with ?connected=1 after Google says yes.
   if (justConnected) {
     return (
       <Screen title="You're done">
         <p className="text-xl">You don&apos;t need to do anything else.</p>
-        {/* No names until B4 looks up the real family: a mock name here would be a stranger's. */}
         <p className="text-lg text-muted">
           We&apos;ll quietly set aside scam emails, and your family hears about anything
           we&apos;re not sure of.
@@ -20,10 +26,29 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
     );
   }
 
+  if (accounts === undefined) {
+    return <Screen title="One moment..." />;
+  }
+  if (accounts.length === 0) {
+    // Also what an unknown or turned-off link sees: nothing to reveal either way.
+    return (
+      <Screen title="Your accounts">
+        <p role="status" className="text-xl">
+          We&apos;re still learning which places you deal with. This page fills in on its own.
+        </p>
+      </Screen>
+    );
+  }
+
   return (
-    <Screen title={`Hi ${family?.parentName ?? "there"}`}>
+    <Screen title="Your accounts">
+      <p className="text-xl">
+        These are the real websites you use. To sign in, tap a button here instead of a link
+        in an email.
+      </p>
+      <ParentAccountList accounts={accounts} now={now} />
       <p className="text-lg text-muted">
-        {`${family?.kidName ?? "Your family"} sees only the emails we set aside, and your list of accounts.`}
+        Your family sees only this list and the emails we set aside.
       </p>
     </Screen>
   );
