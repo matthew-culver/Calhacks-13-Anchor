@@ -75,6 +75,12 @@ const CASES: Case[] = [
   { group: "First-ever email from the real Netflix", kind: "real", from: "Netflix <info@account.netflix.com>", subject: "New sign-in to your account", body: "We noticed a new sign-in to your Netflix account on a TV." },
   { group: "First-ever email from the real UPS", kind: "real", from: "UPS <mcinfo@ups.com>", subject: "UPS Update: Package Scheduled for Delivery Today", body: "Your package is scheduled for delivery today between 2pm and 6pm." },
   { group: "First-ever letter from Social Security", kind: "real", from: "Social Security Administration <noreply@ssa.gov>", subject: "Your benefit statement is ready", body: "Your annual benefit statement is ready. Sign in at ssa.gov to view it." },
+  { group: "Store receipt", kind: "real", from: "Costco <costco@online.costco.com>", subject: "Your Costco.com order has shipped", body: "Your order is on its way. Track it in your Costco account." },
+  { group: "Calendar invite from family", kind: "real", from: "Matt Culver <matt.culver@gmail.com>", subject: "Invitation: Sunday dinner @ Sun 6pm", body: "Matt Culver has invited you to Sunday dinner. Going? Yes - Maybe - No" },
+  { group: "Neighborhood digest", kind: "real", from: "Nextdoor <reply@rs.email.nextdoor.com>", subject: "Lost dog on Maple St and 4 more posts", body: "Here's what your neighbors are talking about this week." },
+  { group: "Facebook notification (she uses Facebook)", kind: "real", from: "Facebook <notification@facebookmail.com>", subject: "Sue Miller commented on your photo", body: "Sue Miller commented: Beautiful garden!" },
+  { group: "First-ever Venmo receipt", kind: "real", from: "Venmo <venmo@venmo.com>", subject: "Matt Culver paid you $25.00", body: "Matt Culver paid you $25.00 for lunch." },
+  { group: "Friend's newsletter about a gift card raffle", kind: "real", from: "Oakdale Library <events@oakdalelibrary.org>", subject: "Book sale Saturday", body: "Join us for the book sale! Every visitor is entered in a raffle for a $25 bookstore gift card." },
   { group: "City water bill", kind: "real", from: "City of Oakdale Water <billing@oakdalewater.gov>", subject: "Your water bill", body: "Your water bill for October is $42.10." },
 ];
 
@@ -121,6 +127,7 @@ async function check(raw: string) {
     for (const [key, orgName] of [
       ["kp.org", "Kaiser Permanente"], ["kaiserpermanente.org", "Kaiser Permanente"], ["wellsfargo.com", "Wells Fargo"], ["cvs.com", "CVS"],
       ["pge.com", "PG&E"], ["bankofamerica.com", "Bank of America"], ["medicare.gov", "Medicare"], ["google.com", "Google"],
+      ["facebookmail.com", "Facebook"],
     ]) {
       await ctx.db.insert("relationships", { familyId, kind: "org", key, orgName, ...since, messageCount: 40, authPassRate: 1 });
     }

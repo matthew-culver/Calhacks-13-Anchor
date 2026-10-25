@@ -1,6 +1,6 @@
 # How accurate is Anchor?
 
-A labeled set of 44 emails, run through Anchor's whole pipeline: the scams are built from the
+A labeled set of 50 emails, run through Anchor's whole pipeline: the scams are built from the
 patterns the FTC and AARP warn older adults about; the real mail is what a parent actually
 gets, including the family emails other filters flag (bills, Venmo, links from family). It runs
 with no AI and no network, so this is Anchor's floor: the AI investigator can only make a
@@ -14,8 +14,8 @@ email is ever held, or a scam is missed).
 | Scams caught | **24 of 24** (100%) |
 | Scams held automatically (Mom never sees them) | 22 of 24 |
 | Scams sent to the kid to decide | 2 |
-| Real emails held by mistake | **0 of 20** |
-| Real emails that asked the kid | 3 of 20 |
+| Real emails held by mistake | **0 of 26** |
+| Real emails that asked the kid | 4 of 26 |
 
 ## Scams
 
@@ -67,6 +67,12 @@ email is ever held, or a scam is missed).
 | First-ever email from the real Netflix | Asked the kid | This is the first email you've ever gotten from Netflix. |
 | First-ever email from the real UPS | Asked the kid | This is the first email you've ever gotten from UPS. |
 | First-ever letter from Social Security | Asked the kid | This is the first email you've ever gotten from Social Security. |
+| Store receipt | Left alone | Nothing odd. |
+| Calendar invite from family | Left alone | Nothing odd. |
+| Neighborhood digest | Left alone | Nothing odd. |
+| Facebook notification (she uses Facebook) | Left alone | Nothing odd. |
+| First-ever Venmo receipt | Asked the kid | This is the first email you've ever gotten from Venmo. |
+| Friend's newsletter about a gift card raffle | Left alone | Nothing odd. |
 | City water bill | Left alone | Nothing odd. |
 | Kaiser appointment (test file) | Left alone | Nothing odd. |
 | Newsletter (test file) | Left alone | Nothing odd. |
