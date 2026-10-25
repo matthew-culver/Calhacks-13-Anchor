@@ -134,6 +134,8 @@ export const answer = mutation({
     feedItemId: v.id("feedItems"),
     answer: v.union(v.literal("fine"), v.literal("scam")),
     note: v.optional(v.string()),
+    // With "fine": always trust this sender (family). Then only hard red flags flag them.
+    trustSender: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -159,6 +161,14 @@ export const answer = mutation({
       kidAnswer: { answer: args.answer, ...(note && { note }), answeredAt: Date.now() },
     });
     await ctx.db.patch(verdict._id, { action: args.answer === "fine" ? "released" : "held" });
+    if (args.answer === "fine" && args.trustSender && verdict.fromAddress) {
+      const address = verdict.fromAddress.toLowerCase();
+      const known = await ctx.db
+        .query("trustedSenders")
+        .withIndex("by_family_address", (q) => q.eq("familyId", family._id).eq("address", address))
+        .first();
+      if (!known) await ctx.db.insert("trustedSenders", { familyId: family._id, address });
+    }
     await ctx.scheduler.runAfter(0, internal.gmailActions.applyAnswer, { feedItemId: item._id });
     return null;
   },

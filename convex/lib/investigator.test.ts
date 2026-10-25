@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { buildBrief, decideLevel, type Facts, fallbackConclusion, officialSource, pageConfirmsSender, parseOutput } from "./investigator";
-import { cleanUrl, probeLink } from "./linkProbe";
+import { buildBrief, decideLevel, type Facts, fallbackConclusion, onlyFirstContact, parseOutput, safeConclusion, senderIsOfficial } from "./investigator";
+import { cleanUrl, isPrivateAddress, probeLink } from "./linkProbe";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -23,7 +23,7 @@ const good = {
 };
 
 describe("safety rules (decideLevel)", () => {
-  const base = { readEmailText: false, confirmedByOfficialPage: true, senderVerdict: "genuine" as const };
+  const base = { readEmailText: false, officialAndFirstContact: true, senderVerdict: "genuine" as const };
 
   test("never lowers a deterministic fake", () => {
     expect(decideLevel({ ...base, floor: "fake", proposed: "real" })).toEqual({ level: "fake", cleared: false });
@@ -34,11 +34,43 @@ describe("safety rules (decideLevel)", () => {
     expect(decideLevel({ ...base, floor: "real", proposed: "unsure" }).level).toBe("unsure");
   });
 
-  test("clears unsure -> real only with an official page we confirmed, without reading the text", () => {
+  test("clears unsure -> real only when our own data says official + first contact, without reading the text", () => {
     expect(decideLevel({ ...base, floor: "unsure", proposed: "real" })).toEqual({ level: "real", cleared: true });
-    expect(decideLevel({ ...base, floor: "unsure", proposed: "real", confirmedByOfficialPage: false }).cleared).toBe(false);
+    expect(decideLevel({ ...base, floor: "unsure", proposed: "real", officialAndFirstContact: false }).cleared).toBe(false);
     expect(decideLevel({ ...base, floor: "unsure", proposed: "real", readEmailText: true }).cleared).toBe(false);
     expect(decideLevel({ ...base, floor: "unsure", proposed: "real", senderVerdict: "unverified" }).cleared).toBe(false);
+  });
+
+  test("official means on OUR curated list; first contact means the only flag was the relationship", () => {
+    const pass = { id: "header_auth" as const, status: "pass" as const, plainReason: "ok" };
+    expect(senderIsOfficial({ ...facts, sender: { ...facts.sender, domain: "alerts.chase.com" } })).toBe(true);
+    expect(senderIsOfficial({ ...facts, sender: { ...facts.sender, domain: "chase-alerts.co" } })).toBe(false);
+    expect(onlyFirstContact({ ...facts, links: [], checks: [pass, ...facts.checks] })).toBe(true);
+    expect(onlyFirstContact({ ...facts, links: [], checks: facts.checks })).toBe(false); // no auth pass
+    expect(onlyFirstContact({ ...facts, links: [], checks: [pass, ...facts.checks, { id: "pressure", status: "warn", plainReason: "x" }] })).toBe(false);
+  });
+});
+
+describe("the model's words stay consistent with our findings", () => {
+  const decided = { level: "unsure" as const, cleared: false };
+  test("a link our checks found dangerous is never shown as safe; unknown sites aren't 'safe'", () => {
+    const out = parseOutput(JSON.stringify({ ...good, level: "unsure", links: [{ site: "secure-view.top", verdict: "safe", reason: "Looks fine." }] }))!;
+    const c = safeConclusion(out, { ...facts, links: [{ ...facts.links[0], risky: true }] }, decided);
+    expect(c.links[0].verdict).toBe("dangerous");
+    const c2 = safeConclusion(out, { ...facts, links: [{ ...facts.links[0], ageDays: 900, risky: false }] }, decided);
+    expect(c2.links[0].verdict).toBe("unknown");
+  });
+
+  test("a sender we can't verify is never called genuine unless cleared", () => {
+    const out = parseOutput(JSON.stringify({ ...good, level: "unsure" }))!;
+    const c = safeConclusion(out, { ...facts, sender: { ...facts.sender, domain: "chase-alerts.co" } }, decided);
+    expect(c.sender.verdict).toBe("unverified");
+  });
+
+  test("if the model wanted lower than allowed, its words are discarded for our own", () => {
+    const out = parseOutput(JSON.stringify(good))!; // proposes real
+    const c = safeConclusion(out, facts, decided);
+    expect(c.summary).toBe("Our checks couldn't confirm this one, so please take a look.");
   });
 });
 
@@ -47,18 +79,6 @@ describe("output handling", () => {
     expect(parseOutput(`I looked into it.\n${JSON.stringify(good)}`)?.level).toBe("real");
     expect(parseOutput("no json here")).toBeNull();
     expect(parseOutput('{"level":"maybe"}')).toBeNull();
-  });
-
-  test("an official source must be on the claimed brand's own domain", () => {
-    expect(officialSource(parseOutput(JSON.stringify(good))!, "Chase")).toContain("chase.com");
-    const fakeSource = { ...good, sources: [{ title: "x", url: "https://chase-official-info.blog/emails" }] };
-    expect(officialSource(parseOutput(JSON.stringify(fakeSource))!, "Chase")).toBeNull();
-    expect(officialSource(parseOutput(JSON.stringify(good))!, undefined)).toBeNull();
-  });
-
-  test("a page confirms the sender only if it names the sender's domain", () => {
-    expect(pageConfirmsSender("We email you from alerts@chase.com and no-reply@jpmorgan.com", "alerts.chase.com")).toBe(true);
-    expect(pageConfirmsSender("We never email you.", "chase-secure.co")).toBe(false);
   });
 
   test("the brief marks everything as untrusted and only includes email text for familiar senders", () => {
@@ -78,11 +98,20 @@ describe("output handling", () => {
 });
 
 describe("link probe", () => {
-  test("strips tracking codes and refuses unsafe addresses", () => {
+  test("strips tracking codes and token-like path parts, and refuses unsafe addresses", () => {
     expect(cleanUrl("https://evil.top/login?email=mom@gmail.com&t=123#x")).toBe("https://evil.top/login");
-    for (const bad of ["http://127.0.0.1/x", "http://localhost/x", "http://[::1]/", "https://user:pw@evil.top/", "https://evil.top:8443/", "ftp://evil.top/", "http://intranet/x", "javascript:alert(1)"]) {
+    expect(cleanUrl("https://evil.top/r/bW9tQGdtYWlsLmNvbQ1234/view")).toBe("https://evil.top/r/view");
+    expect(cleanUrl("https://evil.top/u/mom@gmail.com")).toBe("https://evil.top/u");
+    for (const bad of ["http://127.0.0.1/x", "http://localhost/x", "http://localhost./x", "http://foo.internal./", "http://[::1]/", "https://user:pw@evil.top/", "https://evil.top:8443/", "ftp://evil.top/", "http://intranet/x", "javascript:alert(1)"]) {
       expect(cleanUrl(bad), bad).toBeNull();
     }
+  });
+
+  test("knows private network addresses", () => {
+    for (const ip of ["10.0.0.5", "127.0.0.1", "169.254.169.254", "172.16.0.1", "192.168.1.1", "100.64.0.1", "::1", "fd00::1", "::ffff:10.0.0.1"]) {
+      expect(isPrivateAddress(ip), ip).toBe(true);
+    }
+    expect(isPrivateAddress("93.184.216.34")).toBe(false);
   });
 
   test("follows redirects to where a link really goes and spots a password page", async () => {
@@ -90,6 +119,7 @@ describe("link probe", () => {
       "fetch",
       vi.fn(async (url: string | URL) => {
         const u = String(url);
+        if (u.startsWith("https://cloudflare-dns.com/")) return new Response(JSON.stringify({ Answer: u.includes("type=A&") || u.endsWith("type=A") ? [{ type: 1, data: "93.184.216.34" }] : [] }), { status: 200 });
         if (u.startsWith("https://bit.ly/")) return new Response(null, { status: 301, headers: { Location: "https://chase-verify.top/signin?id=abc" } });
         return new Response('<html><title>Chase Sign In</title><form><input type="password" name="p"></form></html>', { status: 200 });
       }),
@@ -99,7 +129,39 @@ describe("link probe", () => {
   });
 
   test("a redirect to a private address is blocked", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 302, headers: { Location: "http://169.254.169.254/latest" } })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL) =>
+        String(url).startsWith("https://cloudflare-dns.com/")
+          ? new Response(JSON.stringify({ Answer: [{ type: 1, data: "93.184.216.34" }] }), { status: 200 })
+          : new Response(null, { status: 302, headers: { Location: "http://169.254.169.254/latest" } }),
+      ),
+    );
+    expect((await probeLink("https://evil.top/x")).error).toBe("blocked");
+  });
+
+  test("a name that resolves to a private address is never fetched", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL) => {
+        calls.push(String(url));
+        return new Response(JSON.stringify({ Answer: [{ type: 1, data: "10.0.0.5" }] }), { status: 200 });
+      }),
+    );
+    expect((await probeLink("https://sneaky.example-attacker.top/x")).error).toBe("blocked");
+    expect(calls.every((c) => c.startsWith("https://cloudflare-dns.com/"))).toBe(true);
+  });
+
+  test("a broken redirect header doesn't crash the probe", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL) =>
+        String(url).startsWith("https://cloudflare-dns.com/")
+          ? new Response(JSON.stringify({ Answer: [{ type: 1, data: "93.184.216.34" }] }), { status: 200 })
+          : new Response(null, { status: 302, headers: { Location: "http://[" } }),
+      ),
+    );
     expect((await probeLink("https://evil.top/x")).error).toBe("blocked");
   });
 });

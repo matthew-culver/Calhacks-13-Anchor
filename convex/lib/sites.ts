@@ -7,6 +7,7 @@
 //   unknown      - everything else: needs investigating (age, reputation, what the page asks)
 
 import { BRANDS, registrableDomain } from "../checks/brands";
+import { innerUrls } from "../checks/linkAudit";
 import { ORGS } from "./orgDirectory";
 
 export type SiteClass = "established" | "user_content" | "unknown";
@@ -65,4 +66,43 @@ export function classifySite(url: string): { site: string; host: string; cls: Si
   if (BRANDS.some((b) => b.officialDomains.includes(site))) return { site, host, cls: "established" };
   if (ORGS.some((o) => o.domains.includes(site))) return { site, host, cls: "established" };
   return { site, host, cls: "unknown" };
+}
+
+/**
+ * Where a link really points: a URL wrapped in a redirect (google.com/url?q=..., youtube.com/
+ * redirect?q=..., l.facebook.com/l.php?u=..., urldefense) is judged by the inner URL, so a
+ * big site's redirector can't make a bad link look "established".
+ */
+export function linkTarget(href: string): { url: string; viaRedirect: boolean } {
+  let url = href;
+  for (let depth = 0; depth < 3; depth++) {
+    const inner = innerUrls(url)[0];
+    if (!inner) break;
+    url = inner;
+  }
+  return { url, viaRedirect: url !== href };
+}
+
+/** A sign-in page that names a brand it isn't (a fake Microsoft/Chase login on some site). */
+export function titleImpersonates(title: string | undefined, site: string | undefined): boolean {
+  if (!title || !site) return false;
+  const t = title.toLowerCase();
+  return BRANDS.some((b) => b.aliases.some((a) => t.includes(a)) && !b.officialDomains.includes(site) && !(b.sharedDomains ?? []).includes(site));
+}
+
+/**
+ * Hard evidence that a link is dangerous, from our own checks (never from the model):
+ * on Google's danger list, set up in the last 90 days, a password page on an anyone-can-
+ * publish site, or a sign-in page pretending to be a brand.
+ */
+export function linkIsRisky(l: {
+  cls: SiteClass;
+  ageDays?: number;
+  listedDangerous?: boolean;
+  probe?: { asksForPassword: boolean; title?: string; finalSite?: string; error?: string };
+}): boolean {
+  if (l.listedDangerous) return true;
+  if (l.ageDays !== undefined && l.ageDays < 90) return true;
+  if (l.probe?.asksForPassword && (l.cls === "user_content" || titleImpersonates(l.probe.title, l.probe.finalSite))) return true;
+  return false;
 }

@@ -1,10 +1,14 @@
 // The AI investigator's brief, output parsing and safety rules (A7). Pure: no I/O here.
 //
-// Safety rules (CLAUDE.md "v2 direction"), enforced by `decideLevel`, not by the prompt:
+// Safety rules (CLAUDE.md "v2 direction"), enforced by `decideLevel` and `safeConclusion`,
+// not by the prompt:
 //  1. Never below a deterministic "fake".
 //  2. If the agent read the email's text (familiar senders), it can only raise.
-//  3. It may clear an "unsure" brand email to "real" only by citing a page on that brand's
-//     own official domain, which the caller then fetches itself and confirms names the sender.
+//  3. It may clear an "unsure" brand email to "real" only when OUR OWN data agrees: the sender's
+//     domain is on our curated official list for that brand, authentication passed, and the
+//     only flag was "first email from this company". Nothing the model cites can unlock it.
+//  4. The model's words can't contradict our own findings (a link our checks found dangerous
+//     is never shown as "safe"; a sender we can't verify is never shown as "genuine").
 
 import { z } from "zod";
 import { BRANDS, registrableDomain } from "../checks/brands";
@@ -23,6 +27,7 @@ export type LinkFact = {
   ageDays?: number;
   listedDangerous?: boolean;
   probe?: Probe;
+  risky?: boolean; // our own checks found it dangerous (sites.linkIsRisky)
 };
 
 export type Facts = {
@@ -36,7 +41,13 @@ export type Facts = {
 };
 
 const oneLine = (s: string, max: number) =>
-  Array.from(s.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/[<>`]/g, " ").replace(/\s+/g, " ").trim())
+  Array.from(
+    s
+      .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, " ")
+      .replace(/[<>`]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  )
     .slice(0, max)
     .join("");
 
@@ -60,11 +71,11 @@ export function buildBrief(facts: Facts, emailText?: string): string {
     sender: {
       name: oneLine(facts.sender.name, 80),
       address: oneLine(facts.sender.address, 120),
-      domain: facts.sender.domain,
+      domain: oneLine(facts.sender.domain, 120),
       ...(facts.sender.replyTo && { repliesGoTo: oneLine(facts.sender.replyTo, 120) }),
     },
     claimsToBe: facts.claimedOrg ?? null,
-    officialDomainsWeKnow: facts.officialDomains ?? null,
+    officialDomainsWeKnow: facts.officialDomains?.map((d) => oneLine(d, 80)) ?? null,
     readerKnowsThisSender: facts.familiar,
     checks: facts.checks.map((c) => `${c.id}: ${c.status}. ${c.plainReason}`),
     links: facts.links.map((l) => ({
@@ -77,6 +88,7 @@ export function buildBrief(facts: Facts, emailText?: string): string {
       ...(l.probe?.finalUrl && { pageAddress: l.probe.finalUrl }),
       ...(l.probe?.title && { pageTitle: oneLine(l.probe.title, 100) }),
       ...(l.probe && { pageAsksForPassword: l.probe.asksForPassword }),
+      ...(l.risky && { ourChecksFoundItDangerous: true }),
     })),
   };
   const parts = [`<untrusted>\n${JSON.stringify(f, null, 1)}\n</untrusted>`];
@@ -115,58 +127,79 @@ export function parseOutput(text: string): AgentOutput | null {
   return null;
 }
 
-/** Plain, short, no links or numbers: the same bar as Claude's kid text elsewhere. */
-export function plain(s: string, max = 240): string {
-  return oneLine(s, max)
+/** Plain, short, no links or numbers; cut at a sentence end rather than mid-word. */
+export function plain(s: string, max = 300): string {
+  const cleaned = oneLine(s, 2000)
     .replace(/\bhttps?:\/\/\S+/gi, "")
+    .replace(/\S+@\S+\.\S+/g, "")
     .replace(/\+?\d[\d\s().-]{6,}\d/g, "")
+    .replace(/\s+/g, " ")
     .trim();
+  if (cleaned.length <= max) return cleaned;
+  const cut = cleaned.slice(0, max);
+  const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+  return end > max / 3 ? cut.slice(0, end + 1) : `${cut.slice(0, cut.lastIndexOf(" ")).trim()}…`;
 }
 
-/** A cited source that may clear a brand email: on the brand's own official domain. */
-export function officialSource(output: AgentOutput, claimedOrg: string | undefined): string | null {
-  const brand = claimedOrg ? BRANDS.find((b) => b.name === claimedOrg) : undefined;
-  if (!brand) return null;
-  for (const s of output.sources) {
-    try {
-      const u = new URL(s.url);
-      const host = u.hostname.toLowerCase();
-      if (u.protocol === "https:" && brand.officialDomains.some((d) => host === d || host.endsWith(`.${d}`))) return u.toString();
-    } catch {
-      // not a URL
-    }
-  }
-  return null;
+/** Our own data says this sender is the brand's real address (curated list, not the model). */
+export function senderIsOfficial(facts: Facts): boolean {
+  const brand = facts.claimedOrg ? BRANDS.find((b) => b.name === facts.claimedOrg) : undefined;
+  return brand !== undefined && brand.officialDomains.includes(registrableDomain(facts.sender.domain || "x"));
 }
 
-/**
- * The final level after the safety rules. `confirmedByOfficialPage` is true only when the
- * caller fetched the official source itself and found the sender's domain on it.
- */
+/** The only reason it was unsure is "first email from this company" (and authentication passed). */
+export function onlyFirstContact(facts: Facts): boolean {
+  const flagged = facts.checks.filter((c) => c.status === "fail" || c.status === "warn");
+  const authOk = facts.checks.some((c) => c.id === "header_auth" && c.status === "pass");
+  return authOk && flagged.length > 0 && flagged.every((c) => c.id === "relationship") && facts.links.every((l) => !l.risky);
+}
+
+/** The final level after the safety rules. */
 export function decideLevel(opts: {
   floor: VerdictLevel;
   proposed: VerdictLevel;
   readEmailText: boolean;
-  confirmedByOfficialPage: boolean;
+  officialAndFirstContact: boolean; // senderIsOfficial(facts) && onlyFirstContact(facts)
   senderVerdict: AgentOutput["sender"]["verdict"];
 }): { level: VerdictLevel; cleared: boolean } {
   const raised = atLeast(opts.floor, opts.proposed);
   if (raised !== opts.floor || opts.proposed === opts.floor) return { level: raised, cleared: false };
-  // The agent proposes going lower. Only unsure -> real, only for brand emails it didn't read,
-  // only with an official page we confirmed ourselves.
   const mayClear =
     opts.floor === "unsure" &&
     opts.proposed === "real" &&
     !opts.readEmailText &&
-    opts.confirmedByOfficialPage &&
+    opts.officialAndFirstContact &&
     opts.senderVerdict === "genuine";
   return mayClear ? { level: "real", cleared: true } : { level: opts.floor, cleared: false };
 }
 
-/** Does this official page name the sender's domain? (The caller fetched it.) */
-export function pageConfirmsSender(pageText: string, senderDomain: string): boolean {
-  const d = registrableDomain(senderDomain || "x");
-  return d.length > 3 && pageText.toLowerCase().includes(d.toLowerCase());
+const RANK: Record<VerdictLevel, number> = { real: 0, unsure: 1, fake: 2 };
+
+/**
+ * The conclusion we store and show, with the model kept honest by our own findings. If the
+ * model wanted a lower level than the rules allow, its words are discarded (it may have been
+ * manipulated) and the conclusion comes from our checks alone.
+ */
+export function safeConclusion(output: AgentOutput, facts: Facts, decided: { level: VerdictLevel; cleared: boolean }) {
+  const fb = fallbackConclusion(facts);
+  if (RANK[output.level] < RANK[decided.level]) return { ...fb, level: decided.level };
+  const official = senderIsOfficial(facts);
+  const links = output.links.slice(0, 10).map((l) => {
+    const fact = facts.links.find((f) => f.site && l.site.toLowerCase().includes(f.site));
+    let verdict = l.verdict;
+    if (fact?.risky || fact?.listedDangerous || (fact?.ageDays !== undefined && fact.ageDays < 30)) verdict = "dangerous";
+    else if (verdict === "safe" && !(fact && fact.cls === "established")) verdict = "unknown";
+    return { site: plain(l.site, 80), verdict, reason: plain(l.reason) };
+  });
+  for (const f of fb.links) if (!links.some((l) => l.site.includes(f.site))) links.push(f);
+  const senderVerdict = output.sender.verdict === "genuine" && !official && decided.level !== "real" ? "unverified" : output.sender.verdict;
+  return {
+    level: decided.level,
+    summary: plain(output.summary) || fb.summary,
+    sender: { verdict: senderVerdict, reason: plain(output.sender.reason) || fb.sender.reason },
+    links,
+    ...(output.suggestion && plain(output.suggestion) && { suggestion: plain(output.suggestion) }),
+  };
 }
 
 /** A conclusion from the facts alone, for when the agent fails or refuses. */
@@ -185,11 +218,13 @@ export function fallbackConclusion(facts: Facts) {
     },
     links: facts.links.map((l) => ({
       site: l.site || "unknown site",
-      verdict: (l.listedDangerous || (l.ageDays !== undefined && l.ageDays < 30) ? "dangerous" : l.cls === "established" ? "safe" : "unknown") as
+      verdict: (l.risky || l.listedDangerous || (l.ageDays !== undefined && l.ageDays < 30) ? "dangerous" : l.cls === "established" ? "safe" : "unknown") as
         | "safe"
         | "unknown"
         | "dangerous",
-      reason: l.listedDangerous
+      reason: l.risky
+        ? "Our checks found this link dangerous."
+        : l.listedDangerous
         ? "Google lists this site as dangerous."
         : l.ageDays !== undefined && l.ageDays < 30
           ? `This site was set up only ${l.ageDays} days ago.`

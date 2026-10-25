@@ -48,6 +48,26 @@ export const repairAll = internalMutation({
       }
     }
 
+    // An investigation stuck "running" (its action died): finish it so the kid isn't left waiting.
+    const stuck = await ctx.db
+      .query("investigations")
+      .withIndex("by_status", (q) => q.eq("status", "running"))
+      .take(MAX_FAMILIES);
+    for (const inv of stuck) {
+      if (now - inv.startedAt < 10 * 60 * 1000) continue;
+      const verdict = await ctx.db.get(inv.verdictId);
+      await ctx.db.patch(inv._id, {
+        status: "failed",
+        finishedAt: now,
+        conclusion: {
+          level: verdict?.level ?? "unsure",
+          summary: "We couldn't finish checking this one, so please take a look.",
+          sender: { verdict: "unverified", reason: "We couldn't finish the check." },
+          links: [],
+        },
+      });
+    }
+
     // Turned off, but a token or data is still around (the cleanup job died or is retrying).
     const off = await ctx.db
       .query("families")

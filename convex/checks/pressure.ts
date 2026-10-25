@@ -3,7 +3,9 @@ import type { CheckResult } from "../contract";
 import { foldText } from "./text";
 import type { ParsedEmail } from "./types";
 
-type Category = "urgency" | "gift_card" | "wire" | "crypto" | "secrecy";
+// "p2p" (Venmo, Zelle, Cash App) is split from "wire" (wire transfer, Western Union): family
+// members ask each other to pay via Venmo all the time, scammers ask for wires and gift cards.
+export type Category = "urgency" | "gift_card" | "wire" | "p2p" | "crypto" | "secrecy";
 
 const PATTERNS: Record<Category, RegExp[]> = {
   urgency: [
@@ -18,12 +20,8 @@ const PATTERNS: Record<Category, RegExp[]> = {
     /\b(expires?|expiring) (today|tonight|in \d+ hours)\b/,
   ],
   gift_card: [/\bgift ?cards?\b/, /\b(google play|itunes|steam|razer gold|vanilla|ebay) cards?\b/, /\bscratch (off )?the back\b/, /\bnumbers? on the back\b/],
-  wire: [
-    /\bwire (transfer|the money|money|the funds|funds|payment)\b/,
-    /\bwestern union\b/,
-    /\bmoneygram\b/,
-    /\b(send|pay|transfer)( the| your)? (money|funds|payment)?\s*(by|via|through|with|using) (zelle|venmo|cash ?app)\b/,
-  ],
+  wire: [/\bwire (transfer|the money|money|the funds|funds|payment)\b/, /\bwestern union\b/, /\bmoneygram\b/],
+  p2p: [/\b(send|pay|transfer)( the| your)? (money|funds|payment)?\s*(by|via|through|with|using|on) (zelle|venmo|cash ?app)\b/, /\b(zelle|venmo|cash ?app) (me|it|them|him|her)\b/],
   crypto: [/\bbitcoin\b/, /\bbtc\b/, /\bcrypto(currency|currencies)?\b/, /\bethereum\b/, /\busdt\b/, /\bwallet address\b/],
   secrecy: [
     /\b(don't|do not|dont) tell (anyone|anybody|your (family|kids|children|son|daughter|bank|wife|husband)|mom|dad|grandma|grandpa)\b/,
@@ -38,7 +36,21 @@ const PATTERNS: Record<Category, RegExp[]> = {
 // as a hard fail on its own, though it still warns.
 const AWARENESS = /\b(scammers?|fraudsters?|(will|would) never ask|never (ask|pay|send|give)|beware of|protect yourself|common scams?)\b/;
 
-const PAYMENT_WORDS: Record<"gift_card" | "wire" | "crypto", string> = { gift_card: "gift cards", wire: "a wire transfer", crypto: "cryptocurrency" };
+const PAYMENT_WORDS: Record<"gift_card" | "wire" | "p2p" | "crypto", string> = {
+  gift_card: "gift cards",
+  wire: "a wire transfer",
+  p2p: "a payment app",
+  crypto: "cryptocurrency",
+};
+
+/** Payment and secrecy signals scammers use and families don't: gift cards, wires, crypto, secrecy. */
+export const SCAM_SIGNALS: Category[] = ["gift_card", "wire", "crypto", "secrecy"];
+
+/** The categories a pressure check found, from its detail ("signals: urgency, p2p"). */
+export function pressureSignals(detail: string | undefined): Category[] {
+  const m = /^signals: (.+)$/.exec(detail ?? "");
+  return m ? (m[1].split(", ") as Category[]) : [];
+}
 
 export function pressure(email: ParsedEmail): CheckResult {
   // Hidden text too: a scam can hide its body from the visible-text checks.

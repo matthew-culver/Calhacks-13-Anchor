@@ -389,7 +389,7 @@ export const releaseVerdict = internalAction({
   handler: async (ctx, { verdictId }) => {
     if (!actionsEnabled()) return null;
     const c: Context | null = await ctx.runQuery(internal.gmailActions.contextForVerdict, { verdictId });
-    if (!c || c.family.status === "off") return null;
+    if (!c || c.family.status === "off" || c.feedItem?.kidAnswer || c.verdict.level !== "real") return null; // the kid's answer wins
     try {
       await withAccess(ctx, c.family._id, (token) =>
         withLabels(ctx, c, token, (labels) => modify(token, c.verdict.gmailMessageId, ["INBOX"], [labels.held, labels.check])),
