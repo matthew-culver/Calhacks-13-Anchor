@@ -70,14 +70,22 @@ export function KidGate({ children }: { children: (family: KidFamily, demo: bool
 }
 
 /** A small, honest note on screens showing the sample family. */
-export function SampleDataNote() {
-  // Demo mode sticks for the whole tab, so the way out is always right here.
+export function SampleDataNote({ other, leaveHref = "?demo=0" }: { other?: { href: string; label: string }; leaveHref?: string }) {
+  // Demo mode sticks for the whole tab, so the way out is always right here, and the other
+  // side of the family (the kid's or the parent's) is one tap away.
   return (
     <p className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border-2 border-transparent bg-unsure-tint px-4 py-2 text-lg text-unsure">
       <span>Sample data for the demo</span>
-      <a href="?demo=0" className="font-semibold underline">
-        Leave the demo
-      </a>
+      <span className="flex flex-wrap gap-x-4 gap-y-1">
+        {other && (
+          <a href={other.href} className="font-semibold underline">
+            {other.label}
+          </a>
+        )}
+        <a href={leaveHref} className="font-semibold underline">
+          Leave the demo
+        </a>
+      </span>
     </p>
   );
 }

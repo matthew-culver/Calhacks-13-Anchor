@@ -42,7 +42,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
 
   return (
     <Screen focusTitle title="This week">
-      {demo && <SampleDataNote />}
+      {demo && <SampleDataNote other={{ href: "/p/sample?demo=1", label: "See Mom's page" }} />}
       {family.status === "active" && (
         <div className="flex flex-col gap-3">
           <Watching whose={`${parentName}'s`} lastCheckedAt={family.lastCheckedAt} />

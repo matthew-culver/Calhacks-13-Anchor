@@ -86,7 +86,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
         <p className="text-lg text-muted">
           {`We'll quietly set aside scam emails, and ${family} hears about anything we're not sure of.`}
         </p>
-        {demo && <SampleDataNote />}
+        {demo && <SampleDataNote leaveHref="/" />}
         <section className="flex flex-col gap-4">
           <h2 className="text-2xl font-bold">Your accounts</h2>
           <p role="status" className="text-lg">
@@ -123,7 +123,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
     // A different title from the list's, so focus moves (and is announced) when it fills in.
     return (
       <Screen focusTitle title="Getting your accounts ready">
-        {demo && <SampleDataNote />}
+        {demo && <SampleDataNote leaveHref="/" />}
         <p className="text-xl">
           We&apos;re still learning which places you deal with. This page fills in on its own.
         </p>
@@ -136,7 +136,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
   const stillFinding = demo ? !sample.done : status === "learning";
   return (
     <Screen focusTitle title="Your accounts">
-      {demo && <SampleDataNote />}
+      {demo && <SampleDataNote other={{ href: "/kid?demo=1", label: "See the kid's side" }} leaveHref="/" />}
       <p className="text-xl">
         {`Hi ${parentName}. These are the real websites you use. To sign in, tap a button here instead of a link in an email.`}
       </p>
