@@ -53,7 +53,8 @@ export default defineSchema({
     orgName: v.string(),
     category: v.string(),
     loginUrl: v.optional(v.string()), // only if its host is on the org's own domain
-    checkedAt: v.number(),
+    checkedAt: v.number(), // when a lookup last finished (0: never)
+    lookupStartedAt: v.optional(v.number()), // A8: when the latest lookup started (or its retry will)
   }).index("by_domain", ["domain"]),
 
   // A5: emails that failed to check, so one bad email can't block the rest forever.
