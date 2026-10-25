@@ -44,6 +44,10 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: 1.6;
+  /* Big text on a small phone: a long word ("Permanente") wider than its card wraps instead
+     of pushing the page sideways (WCAG 1.4.10 Reflow, 320px wide at 200% text). */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 :focus-visible {

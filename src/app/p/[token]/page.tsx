@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ParentScreen } from "./ParentScreen";
+
+export const metadata: Metadata = { title: "Your page" };
 
 type Props = PageProps<"/p/[token]">;
 

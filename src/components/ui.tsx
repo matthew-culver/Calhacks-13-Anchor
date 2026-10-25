@@ -29,8 +29,10 @@ export function Screen({
   );
 }
 
+// The transparent border is invisible normally, but in Windows High Contrast mode (which drops
+// background colors) it's what keeps the button's edge on screen.
 const bigButtonClass =
-  "flex min-h-tap w-full items-center justify-center rounded-2xl bg-action px-6 " +
+  "flex min-h-tap w-full items-center justify-center rounded-2xl border-2 border-transparent bg-action px-6 " +
   "text-xl font-bold text-on-action hover:bg-action-hover";
 
 const secondaryButtonClass =

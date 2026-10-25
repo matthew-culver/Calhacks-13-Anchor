@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ConnectProblemScreen } from "./ConnectProblemScreen";
+
+export const metadata: Metadata = { title: "Let's try that again" };
 
 type SearchParams = PageProps<"/connect-problem">["searchParams"];
 

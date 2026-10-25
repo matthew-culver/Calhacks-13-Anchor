@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ItemScreen } from "./ItemScreen";
+
+export const metadata: Metadata = { title: "A flagged email" };
 
 type Params = PageProps<"/kid/item/[id]">["params"];
 
