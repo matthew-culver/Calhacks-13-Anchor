@@ -30,7 +30,11 @@ describe("kid feed", () => {
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(headings).toEqual(["Needs your answer", "We held these", "You answered"]);
 
-    expect(cards("Needs your answer")).toEqual([expect.stringContaining("Says it's from USPS")]);
+    // Mom asked about the Kaiser email 6 minutes ago; USPS came in 20 minutes ago.
+    expect(cards("Needs your answer")).toEqual([
+      expect.stringContaining("Says it's from Kaiser Permanente"),
+      expect.stringContaining("Says it's from USPS"),
+    ]);
     // Wells Fargo arrived 30 minutes ago, Chase 2 hours ago.
     expect(cards("We held these")).toEqual([
       expect.stringContaining("Says it's from Wells Fargo"),
@@ -41,19 +45,20 @@ describe("kid feed", () => {
 
   it("says in words whether each email looks fake or is a maybe, not just with color", () => {
     render(<KidFeed />);
-    expect(cards("Needs your answer")[0]).toMatch(/^Not sure/);
+    expect(cards("Needs your answer")[0]).toMatch(/^Mom asked/);
+    expect(cards("Needs your answer")[1]).toMatch(/^Not sure/);
     expect(cards("We held these")[0]).toMatch(/^Looks fake/);
   });
 
   it("shows real times, measured from now", () => {
     render(<KidFeed />);
-    expect(cards("Needs your answer")[0]).toContain("20 minutes ago");
+    expect(cards("Needs your answer")[1]).toContain("20 minutes ago");
     expect(cards("We held these")[1]).toContain("2 hours ago");
   });
 
   it("opens each email's detail view, without reading out the visual hint", () => {
     render(<KidFeed />);
-    const link = within(section("Needs your answer")).getByRole("link");
+    const link = within(section("Needs your answer")).getAllByRole("link")[1];
     expect(link).toHaveAttribute("href", "/kid/item/mock_feed_usps");
     // The arrow is only a visual hint: the card's short name is what screen readers say.
     expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
@@ -62,12 +67,12 @@ describe("kid feed", () => {
 
   it("moves an email to \"You answered\" once the kid answers, and updates the count", async () => {
     render(<KidFeed />);
-    expect(stat("Needs an answer")).toBe("1");
+    expect(stat("Need an answer")).toBe("2");
     const { result } = renderHook(() => useAnswerFeedItem());
     await act(() => result.current({ feedItemId: usps, answer: "fine" }));
 
-    expect(stat("Need an answer")).toBe("0");
-    expect(within(section("Needs your answer")).getByText(/Nothing to answer/)).toBeInTheDocument();
+    expect(stat("Needs an answer")).toBe("1");
+    expect(cards("Needs your answer")).toEqual([expect.stringContaining("Says it's from Kaiser Permanente")]);
     expect(cards("You answered")).toContainEqual(expect.stringContaining("You said it's fine."));
   });
 
@@ -105,17 +110,18 @@ describe("kid feed", () => {
     fakeBackend.setQuery("feed:myFeed", []);
     render(<KidFeed />);
     expect(screen.getByText("Sample data for the demo")).toBeInTheDocument();
-    expect(cards("Needs your answer")).toEqual([expect.stringContaining("Says it's from USPS")]);
+    expect(cards("Needs your answer")).toEqual([
+      expect.stringContaining("Says it's from Kaiser Permanente"),
+      expect.stringContaining("Says it's from USPS"),
+    ]);
   });
 
   it("shows an email Mom asked about as needing an answer, and says she asked", () => {
-    const feed = fakeBackend.state.queries["feed:myFeed"] as typeof import("@/shared/feedApi").SAMPLE_FEED;
-    fakeBackend.setQuery("feed:myFeed", feed.map((e) => (e._id === "mock_feed_usps" ? { ...e, kind: "asked" as const } : e)));
     render(<KidFeed />);
-    const card = within(section("Needs your answer")).getByRole("link");
+    const card = within(section("Needs your answer")).getAllByRole("link")[0];
     expect(card).toHaveTextContent("Mom asked");
-    expect(card).toHaveAccessibleName("Says it's from USPS. Mom asked.");
-    expect(stat("Needs an answer")).toBe("1");
+    expect(card).toHaveAccessibleName("Says it's from Kaiser Permanente. Mom asked.");
+    expect(card).toHaveAttribute("href", "/kid/item/mock_feed_asked");
   });
 
   it("says \"Being held…\" until Gmail confirms the email really moved", () => {

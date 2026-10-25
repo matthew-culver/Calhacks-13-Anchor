@@ -22,6 +22,26 @@ const step = (kind: InvestigationStep["kind"], text: string, i: number): Investi
 
 /** Sample investigations for the demo's feed items, written the way A7 will write them. */
 export const SAMPLE_INVESTIGATIONS: Record<string, InvestigationView> = {
+  mock_feed_asked: {
+    status: "done",
+    startedAt: T0,
+    finishedAt: T0 + 6,
+    steps: [
+      step("check", "Checking who really sent this: kp.org.", 0),
+      step("finding", "It really came from Kaiser's mail servers.", 1),
+      step("search", "Looking up Kaiser Permanente's official email addresses", 2),
+      step("finding", "Kaiser sends its emails from kp.org, and Mom has gotten them since 2023.", 3),
+      step("check", "kaiserpermanente.org is Kaiser's own website.", 4),
+    ],
+    conclusion: {
+      level: "real",
+      summary: "This one is real: Kaiser letting Mom know her test results are ready.",
+      sender: { verdict: "genuine", reason: "It's from Kaiser's real address, the one Mom has gotten mail from for years." },
+      links: [{ site: "kaiserpermanente.org", verdict: "safe", reason: "Kaiser's own sign-in page." }],
+      suggestion: "Tell Mom it's real. She can also use the Kaiser button on her Anchor page.",
+    },
+    sources: [{ title: "Kaiser Permanente: Protect yourself from fraud", url: "https://healthy.kaiserpermanente.org/" }],
+  },
   mock_feed_chase: {
     status: "done",
     startedAt: T0,

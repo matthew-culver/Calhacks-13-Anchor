@@ -205,7 +205,42 @@ export const mockVerdicts: Row<Verdict, "verdicts">[] = [
   },
 ];
 
+// Mom asked about a real email herself (she moved it to "Check with Lucas"). Because she asked,
+// the kid sees who sent it and what we checked.
+mockVerdicts.push({
+  ...verdictBase,
+  _id: id<"verdicts">("mock_verdict_asked"),
+  gmailMessageId: "mock_msg_asked",
+  receivedAt: now - 9 * MIN,
+  fromDomain: "kp.org",
+  fromName: "Kaiser Permanente",
+  fromAddress: "noreply@kp.org",
+  subject: "Your test results are ready",
+  claimedOrg: "Kaiser Permanente",
+  level: "real",
+  ruleLevel: "real",
+  action: "none",
+  askedAt: now - 6 * MIN,
+  checks: [
+    { id: "header_auth", status: "pass", plainReason: "This email really came from the address it shows." },
+    { id: "claimed_identity", status: "pass", plainReason: "It's from Kaiser's real address." },
+    { id: "link_audit", status: "pass", plainReason: "Its link goes to Kaiser's real website." },
+    { id: "relationship", status: "pass", plainReason: "You've gotten real emails from Kaiser Permanente since 2023." },
+    { id: "pressure", status: "pass", plainReason: "It doesn't rush you or ask for unusual payments." },
+  ],
+  explanationForParent: "",
+  explanationForKid: "Mom asked you about this email. Our quick checks didn't find anything wrong with it.",
+});
+
 export const mockFeed: Row<FeedItem, "feedItems">[] = [
+  {
+    _id: id<"feedItems">("mock_feed_asked"),
+    _creationTime: now,
+    familyId,
+    verdictId: id<"verdicts">("mock_verdict_asked"),
+    kind: "asked",
+    createdAt: now - 6 * MIN,
+  },
   {
     _id: id<"feedItems">("mock_feed_usps"),
     _creationTime: now,
