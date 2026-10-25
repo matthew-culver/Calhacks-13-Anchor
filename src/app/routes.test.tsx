@@ -30,6 +30,17 @@ beforeEach(() => {
     status: "invited",
     inviteExpiresAt: Date.now() + 24 * 60 * 60 * 1000,
   });
+  // A signed-in kid whose parent is connected, with A4's accounts learned.
+  fakeBackend.set({ isAuthenticated: true });
+  fakeBackend.setQuery("families:getMyFamily", {
+    _id: "fam1",
+    parentName: "Mom",
+    parentEmail: "mom@gmail.com",
+    kidName: "Lucas",
+    status: "active",
+  });
+  fakeBackend.setQuery("accounts:myAccounts", mockAccounts);
+  fakeBackend.setQuery("accounts:parentAccounts", mockAccounts);
 });
 
 const screens: [string, () => ReactElement][] = [
