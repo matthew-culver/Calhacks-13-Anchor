@@ -64,6 +64,11 @@ export function AlertsButton() {
   const current = useSyncExternalStore(noSubscription, readPermission, () => "unsupported" as const);
   const [answered, setAnswered] = useState<State | null>(null);
   const state = answered ?? current;
+  // The button goes away once answered, so focus moves to what replaced it.
+  const status = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (answered !== null) status.current?.focus();
+  }, [answered]);
 
   const turnOn = async () => {
     const permission = await Notification.requestPermission();
@@ -84,7 +89,7 @@ export function AlertsButton() {
           ? "Alerts are blocked in this browser's settings. This page still updates on its own."
           : "This browser can't show alerts. This page still updates on its own.";
     return (
-      <p role="status" className="flex items-center gap-2 text-base text-muted">
+      <p ref={status} tabIndex={-1} role="status" className="flex items-center gap-2 text-base text-muted focus:outline-none">
         {state === "granted" && <Icon name="check" className="h-5 w-5 text-real" />}
         {text}
       </p>

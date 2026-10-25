@@ -1,7 +1,7 @@
-import { renderHook } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FeedEntry } from "@/shared/feedApi";
-import { useNewItemAlerts } from "./Alerts";
+import { AlertsButton, useNewItemAlerts } from "./Alerts";
 
 const entry = (id: string, kind: FeedEntry["kind"]) =>
   ({ _id: id, kind, createdAt: 0, verdict: { level: "unsure", claimedOrg: "Chase", fromDomain: "x.co" } }) as unknown as FeedEntry;
@@ -51,5 +51,37 @@ describe("a browser that refuses alerts", () => {
     vi.stubGlobal("Notification", RefusingNotification);
     const { rerender } = renderHook(({ feed }) => useNewItemAlerts(feed, "Mom"), { initialProps: { feed: [] as FeedEntry[] } });
     expect(() => rerender({ feed: [entry("d", "held")] })).not.toThrow();
+  });
+});
+
+describe("turning alerts on", () => {
+  function askingNotifications(answer: NotificationPermission, refuses = false) {
+    const shown: string[] = [];
+    class AskingNotification {
+      static permission: NotificationPermission = "default";
+      static requestPermission = vi.fn(async () => answer);
+      constructor(title: string) {
+        if (refuses) throw new TypeError("Illegal constructor");
+        shown.push(title);
+      }
+    }
+    vi.stubGlobal("Notification", AskingNotification);
+    return shown;
+  }
+
+  it("shows a first alert right away and moves focus to the confirmation", async () => {
+    const shown = askingNotifications("granted");
+    render(<AlertsButton />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Get alerts on this computer" })));
+    expect(shown).toEqual(["Alerts are on"]);
+    expect(screen.getByRole("status")).toHaveTextContent("Alerts are on for this computer.");
+    expect(screen.getByRole("status")).toHaveFocus();
+  });
+
+  it("says so plainly when the browser can't show them", async () => {
+    askingNotifications("granted", true);
+    render(<AlertsButton />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Get alerts on this computer" })));
+    expect(screen.getByRole("status")).toHaveTextContent("This browser can't show alerts.");
   });
 });
