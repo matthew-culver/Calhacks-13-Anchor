@@ -2,20 +2,39 @@
 // then build My Accounts. Runs right after the first Gmail connect (and after a reconnect if
 // the first import never finished). Demo mode builds the same thing from sample headers:
 //   npx convex run gmailImport:importSample '{"familyId":"..."}'
+//
+// A8: two passes, so the screen fills in within seconds and keeps re-sorting live. First a
+// Gmail search for account-type mail only (statements, bills, sign-in alerts, appointments...,
+// up to MAX_FIRST_PASS), then the deeper pass (recent mail plus mail from known orgs). Accounts
+// are saved in batches as they are found, matched by org, never wiped mid-import; the final
+// save also replaces the relationships and drops accounts that no longer qualify. Subjects are
+// read in memory to spot account mail and never stored.
 
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { type ActionCtx, internalAction, internalMutation } from "./_generated/server";
+import { type ActionCtx, internalAction, internalMutation, type MutationCtx } from "./_generated/server";
 import { account, relationship } from "./contract";
 import { accessTokenFor } from "./googleAuth";
-import { buildHistory, type HeaderRecord } from "./lib/history";
+import { type AccountRow, buildHistory, type HeaderRecord, sameAccount } from "./lib/history";
 import { GOOGLE_TIMEOUT_MS } from "./lib/oauth";
 import { ORGS } from "./lib/orgDirectory";
 import { sampleRecords } from "./lib/sampleHistory";
+import { queueLookups, withDirectory } from "./signInPages";
 
 const GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me";
 const WINDOW = "newer_than:2y -in:chats";
+// First pass: account-type mail only, newest first, not Promotions.
+const ACCOUNT_WORDS = [
+  "statement", "bill", "payment", "autopay", "invoice", "password", "verification", "verify", "code",
+  '"sign-in"', '"sign in"', '"signed in"', "login", "device", "security", "appointment", "visit",
+  "results", "order", "shipped", "delivered", "prescription", "refill", "premium", "benefits",
+];
+const FIRST_PASS = `${WINDOW} -category:promotions subject:(${ACCOUNT_WORDS.join(" OR ")})`;
+const MAX_FIRST_PASS = 300;
+const FIRST_SAVE_EVERY = 60; // messages: about every two seconds, so accounts appear live
+const DEEP_SAVE_EVERY = 300;
+const MAX_QUERY_CHARS = 1500; // the from:(...) list is split into queries of about this size
 /** Newest mail in general, plus older mail from known orgs (yearly senders like Medicare). */
 const MAX_RECENT = 1500; // with MAX_FROM_ORGS, keeps a big inbox well under the 10-minute action limit
 const MAX_FROM_ORGS = 1000;
@@ -32,6 +51,8 @@ const MAX_RETRY_WAIT_MS = 10_000;
 const MAX_TRIES = 4;
 /** Whole-import retries after an unexpected failure: 1, 4, then 16 minutes later. */
 const MAX_IMPORT_ATTEMPTS = 3;
+/** More than one import ever keeps (history.MAX_ACCOUNTS), so a re-import still finds every old row. */
+const MAX_STORED_ACCOUNTS = 200;
 
 class GmailError extends Error {
   constructor(readonly status: number) {
@@ -80,6 +101,8 @@ function toRecord(m: GmailMessage): HeaderRecord | null {
     authResults: all("Authentication-Results"), // Gmail returns them top first
     date: Number(m.internalDate ?? 0),
     sent: labels.includes("SENT"),
+    subject: all("Subject")[0] ?? "", // in memory only, to spot account mail
+    promotional: labels.includes("CATEGORY_PROMOTIONS"),
   };
 }
 
@@ -89,7 +112,7 @@ async function listIds(accessToken: string, q: string, max: number): Promise<str
   do {
     const page = await gmail<{ messages?: { id: string }[]; nextPageToken?: string }>(accessToken, "/messages", {
       q,
-      maxResults: String(PAGE_SIZE),
+      maxResults: String(Math.min(PAGE_SIZE, max - ids.length)),
       includeSpamTrash: "false",
       ...(pageToken ? { pageToken } : {}),
     });
@@ -99,25 +122,43 @@ async function listIds(accessToken: string, q: string, max: number): Promise<str
   return ids.slice(0, max);
 }
 
-async function fetchHeaders(accessToken: string): Promise<{ records: HeaderRecord[]; historyId?: string }> {
-  // Cursor first, so A5 starts from a point no later than what we import.
-  const profile = await gmail<{ historyId?: string }>(accessToken, "/profile");
+/** Mail from the directory's orgs, in queries of bounded length, sharing MAX_FROM_ORGS. */
+async function listFromOrgs(accessToken: string): Promise<string[]> {
+  const groups: string[][] = [[]];
+  let length = 0;
+  for (const domain of ORGS.flatMap((o) => o.domains)) {
+    if (length + domain.length > MAX_QUERY_CHARS && groups[groups.length - 1].length > 0) {
+      groups.push([]);
+      length = 0;
+    }
+    groups[groups.length - 1].push(domain);
+    length += domain.length + 4; // " OR "
+  }
+  const each = Math.ceil(MAX_FROM_ORGS / groups.length);
+  const ids: string[] = [];
+  for (const group of groups) ids.push(...(await listIds(accessToken, `${WINDOW} from:(${group.join(" OR ")})`, each)));
+  return ids;
+}
 
-  const recent = await listIds(accessToken, WINDOW, MAX_RECENT);
-  const orgDomains = ORGS.flatMap((o) => o.domains);
-  const fromOrgs = await listIds(accessToken, `${WINDOW} from:(${orgDomains.join(" OR ")})`, MAX_FROM_ORGS);
-  const ids = [...new Set([...recent, ...fromOrgs])];
-
+/** Fetch headers for `ids` into `records`, paced under Gmail's quota, calling `progress` every `every` messages. */
+async function fetchRecords(
+  accessToken: string,
+  ids: string[],
+  records: HeaderRecord[],
+  every: number,
+  progress: () => Promise<void>,
+): Promise<void> {
   const rate = Number(process.env.ANCHOR_IMPORT_RATE) > 0 ? Number(process.env.ANCHOR_IMPORT_RATE) : DEFAULT_RATE;
   const minBatchMs = (CONCURRENCY * 1000) / rate;
-  const records: HeaderRecord[] = [];
+  let sinceProgress = 0;
   for (let i = 0; i < ids.length; i += CONCURRENCY) {
     const batchStarted = Date.now();
+    const slice = ids.slice(i, i + CONCURRENCY);
     const batch = await Promise.all(
-      ids.slice(i, i + CONCURRENCY).map((id) =>
+      slice.map((id) =>
         gmail<GmailMessage>(accessToken, `/messages/${encodeURIComponent(id)}`, {
           format: "metadata", // headers only: the body is never requested
-          metadataHeaders: ["From", "To", "Authentication-Results"],
+          metadataHeaders: ["From", "To", "Subject", "Authentication-Results"],
           fields: "internalDate,labelIds,payload/headers", // and not even the snippet
         }).catch((e: unknown) => {
           // One unreadable message (deleted meanwhile, or still rate limited) is skipped;
@@ -131,20 +172,63 @@ async function fetchHeaders(accessToken: string): Promise<{ records: HeaderRecor
       const record = m && toRecord(m);
       if (record) records.push(record);
     }
+    sinceProgress += slice.length;
+    if (sinceProgress >= every) {
+      sinceProgress = 0;
+      await progress();
+    }
     const spent = Date.now() - batchStarted;
     if (spent < minBatchMs) await sleep(minBatchMs - spent);
   }
-  return { records, historyId: profile.historyId };
+}
+
+/** Save the accounts found so far, so the screen fills in. Best effort: the final save decides. */
+async function saveProgress(ctx: ActionCtx, familyId: Id<"families">, records: HeaderRecord[], selfEmail?: string) {
+  const { accounts } = buildHistory(records, Date.now(), { selfEmail });
+  if (accounts.length === 0) return;
+  try {
+    await ctx.runMutation(internal.gmailImport.saveAccounts, { familyId, accounts });
+  } catch (e) {
+    console.error(`History import: progress save failed (${e instanceof Error ? e.name : "unknown"})`);
+  }
+}
+
+async function runImport(ctx: ActionCtx, familyId: Id<"families">, accessToken: string, selfEmail?: string) {
+  const started = Date.now();
+  // Cursor first, so A5 starts from a point no later than what we import.
+  const profile = await gmail<{ historyId?: string }>(accessToken, "/profile");
+  const records: HeaderRecord[] = [];
+  const progress = () => saveProgress(ctx, familyId, records, selfEmail);
+
+  const firstIds = await listIds(accessToken, FIRST_PASS, MAX_FIRST_PASS);
+  await fetchRecords(accessToken, firstIds, records, FIRST_SAVE_EVERY, progress);
+  await progress();
+  console.log(`History import: first pass read ${firstIds.length} emails in ${Date.now() - started} ms`);
+
+  const seen = new Set(firstIds);
+  const recent = await listIds(accessToken, WINDOW, MAX_RECENT);
+  const fromOrgs = await listFromOrgs(accessToken);
+  const deepIds = [...new Set([...recent, ...fromOrgs])].filter((id) => !seen.has(id));
+  await fetchRecords(accessToken, deepIds, records, DEEP_SAVE_EVERY, progress);
+
+  await save(ctx, familyId, records, { historyId: profile.historyId, selfEmail });
+  console.log(`History import: done, ${records.length} emails in ${Date.now() - started} ms`);
 }
 
 async function save(
   ctx: ActionCtx,
   familyId: Id<"families">,
   records: HeaderRecord[],
-  opts: { historyId?: string; selfEmail?: string },
+  opts: { historyId?: string; selfEmail?: string; lookUpSignIn?: boolean },
 ) {
   const { relationships, accounts } = buildHistory(records, Date.now(), { selfEmail: opts.selfEmail });
-  await ctx.runMutation(internal.gmailImport.saveImport, { familyId, relationships, accounts, historyId: opts.historyId });
+  await ctx.runMutation(internal.gmailImport.saveImport, {
+    familyId,
+    relationships,
+    accounts,
+    historyId: opts.historyId,
+    ...(opts.lookUpSignIn === false && { lookUpSignIn: false }),
+  });
 }
 
 export const importHistory = internalAction({
@@ -171,8 +255,7 @@ export const importHistory = internalAction({
     }
     for (let tries = 0; ; tries++) {
       try {
-        const { records, historyId } = await fetchHeaders(access.accessToken);
-        await save(ctx, familyId, records, { historyId, selfEmail: tokens?.googleEmail });
+        await runImport(ctx, familyId, access.accessToken, tokens?.googleEmail);
         return null;
       } catch (e) {
         if (e instanceof GmailError && e.status === 401 && tries === 0) {
@@ -200,7 +283,59 @@ export const importSample = internalAction({
     if (tokens?.historyId !== undefined && !replaceRealData) {
       throw new Error("This family has real Gmail history. Pass replaceRealData: true to overwrite it.");
     }
-    await save(ctx, familyId, sampleRecords(), { selfEmail: "mom@example.com" });
+    // No sign-in page lookups: the sample's companies aren't real.
+    await save(ctx, familyId, sampleRecords(), { selfEmail: "mom@example.com", lookUpSignIn: false });
+    return null;
+  },
+});
+
+/**
+ * Upsert this family's accounts, matched by a shared domain or the same name, so rows keep
+ * their ids while the list fills in. Only changed rows are written. With `replace`, rows not
+ * in the list are deleted (the final save).
+ */
+async function upsertAccounts(
+  ctx: MutationCtx,
+  familyId: Id<"families">,
+  incoming: AccountRow[],
+  opts: { replace: boolean; lookUpSignIn: boolean },
+) {
+  const existing = await ctx.db
+    .query("accounts")
+    .withIndex("by_family", (q) => q.eq("familyId", familyId))
+    .take(MAX_STORED_ACCOUNTS);
+  const kept = new Set<Id<"accounts">>();
+  const names = new Set<string>();
+  const saved: AccountRow[] = [];
+  for (const raw of incoming) {
+    let a = await withDirectory(ctx, raw);
+    if (names.has(a.orgName.toLowerCase())) a = { ...a, orgName: raw.orgName };
+    names.add(a.orgName.toLowerCase());
+    const open = existing.filter((e) => !kept.has(e._id));
+    const match =
+      open.find((e) => e.officialDomains.some((d) => a.officialDomains.includes(d))) ?? open.find((e) => e.orgName === a.orgName);
+    if (match) {
+      kept.add(match._id);
+      if (!sameAccount(match, a)) await ctx.db.replace(match._id, { ...a, familyId });
+    } else {
+      await ctx.db.insert("accounts", { ...a, familyId });
+    }
+    saved.push(a);
+  }
+  if (opts.replace) {
+    for (const e of existing) if (!kept.has(e._id)) await ctx.db.delete(e._id);
+  }
+  if (opts.lookUpSignIn) await queueLookups(ctx, familyId, saved);
+}
+
+/** Accounts found so far during the import (A8): upsert only, nothing removed. */
+export const saveAccounts = internalMutation({
+  args: { familyId: v.id("families"), accounts: v.array(account.omit("familyId")) },
+  returns: v.null(),
+  handler: async (ctx, { familyId, accounts }) => {
+    const family = await ctx.db.get(familyId);
+    if (family === null || family.status === "off") return null;
+    await upsertAccounts(ctx, familyId, accounts, { replace: false, lookUpSignIn: true });
     return null;
   },
 });
@@ -212,20 +347,18 @@ export const saveImport = internalMutation({
     relationships: v.array(relationship.omit("familyId")),
     accounts: v.array(account.omit("familyId")),
     historyId: v.optional(v.string()),
+    lookUpSignIn: v.optional(v.boolean()),
   },
   returns: v.null(),
-  handler: async (ctx, { familyId, relationships, accounts, historyId }) => {
+  handler: async (ctx, { familyId, relationships, accounts, historyId, lookUpSignIn }) => {
     const family = await ctx.db.get(familyId);
     if (family === null || family.status === "off") return null;
 
     for await (const r of ctx.db.query("relationships").withIndex("by_family_key", (q) => q.eq("familyId", familyId))) {
       await ctx.db.delete(r._id);
     }
-    for await (const a of ctx.db.query("accounts").withIndex("by_family", (q) => q.eq("familyId", familyId))) {
-      await ctx.db.delete(a._id);
-    }
     for (const r of relationships) await ctx.db.insert("relationships", { ...r, familyId });
-    for (const a of accounts) await ctx.db.insert("accounts", { ...a, familyId });
+    await upsertAccounts(ctx, familyId, accounts, { replace: true, lookUpSignIn: lookUpSignIn !== false });
 
     if (historyId !== undefined) {
       const tokens = await ctx.db
