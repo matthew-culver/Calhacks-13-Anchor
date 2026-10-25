@@ -241,14 +241,14 @@ export const claimPoll = internalMutation({
 });
 
 export const releasePoll = internalMutation({
-  args: { familyId: v.id("families") },
+  args: { familyId: v.id("families"), checkedAt: v.optional(v.number()) },
   returns: v.null(),
-  handler: async (ctx, { familyId }) => {
+  handler: async (ctx, { familyId, checkedAt }) => {
     const tokens = await ctx.db
       .query("gmailTokens")
       .withIndex("by_family", (q) => q.eq("familyId", familyId))
       .unique();
-    if (tokens) await ctx.db.patch(tokens._id, { pollingUntil: undefined });
+    if (tokens) await ctx.db.patch(tokens._id, { pollingUntil: undefined, ...(checkedAt !== undefined && { checkedAt }) });
     return null;
   },
 });
@@ -643,6 +643,7 @@ export const pollFamily = internalAction({
     if (!family || family.status !== "active" || !family.historyId) return null;
     if (!(await ctx.runMutation(internal.mailWatch.claimPoll, { familyId }))) return null; // another poll is running
     const started = Date.now();
+    let checked = false; // every new email was looked at: the kid sees "checked 1 minute ago"
     try {
       const access = await accessTokenFor(ctx, familyId);
       if (!access.ok) return null; // reconnect is marked by accessTokenFor; others retry next minute
@@ -664,6 +665,7 @@ export const pollFamily = internalAction({
           if (done && profile.historyId) {
             await ctx.runMutation(internal.mailWatch.saveHistoryId, { familyId, historyId: profile.historyId });
           }
+          checked = done;
           return null;
         }
         if (e instanceof GmailError && e.status === 401) {
@@ -678,9 +680,10 @@ export const pollFamily = internalAction({
       if (done && found.historyId) {
         await ctx.runMutation(internal.mailWatch.saveHistoryId, { familyId, historyId: found.historyId });
       }
+      checked = done;
       return null;
     } finally {
-      await ctx.runMutation(internal.mailWatch.releasePoll, { familyId });
+      await ctx.runMutation(internal.mailWatch.releasePoll, { familyId, ...(checked && { checkedAt: Date.now() }) });
     }
   },
 });

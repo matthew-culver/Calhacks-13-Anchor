@@ -6,6 +6,7 @@ import { KidGate, SampleDataNote, type KidFamily } from "@/components/KidGate";
 import { KidRecapCard } from "@/components/RecapCard";
 import { Icon, Spinner } from "@/components/icons";
 import { TimeAgo, useClientNow } from "@/components/TimeAgo";
+import { Watching } from "@/components/Watching";
 import { BigButton, Pill, Screen } from "@/components/ui";
 import { useFeed, type FeedEntry } from "@/shared/feedApi";
 import { mockRecap } from "@/shared/mock";
@@ -40,6 +41,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
   return (
     <Screen focusTitle title="This week">
       {demo && <SampleDataNote />}
+      {family.status === "active" && <Watching whose={`${parentName}'s`} lastCheckedAt={family.lastCheckedAt} />}
       <KidRecapCard recap={recap} needAnswer={needAnswer} parentName={parentName} />
 
       {family.status === "learning" && (

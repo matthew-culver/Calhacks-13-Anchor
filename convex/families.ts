@@ -111,7 +111,18 @@ const myFamily = v.object({
   // Only while waiting for the parent to tap the link (status "invited" or "needs_reconnect").
   inviteToken: v.optional(v.string()),
   inviteExpiresAt: v.optional(v.number()),
+  // When Anchor last finished checking the parent's new mail ("checked 1 minute ago").
+  lastCheckedAt: v.optional(v.number()),
 });
+
+/** When Anchor last finished checking this family's new mail. Just the time, nothing else. */
+async function lastCheckedAt(ctx: QueryCtx, familyId: Id<"families">): Promise<number | undefined> {
+  const tokens = await ctx.db
+    .query("gmailTokens")
+    .withIndex("by_family", (q) => q.eq("familyId", familyId))
+    .unique();
+  return tokens?.checkedAt;
+}
 
 /** The signed-in kid's family, or null. Never includes the parent token. */
 export const getMyFamily = query({
@@ -122,7 +133,8 @@ export const getMyFamily = query({
     if (kidUserId === null) return null;
     const family = await familyOf(ctx, kidUserId);
     if (family === null) return null;
-    return toMyFamily(family);
+    const checked = await lastCheckedAt(ctx, family._id);
+    return { ...toMyFamily(family), ...(checked !== undefined && { lastCheckedAt: checked }) };
   },
 });
 
@@ -213,7 +225,7 @@ export const getParentView = query({
   args: { parentToken: v.string() },
   returns: v.union(
     v.null(),
-    v.object({ parentName: v.string(), kidName: v.string(), status: familyStatus }),
+    v.object({ parentName: v.string(), kidName: v.string(), status: familyStatus, lastCheckedAt: v.optional(v.number()) }),
   ),
   handler: async (ctx, { parentToken }) => {
     if (parentToken.length === 0 || parentToken.length > MAX_TOKEN) return null;
@@ -222,6 +234,12 @@ export const getParentView = query({
       .withIndex("by_parent_token", (q) => q.eq("parentToken", parentToken))
       .unique();
     if (family === null) return null;
-    return { parentName: capitalized(family.parentName), kidName: capitalized(family.kidName), status: family.status };
+    const checked = await lastCheckedAt(ctx, family._id);
+    return {
+      parentName: capitalized(family.parentName),
+      kidName: capitalized(family.kidName),
+      status: family.status,
+      ...(checked !== undefined && { lastCheckedAt: checked }),
+    };
   },
 });

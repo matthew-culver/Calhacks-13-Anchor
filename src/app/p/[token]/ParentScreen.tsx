@@ -6,6 +6,7 @@ import { SampleDataNote } from "@/components/KidGate";
 import { ParentRecapCard } from "@/components/RecapCard";
 import { useClientNow } from "@/components/TimeAgo";
 import { TurnOff } from "@/components/TurnOff";
+import { Watching } from "@/components/Watching";
 import { Screen } from "@/components/ui";
 import { useDemoMode } from "@/shared/demoMode";
 import { mockRecap } from "@/shared/mock";
@@ -125,6 +126,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
       <p className="text-xl">
         {`Hi ${parentName}. These are the real websites you use. To sign in, tap a button here instead of a link in an email.`}
       </p>
+      {status === "active" && <Watching whose="your" lastCheckedAt={demo ? undefined : liveView?.lastCheckedAt} />}
       {recap && <ParentRecapCard recap={recap} kidName={kidName} />}
       <p role="status" className="text-lg text-muted">
         {stillFinding ? "Still finding more of your accounts…" : ""}

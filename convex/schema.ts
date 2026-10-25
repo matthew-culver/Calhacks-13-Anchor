@@ -98,6 +98,7 @@ export default defineSchema({
     expiresAt: v.optional(v.number()),
     historyId: v.optional(v.string()), // Gmail history cursor, for fetching only new mail
     pollingUntil: v.optional(v.number()), // A5 lease: one poll per family at a time
+    checkedAt: v.optional(v.number()), // the last time a check of new mail finished (the kid's "checked 1 minute ago")
     heldLabelId: v.optional(v.string()), // "Anchor: Held"
     checkLabelId: v.optional(v.string()), // "⚠ Check with [kid]"
     noteLabelId: v.optional(v.string()), // "Anchor": on Anchor's own notes, which the watcher skips

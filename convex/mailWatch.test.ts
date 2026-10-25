@@ -269,6 +269,19 @@ describe("pollFamily", () => {
     await expect(t.action(internal.mailWatch.pollFamily, { familyId })).resolves.toBeNull();
   });
 
+  test("a finished check records the time (the kid's \"checked a minute ago\"); a failed one doesn't", async () => {
+    const { t, kid, familyId, parentToken } = await activeFamily();
+    fakeWorld({ messages: {}, historyStatus: 503 });
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    expect((await kid.query(api.families.getMyFamily, {}))?.lastCheckedAt).toBeUndefined();
+
+    fakeWorld({ messages: {} });
+    const before = Date.now();
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    expect((await kid.query(api.families.getMyFamily, {}))?.lastCheckedAt).toBeGreaterThanOrEqual(before);
+    expect((await t.query(api.families.getParentView, { parentToken }))?.lastCheckedAt).toBeGreaterThanOrEqual(before);
+  });
+
   test("only one poll per family runs at a time", async () => {
     const { t, familyId } = await activeFamily();
     expect(await t.mutation(internal.mailWatch.claimPoll, { familyId })).toBe(true);
