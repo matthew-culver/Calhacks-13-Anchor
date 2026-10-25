@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import type { Infer } from "convex/values";
+import { useEffect, useRef, useState } from "react";
 import { TimeAgo } from "@/components/TimeAgo";
 import { BigButton, Card, Screen } from "@/components/ui";
 import { MAX_NOTE, useAnswerFeedItem, useFeed, type FeedEntry } from "@/shared/feedApi";
 import { mockFamily } from "@/shared/mock";
+import { senderText } from "@/shared/senderText";
+import type { checkStatus } from "../../../../../convex/contract";
 
 // One flagged email, up close (B3): what it claims, what we checked in plain words, and the
 // kid's one-tap answer. The note goes to the parent in the kid's own words.
 
-type CheckStatus = NonNullable<FeedEntry["verdict"]["checks"]>[number]["status"];
-
-const STATUS: Record<CheckStatus, { mark: string; label: string; className: string }> = {
+const STATUS: Record<Infer<typeof checkStatus>, { mark: string; label: string; className: string }> = {
   pass: { mark: "✓", label: "Looks right", className: "text-real" },
   warn: { mark: "!", label: "Odd", className: "text-unsure" },
   fail: { mark: "✗", label: "Problem", className: "text-fake" },
@@ -20,6 +21,8 @@ const STATUS: Record<CheckStatus, { mark: string; label: string; className: stri
 
 export function ItemScreen({ id }: { id: string }) {
   const feed = useFeed();
+  // Set when the kid answers on this visit, so focus moves to the result (not on a later visit).
+  const [justAnswered, setJustAnswered] = useState(false);
   const parentName = mockFamily.parentName;
 
   if (feed === undefined) return <Screen title="One moment..." />;
@@ -32,19 +35,23 @@ export function ItemScreen({ id }: { id: string }) {
     );
   }
 
-  const { verdict } = entry;
-  const who = verdict.claimedOrg ?? verdict.fromName ?? verdict.fromDomain;
+  const { verdict, kidAnswer } = entry;
+  const who = senderText(verdict.claimedOrg ?? verdict.fromName ?? verdict.fromDomain);
   return (
     <Screen title={`Says it's from ${who}`}>
       <Card>
-        {verdict.subject && <p className="text-xl font-bold">{`“${verdict.subject}”`}</p>}
-        <p className="text-lg">
-          {`From ${verdict.fromName ?? who}`}
-          {verdict.fromAddress && <span className="break-all text-muted">{` <${verdict.fromAddress}>`}</span>}
-        </p>
-        <p className="text-muted">
-          <TimeAgo at={verdict.receivedAt} />
-        </p>
+        <div className="[overflow-wrap:anywhere]">
+          {verdict.subject && <p className="text-xl font-bold">{`“${senderText(verdict.subject)}”`}</p>}
+          <p className="text-lg">
+            {`From ${verdict.fromName ? senderText(verdict.fromName) : who}`}
+            {verdict.fromAddress && (
+              <span className="text-muted">{` <${senderText(verdict.fromAddress)}>`}</span>
+            )}
+          </p>
+          <p className="text-muted">
+            <TimeAgo at={verdict.receivedAt} />
+          </p>
+        </div>
       </Card>
 
       {verdict.explanationForKid && <p className="text-xl">{verdict.explanationForKid}</p>}
@@ -71,22 +78,42 @@ export function ItemScreen({ id }: { id: string }) {
         </section>
       )}
 
-      {entry.kidAnswer ? <Answered entry={entry} parentName={parentName} /> : <AnswerForm entry={entry} parentName={parentName} />}
+      {kidAnswer ? (
+        <Answered kidAnswer={kidAnswer} parentName={parentName} takeFocus={justAnswered} />
+      ) : (
+        <AnswerForm entry={entry} parentName={parentName} onAnswered={() => setJustAnswered(true)} />
+      )}
     </Screen>
   );
 }
 
-function Answered({ entry, parentName }: { entry: FeedEntry; parentName: string }) {
-  const { answer, note } = entry.kidAnswer!;
+function Answered({
+  kidAnswer,
+  parentName,
+  takeFocus,
+}: {
+  kidAnswer: NonNullable<FeedEntry["kidAnswer"]>;
+  parentName: string;
+  takeFocus: boolean;
+}) {
+  const { answer, note } = kidAnswer;
+  // The buttons the kid just tapped are gone; put focus (and the screen reader) on the result.
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (takeFocus) heading.current?.focus();
+  }, [takeFocus]);
+
   return (
     <Card>
-      <p className="text-xl font-bold">{answer === "scam" ? "You said it's a scam." : "You said it's fine."}</p>
+      <h2 ref={heading} tabIndex={-1} className="text-xl font-bold outline-none">
+        {answer === "scam" ? "You said it's a scam." : "You said it's fine."}
+      </h2>
       <p className="text-lg">
         {answer === "scam"
           ? `It stays out of ${parentName}'s inbox.`
           : `We put it back in ${parentName}'s inbox.`}
       </p>
-      {note && <p className="mt-2 text-lg">{`Your note to ${parentName}: “${note}”`}</p>}
+      {note && <p className="mt-2 text-lg [overflow-wrap:anywhere]">{`Your note to ${parentName}: “${note}”`}</p>}
       <div className="mt-4">
         <BigButton href="/kid" secondary>Back to this week</BigButton>
       </div>
@@ -94,7 +121,15 @@ function Answered({ entry, parentName }: { entry: FeedEntry; parentName: string 
   );
 }
 
-function AnswerForm({ entry, parentName }: { entry: FeedEntry; parentName: string }) {
+function AnswerForm({
+  entry,
+  parentName,
+  onAnswered,
+}: {
+  entry: FeedEntry;
+  parentName: string;
+  onAnswered: () => void;
+}) {
   const answerFeedItem = useAnswerFeedItem();
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -105,6 +140,7 @@ function AnswerForm({ entry, parentName }: { entry: FeedEntry; parentName: strin
     setError(null);
     try {
       await answerFeedItem({ feedItemId: entry._id, answer, note });
+      onAnswered();
     } catch {
       setError("That didn't go through. Please try again.");
     } finally {

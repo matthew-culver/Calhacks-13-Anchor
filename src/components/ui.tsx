@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ScreenTitle } from "./ScreenTitle";
 
-const titleClass = "text-4xl leading-tight font-bold";
+const titleClass = "text-4xl leading-tight font-bold [overflow-wrap:anywhere]";
 
 export function Screen({
   title,

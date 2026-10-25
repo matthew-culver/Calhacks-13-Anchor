@@ -23,7 +23,10 @@ export type Row<T, Table extends string> = T & {
 const id = <Table extends string>(s: string) => s as GenericId<Table>;
 const MIN = 60 * 1000;
 const DAY = 24 * 60 * MIN;
-const now = Date.UTC(2026, 9, 25, 15, 0); // Oct 25, 2026
+// Everything is relative to when the app loads, so a demo always reads "20 minutes ago",
+// never a date in the future or the past. Tests that check durations use mockNow.
+export const mockNow = Date.now();
+const now = mockNow;
 const monthsAgo = (m: number) => now - m * 30 * DAY;
 
 const familyId = id<"families">("mock_family_1");

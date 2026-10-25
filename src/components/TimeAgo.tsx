@@ -18,15 +18,31 @@ export function timeAgo(at: number, now: number): string {
   return plural(Math.floor(ago / DAY), "day");
 }
 
-// Read once per page load, so every row measures from the same moment.
-let pageNow: number | undefined;
-const readNow = () => (pageNow ??= Date.now());
+// One shared clock: every row measures from the same moment, and it ticks once a minute
+// while anything is on screen. With nothing on screen it stops and forgets the time.
+let clock: number | undefined;
+let timer: ReturnType<typeof setInterval> | undefined;
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  timer ??= setInterval(() => {
+    clock = Date.now();
+    listeners.forEach((l) => l());
+  }, MIN);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) {
+      clearInterval(timer);
+      timer = undefined;
+      clock = undefined;
+    }
+  };
+}
+
+const readClock = () => (clock ??= Date.now());
 
 export function TimeAgo({ at }: { at: number }) {
-  const now = useSyncExternalStore(
-    () => () => {},
-    readNow,
-    () => null,
-  );
+  const now = useSyncExternalStore(subscribe, readClock, () => null);
   return now === null ? null : <>{timeAgo(at, now)}</>;
 }

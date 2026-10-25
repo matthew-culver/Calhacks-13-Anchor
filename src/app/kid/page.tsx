@@ -5,12 +5,13 @@ import { TimeAgo } from "@/components/TimeAgo";
 import { BigButton, Card, Screen } from "@/components/ui";
 import { useFeed, type FeedEntry } from "@/shared/feedApi";
 import { mockFamily, mockRecap } from "@/shared/mock";
+import { senderText } from "@/shared/senderText";
 
 // The kid's feed (B3): emails that need an answer first, then the ones we held.
-// B5 adds the full recap card. Feed and family are mock data until A5 exists (src/shared/feedApi.ts).
+// Feed and family are mock data until A5 is on main (src/shared/feedApi.ts). B5 swaps the
+// recap card to api.feed.myWeeklyRecap.
 export default function KidFeed() {
   const feed = useFeed();
-  const { checked, held, needAnswer } = mockRecap;
   const parentName = mockFamily.parentName;
 
   if (feed === undefined) return <Screen title="One moment..." />;
@@ -19,13 +20,15 @@ export default function KidFeed() {
   const waiting = newestFirst.filter((e) => e.kind === "needs_answer" && !e.kidAnswer);
   const heldItems = newestFirst.filter((e) => e.kind === "held" && !e.kidAnswer);
   const answered = newestFirst.filter((e) => e.kidAnswer);
+  // Counted from the feed so it changes the moment the kid answers.
+  const needAnswer = waiting.length;
 
   return (
     <Screen title="This week">
       <Card>
         <ul className="flex flex-col gap-2 text-xl font-bold">
-          <li>{`${checked} checked`}</li>
-          <li className="text-fake">{`${held} held`}</li>
+          <li>{`${mockRecap.checked} checked`}</li>
+          <li className="text-fake">{`${mockRecap.held} held`}</li>
           <li className="text-unsure">
             {`${needAnswer} ${needAnswer === 1 ? "needs" : "need"} an answer`}
           </li>
@@ -79,15 +82,19 @@ function FeedSection({
 
 function FeedCard({ entry, parentName }: { entry: FeedEntry; parentName: string }) {
   const { verdict, kidAnswer } = entry;
-  const who = verdict.claimedOrg ?? verdict.fromName ?? verdict.fromDomain;
-  const tone = verdict.level === "fake" ? "border-fake bg-fake-tint" : "border-unsure bg-unsure-tint";
+  const who = senderText(verdict.claimedOrg ?? verdict.fromName ?? verdict.fromDomain);
+  const fake = verdict.level === "fake";
   return (
     <Link
       href={`/kid/item/${entry._id}`}
-      className={`block rounded-2xl border-2 p-5 hover:shadow-md ${tone}`}
+      className={`block rounded-2xl border-2 p-5 [overflow-wrap:anywhere] hover:shadow-md ${
+        fake ? "border-fake bg-fake-tint" : "border-unsure bg-unsure-tint"
+      }`}
     >
+      {/* Said in words, so color is never the only clue. */}
+      <p className={`font-bold ${fake ? "text-fake" : "text-unsure"}`}>{fake ? "Looks fake" : "Not sure"}</p>
       <p className="text-xl font-bold">{`Says it's from ${who}`}</p>
-      {verdict.subject && <p className="text-lg">{`“${verdict.subject}”`}</p>}
+      {verdict.subject && <p className="text-lg">{`“${senderText(verdict.subject)}”`}</p>}
       <p className="text-muted">
         <TimeAgo at={entry.createdAt} />
       </p>
@@ -96,7 +103,10 @@ function FeedCard({ entry, parentName }: { entry: FeedEntry; parentName: string 
           {kidAnswer.answer === "scam" ? `You said it's a scam. ${parentName} was told.` : `You said it's fine.`}
         </p>
       )}
-      <span className="mt-2 inline-block font-bold text-action underline">Look closer</span>
+      {/* Just a visual hint; the whole card is the link, so screen readers skip it. */}
+      <span aria-hidden="true" className="mt-2 inline-block font-bold text-action underline">
+        Look closer
+      </span>
     </Link>
   );
 }

@@ -1,15 +1,16 @@
 // B3 kid feed: needs-answer items first, held items below, answered ones last.
 
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, renderHook, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetMockFeed, useAnswerFeedItem } from "@/shared/feedApi";
-import { renderHook } from "@testing-library/react";
+import { mockFeed } from "@/shared/mock";
 import KidFeed from "./page";
 
 beforeEach(() => resetMockFeed());
 
 const section = (name: string) => screen.getByRole("heading", { level: 2, name }).closest("section")!;
 const cards = (name: string) => within(section(name)).queryAllByRole("link").map((a) => a.textContent ?? "");
+const usps = mockFeed.find((f) => f._id === "mock_feed_usps")!._id;
 
 describe("kid feed", () => {
   it("puts emails that need an answer first, then held ones, newest first", () => {
@@ -26,17 +27,32 @@ describe("kid feed", () => {
     expect(cards("You answered")).toEqual([expect.stringContaining("You said it's a scam. Mom was told.")]);
   });
 
-  it("opens each email's detail view", () => {
+  it("says in words whether each email looks fake or is a maybe, not just with color", () => {
     render(<KidFeed />);
-    const usps = within(section("Needs your answer")).getByRole("link");
-    expect(usps).toHaveAttribute("href", "/kid/item/mock_feed_usps");
+    expect(cards("Needs your answer")[0]).toMatch(/^Not sure/);
+    expect(cards("We held these")[0]).toMatch(/^Looks fake/);
   });
 
-  it("moves an email to \"You answered\" once the kid answers, and says when nothing is left", async () => {
+  it("shows real times, measured from now", () => {
     render(<KidFeed />);
-    const { result } = renderHook(() => useAnswerFeedItem());
-    await act(() => result.current({ feedItemId: "mock_feed_usps" as never, answer: "fine" }));
+    expect(cards("Needs your answer")[0]).toContain("20 minutes ago");
+    expect(cards("We held these")[1]).toContain("2 hours ago");
+  });
 
+  it("opens each email's detail view, without reading out the visual hint", () => {
+    render(<KidFeed />);
+    const link = within(section("Needs your answer")).getByRole("link");
+    expect(link).toHaveAttribute("href", "/kid/item/mock_feed_usps");
+    expect(within(link).getByText("Look closer")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("moves an email to \"You answered\" once the kid answers, and updates the count", async () => {
+    render(<KidFeed />);
+    expect(screen.getByText("1 needs an answer")).toBeInTheDocument();
+    const { result } = renderHook(() => useAnswerFeedItem());
+    await act(() => result.current({ feedItemId: usps, answer: "fine" }));
+
+    expect(screen.getByText("0 need an answer")).toBeInTheDocument();
     expect(within(section("Needs your answer")).getByText(/Nothing to answer/)).toBeInTheDocument();
     expect(cards("You answered")).toContainEqual(expect.stringContaining("You said it's fine."));
   });

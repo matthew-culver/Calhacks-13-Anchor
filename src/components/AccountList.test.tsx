@@ -2,11 +2,11 @@
 
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { mockAccounts } from "@/shared/mock";
+import { mockAccounts, mockNow } from "@/shared/mock";
 import { howLong, ParentAccountList, trustedLoginUrl } from "./AccountList";
 
 const DAY = 24 * 60 * 60 * 1000;
-const now = Date.UTC(2026, 9, 25);
+const now = mockNow;
 
 describe("howLong", () => {
   it.each([
