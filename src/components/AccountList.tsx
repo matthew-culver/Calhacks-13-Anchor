@@ -174,8 +174,8 @@ export function ParentAccountList({ accounts, now }: { accounts: AccountView[]; 
   return (
     <div ref={root} className="flex flex-col gap-8">
       {groups.map(({ group, accounts: list }) => (
-        <section key={group} data-flip-key={`group-${group}`} aria-labelledby={`group-${group}`} className="flex flex-col gap-4">
-          <h2 id={`group-${group}`} className="text-3xl font-bold">
+        <section key={group} data-flip-key={`group-${group}`} className="flex flex-col gap-4">
+          <h2 className="text-3xl font-bold">
             {group}
           </h2>
           <ul className="flex flex-col gap-4">

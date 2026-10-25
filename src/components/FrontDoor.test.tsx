@@ -45,7 +45,9 @@ describe("why we think Mom uses it", () => {
 describe("front door list", () => {
   it("shows each group as a heading with its accounts as big sign-in buttons", () => {
     render(<ParentAccountList accounts={mockAccounts} />);
-    const money = screen.getByRole("region", { name: "Money" });
+    // Groups are plain sections under an h2 (not landmarks, which would clutter navigation).
+    expect(screen.queryAllByRole("region")).toHaveLength(0);
+    const money = screen.getByRole("heading", { level: 2, name: "Money" }).closest("section")!;
     expect(within(money).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
       "Wells Fargo",
       "AARP Medicare Supplement",

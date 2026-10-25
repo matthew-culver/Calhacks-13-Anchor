@@ -17,6 +17,9 @@ export function useFlip(container: RefObject<HTMLElement | null>, version: unkno
     const root = container.current;
     if (!root) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    // A re-sort can land mid-slide; measure where things really are, not where the last
+    // animation has carried them.
+    root.getAnimations?.({ subtree: true }).forEach((a) => a.cancel());
     const next = new Map<string, Point>();
 
     for (const el of root.querySelectorAll<HTMLElement>("[data-flip-key]")) {
