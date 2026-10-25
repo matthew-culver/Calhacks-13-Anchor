@@ -18,6 +18,8 @@ export async function parseEml(raw: string | ArrayBuffer | Uint8Array): Promise<
   const mail = await PostalMime.parse(raw);
   const from = mail.from && "address" in mail.from ? mail.from : mail.from?.group?.[0];
   const fromAddress = (from?.address ?? "").trim().toLowerCase();
+  const replyTo = mail.replyTo?.flatMap((a) => ("group" in a && a.group ? a.group : [a]))[0];
+  const replyToAddress = ("address" in (replyTo ?? {}) ? (replyTo as { address?: string }).address ?? "" : "").trim().toLowerCase();
   const plain = mail.text ?? "";
   const html = mail.html ? readHtml(mail.html.slice(0, MAX_HTML)) : { text: "", hiddenText: [], links: [] };
 
@@ -35,6 +37,7 @@ export async function parseEml(raw: string | ArrayBuffer | Uint8Array): Promise<
     fromAddress,
     fromDomain: fromAddress.includes("@") ? fromAddress.slice(fromAddress.lastIndexOf("@") + 1) : "",
     multipleFrom: fromHeaders.length > 1 || fromCount > 1,
+    ...(replyToAddress && replyToAddress !== fromAddress && { replyToAddress }),
     subject: (mail.subject ?? "").trim(),
     authResults: mail.headers.filter((h) => h.key === "authentication-results").map((h) => h.value.replace(/\s+/g, " ").trim()),
     text: text.slice(0, MAX_TEXT),

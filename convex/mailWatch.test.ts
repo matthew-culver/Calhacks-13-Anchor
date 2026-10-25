@@ -365,6 +365,44 @@ describe("pollFamily", () => {
     expect(v!.explanationForParent).toBe("We held a message pretending to be Chase. You don't need to do anything.");
   });
 
+  test("your own email to your dad about rent, Venmo and a landlord portal is not flagged", async () => {
+    const { t, kid, familyId } = await activeFamily();
+    const raw = [
+      "Authentication-Results: mx.google.com; dkim=pass header.i=@example.com; spf=pass smtp.mailfrom=lucas@example.com; dmarc=pass (p=NONE) header.from=example.com",
+      "From: Lucas <lucas@example.com>",
+      "To: mom.culver@gmail.com",
+      "Subject: Rent this month",
+      "Content-Type: text/plain",
+      "",
+      "Hi Dad, can you pay the rent via Venmo right away? It's due Friday. Here's the landlord portal: https://www.appfolio.com/connect/pay",
+      "",
+    ].join("\r\n");
+    fakeWorld({ messages: { r1: raw } });
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    const [v] = await t.run((ctx) => ctx.db.query("verdicts").collect());
+    expect(v.level).toBe("real");
+    expect(await kid.query(api.feed.myFeed, {})).toEqual([]);
+  });
+
+  test("the same address asking for gift cards and secrecy is flagged as a hacked account", async () => {
+    const { t, familyId } = await activeFamily();
+    const raw = [
+      "Authentication-Results: mx.google.com; dkim=pass header.i=@example.com; spf=pass smtp.mailfrom=lucas@example.com; dmarc=pass (p=NONE) header.from=example.com",
+      "From: Lucas <lucas@example.com>",
+      "To: mom.culver@gmail.com",
+      "Subject: need help",
+      "Content-Type: text/plain",
+      "",
+      "Dad I'm stuck, please buy two Google Play gift cards and send me the numbers on the back. Don't tell anyone, keep this between us.",
+      "",
+    ].join("\r\n");
+    fakeWorld({ messages: { g1: raw } });
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    const [v] = await t.run((ctx) => ctx.db.query("verdicts").collect());
+    expect(v.level).not.toBe("real");
+    expect(v.checks!.find((c) => c.id === "relationship")!.plainReason).toContain("Lucas's account may have been hacked");
+  });
+
   test("pollAll schedules one poll per active family", async () => {
     const { t } = await activeFamily();
     await t.mutation(internal.mailWatch.pollAll, {});

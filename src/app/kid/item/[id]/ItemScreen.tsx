@@ -3,10 +3,12 @@
 import { ConvexError, type Infer } from "convex/values";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { InvestigationPanel } from "@/components/InvestigationPanel";
 import { KidGate, SampleDataNote } from "@/components/KidGate";
 import { TimeAgo } from "@/components/TimeAgo";
 import { BigButton, Card, Screen } from "@/components/ui";
 import { MAX_NOTE, useAnswerFeedItem, useFeed, type FeedEntry } from "@/shared/feedApi";
+import { useInvestigation } from "@/shared/investigationApi";
 import { claimedSender, senderText } from "@/shared/senderText";
 import type { checkStatus } from "../../../../../convex/contract";
 
@@ -23,21 +25,25 @@ const STATUS: Record<Infer<typeof checkStatus>, { mark: string; label: string; c
 export function ItemScreen({ id }: { id: string }) {
   return (
     <KidGate>
-      {(family, demo) => <Item id={id} parentName={family.parentName} demo={demo} />}
+      {/* key: a different email starts fresh (its own investigation replay, its own answer state). */}
+      {(family, demo) => <Item key={id} id={id} parentName={family.parentName} demo={demo} />}
     </KidGate>
   );
 }
 
 function Item({ id, parentName, demo }: { id: string; parentName: string; demo: boolean }) {
   const feed = useFeed();
+  // A7's investigator, live as it works (a sample replay in demo mode). Asked only once the
+  // feed confirms this email exists, so a bad id in the address can't crash the page.
+  const investigation = useInvestigation(id, feed?.some((e) => e._id === id) ?? false);
   // Set when the kid answers on this visit, so focus moves to the result (not on a later visit).
   const [justAnswered, setJustAnswered] = useState(false);
 
-  if (feed === undefined) return <Screen title="One moment..." />;
+  if (feed === undefined) return <Screen focusTitle title="One moment..." />;
   const entry = feed.find((e) => e._id === id);
   if (!entry) {
     return (
-      <Screen title="We couldn't find that email">
+      <Screen focusTitle title="We couldn't find that email">
         <BigButton href="/kid">Back to this week</BigButton>
       </Screen>
     );
@@ -46,7 +52,7 @@ function Item({ id, parentName, demo }: { id: string; parentName: string; demo: 
   const { verdict, kidAnswer } = entry;
   const who = claimedSender(verdict);
   return (
-    <Screen title={`Says it's from ${who}`}>
+    <Screen focusTitle title={`Says it's from ${who}`}>
       <Link href="/kid" className="-mt-4 inline-flex min-h-tap items-center self-start text-lg font-bold text-action underline">
         ← Back to this week
       </Link>
@@ -68,9 +74,11 @@ function Item({ id, parentName, demo }: { id: string; parentName: string; demo: 
 
       {verdict.explanationForKid && <p className="text-xl">{verdict.explanationForKid}</p>}
 
+      <InvestigationPanel investigation={investigation} />
+
       {verdict.checks && verdict.checks.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="text-2xl font-bold">What we checked</h2>
+          <h2 className="text-2xl font-bold">{investigation ? "Our quick checks" : "What we checked"}</h2>
           <ul className="flex flex-col gap-3">
             {verdict.checks.map((c) => {
               const s = STATUS[c.status];
@@ -144,6 +152,7 @@ function AnswerForm({
 }) {
   const answerFeedItem = useAnswerFeedItem();
   const [note, setNote] = useState("");
+  const [trust, setTrust] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,7 +160,8 @@ function AnswerForm({
     setBusy(true);
     setError(null);
     try {
-      await answerFeedItem({ feedItemId: entry._id, answer, note });
+      // "Always trust" only means something with "It's fine" (A7: family-aware rules).
+      await answerFeedItem({ feedItemId: entry._id, answer, note, ...(answer === "fine" && trust && { trustSender: true }) });
       onAnswered();
     } catch (err) {
       // api.feed.answer's errors are already plain words ("You already answered this one.").
@@ -193,6 +203,17 @@ function AnswerForm({
       <BigButton onClick={() => void send("fine")} disabled={busy} secondary>
         It&apos;s fine
       </BigButton>
+      <label className="flex min-h-tap items-center gap-3 text-lg">
+        <input
+          type="checkbox"
+          checked={trust}
+          onChange={(e) => setTrust(e.target.checked)}
+          className="h-7 w-7 shrink-0 accent-action"
+        />
+        <span>
+          {`With “It's fine”: always trust this sender. We'll only flag their emails for something serious, like a request for gift cards.`}
+        </span>
+      </label>
     </section>
   );
 }

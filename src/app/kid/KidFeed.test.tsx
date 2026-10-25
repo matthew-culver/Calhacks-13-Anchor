@@ -113,4 +113,13 @@ describe("kid feed", () => {
     expect(cards("We held these")).toContainEqual(expect.stringMatching(/^Looks fake · Being held…Says it's from Chase/));
     expect(cards("We held these")).toContainEqual(expect.stringMatching(/^Looks fakeSays it's from Wells Fargo/));
   });
+
+  it("gives each card a short name for screen readers instead of one long run-on", () => {
+    render(<KidFeed />);
+    expect(screen.getByRole("link", { name: "Says it's from Chase. Looks fake." })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Says it's from USPS. Not sure." })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Says it's from Medicare. Not sure. You said it's a scam." }),
+    ).toBeInTheDocument();
+  });
 });

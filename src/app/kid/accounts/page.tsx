@@ -21,8 +21,9 @@ function KidAccounts({ family, demo }: { family: KidFamily; demo: boolean }) {
   if (accounts === undefined) {
     return <Screen focusTitle title="One moment..." />;
   }
-  if (status === "learning") {
-    // Its own title, so focus moves (and is announced) when the list arrives.
+  const learning = status === "learning";
+  if (learning && accounts.length === 0) {
+    // Its own title, so focus moves (and is announced) when the first accounts arrive.
     return (
       <Screen focusTitle title={`Learning ${parentName}'s accounts`}>
         <p role="status" className="text-lg">
@@ -32,11 +33,15 @@ function KidAccounts({ family, demo }: { family: KidFamily; demo: boolean }) {
     );
   }
 
+  // Accounts show the moment the import finds them, like on the parent's screen (A8, B10).
   return (
     <Screen focusTitle title={`${parentName}'s accounts`}>
       {demo && <SampleDataNote />}
       <p className="text-lg text-muted">
         {`The places ${parentName} really gets email from. Each link goes to the real sign-in page.`}
+      </p>
+      <p role="status" className="text-lg">
+        {learning ? "Still finding more…" : ""}
       </p>
       {accounts.length === 0 ? (
         <p className="text-lg">

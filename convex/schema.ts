@@ -44,7 +44,15 @@ export default defineSchema({
   // A7: the AI investigator's live record for one suspicious email.
   investigations: defineTable(investigation)
     .index("by_verdict", ["verdictId"])
-    .index("by_family", ["familyId"]),
+    .index("by_family", ["familyId"])
+    .index("by_status", ["status"]), // the repair cron finishes stuck ones
+
+  // A7: family members the kid marked "always trust" (their sign-in email is trusted already).
+  // Trusted senders are flagged only for hard red flags, never for ordinary money talk.
+  trustedSenders: defineTable({
+    familyId: v.id("families"),
+    address: v.string(), // lowercased
+  }).index("by_family_address", ["familyId", "address"]),
 
   // A8: official sign-in pages found by the agent for companies not in the curated list,
   // shared by all families (looked up once per company domain). Server-only.

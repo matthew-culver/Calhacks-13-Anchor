@@ -104,7 +104,7 @@ function AccountStep({ onDone }: { onDone: (kidName: string) => void }) {
         )}
         <TextField label="Your email" name="email" type="email" autoComplete="email" value={email} onChange={setEmail} />
         <TextField
-          label={isSignUp ? "Make a password (8 or more letters)" : "Your password"}
+          label={isSignUp ? "Make a password (8 or more letters or numbers)" : "Your password"}
           name="password"
           type="password"
           autoComplete={isSignUp ? "new-password" : "current-password"}

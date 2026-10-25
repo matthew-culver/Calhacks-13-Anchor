@@ -36,6 +36,19 @@
 
   /* Minimum height for anything you tap. */
   --spacing-tap: 4rem;
+
+  /* New items fade in (use with motion-safe:, so "reduce motion" turns it off). */
+  --animate-fade-in: fade-in 0.4s ease-out;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
 body {
@@ -45,9 +58,9 @@ body {
   font-size: var(--text-base);
   line-height: 1.6;
   /* Big text on a small phone: a long word ("Permanente") wider than its card wraps instead
-     of pushing the page sideways (WCAG 1.4.10 Reflow, 320px wide at 200% text). */
+     of pushing the page sideways (WCAG 1.4.10 Reflow, 320px wide at 200% text). No automatic
+     hyphens: they split ordinary words ("ver-ify") and make text harder to read. */
   overflow-wrap: anywhere;
-  hyphens: auto;
 }
 
 :focus-visible {
