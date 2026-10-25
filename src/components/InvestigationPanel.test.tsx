@@ -21,17 +21,19 @@ describe("investigation panel", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("while running: says it's still checking and lists the steps so far as a live log", () => {
+  it("while running: says it's still checking and lists the steps so far, quietly", () => {
     const running: InvestigationView = { status: "running", startedAt: 0, steps: chase.steps.slice(0, 3) };
     render(<InvestigationPanel investigation={running} />);
     expect(screen.getByRole("status")).toHaveTextContent("Still checking…");
-    expect(within(screen.getByRole("log")).getAllByRole("listitem")).toHaveLength(3);
+    // A plain list, not a live log: screen readers hear "checking" and "done", not every step.
+    expect(screen.queryByRole("log")).toBeNull();
+    expect(within(screen.getByRole("list", { name: "What we did" })).getAllByRole("listitem")).toHaveLength(3);
     expect(screen.queryByText(/What to do/)).toBeNull();
   });
 
-  it("when done: the summary, who really sent it, each link and what to do", () => {
+  it("when done: says so, then the summary, who really sent it, each link and what to do", () => {
     render(<InvestigationPanel investigation={chase} />);
-    expect(screen.getByRole("status")).toHaveTextContent("");
+    expect(screen.getByRole("status")).toHaveTextContent("Finished checking. Here's what we found.");
     expect(screen.getByText(/A fake Chase email/)).toBeInTheDocument();
     expect(screen.getByText("Pretending to be someone else.")).toBeInTheDocument();
     expect(screen.getByText("chase-secure-login.co")).toBeInTheDocument();

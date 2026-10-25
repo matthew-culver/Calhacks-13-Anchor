@@ -2,7 +2,7 @@
 // and the B2 done screen.
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockAccounts } from "@/shared/mock";
 import { fakeBackend } from "@/test/fakeBackend";
 import { seedParent } from "@/test/seed";
@@ -187,6 +187,47 @@ describe("turning it off", () => {
     fireEvent.click(screen.getByRole("button", { name: "Turn off Anchor" }));
     fireEvent.click(screen.getByRole("button", { name: "Yes, turn it off" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("That didn't work. Please try again.");
-    expect(screen.getByRole("button", { name: "Yes, turn it off" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Yes, turn it off" })).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("keeps focus on \"Yes, turn it off\" while it works, instead of dropping it to the page", () => {
+    turnOff().mockImplementationOnce(() => new Promise(() => {}));
+    render(<ParentScreen token="ptok" />);
+    fireEvent.click(screen.getByRole("button", { name: "Turn off Anchor" }));
+    const yes = screen.getByRole("button", { name: "Yes, turn it off" });
+    yes.focus();
+    fireEvent.click(yes);
+    const busy = screen.getByRole("button", { name: "Turning off..." });
+    expect(busy).toHaveAttribute("aria-disabled", "true");
+    expect(busy).toHaveFocus();
+    // A second tap while busy does nothing.
+    fireEvent.click(busy);
+    expect(turnOff()).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("links that shouldn't say \"You're done\"", () => {
+  it("a bad ?connected=1 link says it doesn't work", () => {
+    fakeBackend.setQuery("families:getParentView", null);
+    render(<ParentScreen token="nope" justConnected />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("This link doesn't work");
+  });
+
+  it("a ?connected=1 link after turning off says protection is off", () => {
+    seedParent("off");
+    render(<ParentScreen token="ptok" justConnected />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Protection is off");
+  });
+});
+
+describe("demo mode on a real parent link", () => {
+  afterEach(() => sessionStorage.clear());
+
+  it("ignores a demo remembered from an earlier rehearsal in this tab", () => {
+    sessionStorage.setItem("anchor.demo", "1");
+    render(<ParentScreen token="ptok" />);
+    expect(screen.queryByText("Sample data for the demo")).toBeNull();
+    expect(screen.getByRole("main")).toHaveTextContent("Hi Mom.");
+    expect(screen.getByRole("button", { name: "Turn off Anchor" })).toBeInTheDocument();
   });
 });

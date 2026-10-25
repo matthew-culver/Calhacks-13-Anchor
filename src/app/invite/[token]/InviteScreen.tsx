@@ -26,11 +26,11 @@ export function InviteScreen({ token }: { token: string }) {
   }, []);
 
   if (invite === undefined) {
-    return <Screen title="One moment..." />;
+    return <Screen focusTitle title="One moment..." />;
   }
   if (invite === null) {
     return (
-      <Screen title="This link was already used">
+      <Screen focusTitle title="This link was already used">
         <p className="text-lg text-muted">
           Or it&apos;s too old. Ask the person who sent it to you for a new one.
         </p>
@@ -42,7 +42,7 @@ export function InviteScreen({ token }: { token: string }) {
   const { parentName, kidName, kidEmail } = invite;
 
   return (
-    <Screen title={`Hi ${parentName}`}>
+    <Screen focusTitle title={`Hi ${parentName}`}>
       {/* Anyone can sign up and claim to be someone's kid, so say exactly who is asking. */}
       <p className="text-xl">
         <strong>{kidName}</strong>

@@ -38,11 +38,11 @@ function Item({ id, parentName, demo }: { id: string; parentName: string; demo: 
   // Set when the kid answers on this visit, so focus moves to the result (not on a later visit).
   const [justAnswered, setJustAnswered] = useState(false);
 
-  if (feed === undefined) return <Screen title="One moment..." />;
+  if (feed === undefined) return <Screen focusTitle title="One moment..." />;
   const entry = feed.find((e) => e._id === id);
   if (!entry) {
     return (
-      <Screen title="We couldn't find that email">
+      <Screen focusTitle title="We couldn't find that email">
         <BigButton href="/kid">Back to this week</BigButton>
       </Screen>
     );
@@ -51,7 +51,7 @@ function Item({ id, parentName, demo }: { id: string; parentName: string; demo: 
   const { verdict, kidAnswer } = entry;
   const who = claimedSender(verdict);
   return (
-    <Screen title={`Says it's from ${who}`}>
+    <Screen focusTitle title={`Says it's from ${who}`}>
       <Link href="/kid" className="-mt-4 inline-flex min-h-tap items-center self-start text-lg font-bold text-action underline">
         ← Back to this week
       </Link>

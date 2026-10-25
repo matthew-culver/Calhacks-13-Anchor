@@ -55,7 +55,7 @@ describe("feed item detail", () => {
     render(<ItemScreen id="mock_feed_usps" />);
     fireEvent.click(screen.getByRole("button", { name: "It's a scam" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("That didn't go through. Please try again.");
-    expect(screen.getByRole("button", { name: "It's a scam" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "It's a scam" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("removes hidden characters that could disguise who sent it", () => {

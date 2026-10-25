@@ -85,4 +85,13 @@ describe("kid My Accounts", () => {
     render(<KidAccounts />);
     expect(screen.getByRole("link", { name: "Get started" })).toHaveAttribute("href", "/start");
   });
+
+  it("shows accounts the moment the import finds them, like the parent's screen does", () => {
+    fakeBackend.setQuery("families:getMyFamily", family("learning"));
+    fakeBackend.setQuery("accounts:myAccounts", mockAccounts.slice(0, 2));
+    render(<KidAccounts />);
+    expect(title()).toHaveTextContent("Mom's accounts");
+    expect(screen.getByRole("status")).toHaveTextContent("Still finding more…");
+    expect(screen.getByRole("heading", { name: "Kaiser Permanente" })).toBeInTheDocument();
+  });
 });

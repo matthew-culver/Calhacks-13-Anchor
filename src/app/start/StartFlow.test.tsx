@@ -143,7 +143,7 @@ describe("kid onboarding", () => {
     fireEvent.click(screen.getByRole("button", { name: "Make their link" }));
 
     expect(await screen.findByText("That doesn't look like an email address.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Make their link" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Make their link" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("lets a returning kid sign in instead", async () => {
