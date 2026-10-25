@@ -464,7 +464,15 @@ const header = (headers: { name: string; value: string }[] | undefined, name: st
  * Save an "unsure" verdict for an email we couldn't check (too big, or failed repeatedly).
  * Fail closed: the kid is asked rather than the email silently passing.
  */
-async function saveUnchecked(ctx: ActionCtx, familyId: Id<"families">, family: FamilyInfo, accessToken: string, id: string, why: string) {
+async function saveUnchecked(
+  ctx: ActionCtx,
+  familyId: Id<"families">,
+  family: FamilyInfo,
+  accessToken: string,
+  id: string,
+  why: string,
+  opts: { asked?: boolean } = {},
+) {
   let meta: { internalDate?: string; payload?: { headers?: { name: string; value: string }[] } } = {};
   try {
     meta = await gmail(accessToken, `/messages/${encodeURIComponent(id)}`, { format: "metadata", metadataHeaders: "From" });
@@ -487,7 +495,10 @@ async function saveUnchecked(ctx: ActionCtx, familyId: Id<"families">, family: F
     subject: "",
     checks,
     explanationForParent: t.explanationForParent,
-    explanationForKid: `We couldn't check this one (${why}), so please take a look.`,
+    explanationForKid: opts.asked
+      ? `${family.parentName} asked you about this email. We couldn't check it (${why}), so please take a look.`
+      : `We couldn't check this one (${why}), so please take a look.`,
+    ...(opts.asked && { asked: true }),
   });
 }
 
@@ -506,7 +517,7 @@ async function checkOne(
   });
   if ((head.labelIds ?? []).includes("SENT")) return;
   if ((head.sizeEstimate ?? 0) > MAX_RAW_BYTES) {
-    await saveUnchecked(ctx, familyId, family, accessToken, id, "too big to check");
+    await saveUnchecked(ctx, familyId, family, accessToken, id, "too big to check", opts);
     return;
   }
   const msg = await gmail<{ raw?: string; internalDate?: string }>(accessToken, `/messages/${encodeURIComponent(id)}`, { format: "raw" });

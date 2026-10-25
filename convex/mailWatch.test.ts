@@ -649,6 +649,16 @@ describe("pollFamily", () => {
       expect(feed.find((f) => f.verdict?.gmailMessageId === "a2")).toMatchObject({ kind: "asked" });
     });
 
+    test("an email too big to check still reaches the kid when she asks", async () => {
+      const { t, kid, familyId } = await activeFamily();
+      await withCheckLabel(t);
+      fakeWorld({ messages: { big: newsletter }, asked: ["big"], historyIds: [], sizes: { big: 6_000_000 } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      const feed = await kid.query(api.feed.myFeed, {});
+      expect(feed).toEqual([expect.objectContaining({ kind: "asked" })]);
+      expect(feed[0].verdict!.explanationForKid).toContain("Mom asked you about this email. We couldn't check it");
+    });
+
     test("Anchor's own \"Check with\" label isn't mistaken for Mom asking", async () => {
       const { t, kid, familyId } = await activeFamily();
       await withCheckLabel(t);
