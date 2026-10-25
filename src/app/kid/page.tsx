@@ -3,8 +3,9 @@
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { KidGate, SampleDataNote, type KidFamily } from "@/components/KidGate";
+import { KidRecapCard } from "@/components/RecapCard";
 import { TimeAgo, useClientNow } from "@/components/TimeAgo";
-import { BigButton, Card, Screen } from "@/components/ui";
+import { BigButton, Screen } from "@/components/ui";
 import { useFeed, type FeedEntry } from "@/shared/feedApi";
 import { mockRecap } from "@/shared/mock";
 import { claimedSender, senderText } from "@/shared/senderText";
@@ -38,13 +39,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
   return (
     <Screen title="This week">
       {demo && <SampleDataNote />}
-      <Card>
-        <ul className="flex flex-col gap-2 text-xl font-bold">
-          {recap && <li>{`${recap.checked} checked`}</li>}
-          {recap && <li className="text-fake">{`${recap.held} held`}</li>}
-          <li className="text-unsure">{`${needAnswer} ${needAnswer === 1 ? "needs" : "need"} an answer`}</li>
-        </ul>
-      </Card>
+      <KidRecapCard recap={recap} needAnswer={needAnswer} parentName={parentName} />
 
       {family.status === "learning" && (
         <p role="status" className="text-lg">

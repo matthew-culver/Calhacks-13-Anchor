@@ -40,6 +40,14 @@ export function seedSignedInKid() {
 }
 
 export function seedParent(status = "active") {
-  fakeBackend.setQuery("families:getParentView", { parentName: "Mom", kidName: "Lucas", status });
+  const view = { parentName: "Mom", kidName: "Lucas", status };
+  fakeBackend.setQuery("families:getParentView", view);
   fakeBackend.setQuery("accounts:parentAccounts", mockAccounts);
+  fakeBackend.setQuery("feed:parentWeeklyRecap", mockRecap);
+  // Behaves like A6's api.turnOff.turnOff: off at once, so getParentView says "off".
+  fakeBackend.mutations["turnOff:turnOff"] = vi.fn(async () => {
+    fakeBackend.setQuery("families:getParentView", { ...view, status: "off" });
+    fakeBackend.setQuery("accounts:parentAccounts", []);
+    return null;
+  });
 }

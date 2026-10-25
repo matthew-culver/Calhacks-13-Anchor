@@ -1,7 +1,7 @@
 // The parent's page: big-text accounts by the private link, the right words for every state,
 // and the B2 done screen.
 
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockAccounts } from "@/shared/mock";
 import { fakeBackend } from "@/test/fakeBackend";
@@ -74,5 +74,68 @@ describe("parent page", () => {
     expect(title()).toHaveTextContent("You're done");
     expect(screen.getByRole("main")).toHaveTextContent("Lucas hears about anything we're not sure of.");
     expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+});
+
+describe("parent weekly recap", () => {
+  it("tells the parent this week's story in plain sentences, with the good catch", () => {
+    render(<ParentScreen token="ptok" />);
+    const recap = screen.getByRole("heading", { level: 2, name: "This week" }).closest("div")!;
+    expect(recap).toHaveTextContent("We checked 41 emails for you.");
+    expect(recap).toHaveTextContent("We set aside 3 fake emails, so you didn't have to.");
+    expect(recap).toHaveTextContent("You and Lucas caught 1 scam together. Good catch!");
+  });
+
+  it("says nothing looked fake on a quiet week, and skips the good-catch line", () => {
+    fakeBackend.setQuery("feed:parentWeeklyRecap", { weekStart: 0, checked: 12, held: 0, needAnswer: 0, goodCatches: 0 });
+    render(<ParentScreen token="ptok" />);
+    expect(screen.getByText("Nothing looked fake.")).toBeInTheDocument();
+    expect(screen.queryByText(/Good catch/)).toBeNull();
+  });
+});
+
+describe("turning it off", () => {
+  const turnOff = () => fakeBackend.mutations["turnOff:turnOff"];
+
+  it("never turns off by itself: opening the page does nothing", () => {
+    render(<ParentScreen token="ptok" />);
+    expect(turnOff()).not.toHaveBeenCalled();
+  });
+
+  it("asks first, and \"Keep it on\" changes nothing", () => {
+    render(<ParentScreen token="ptok" />);
+    fireEvent.click(screen.getByRole("button", { name: "Turn off Anchor" }));
+    expect(screen.getByRole("heading", { name: "Turn off Anchor?" })).toHaveFocus();
+    expect(screen.getByText(/delete everything we learned\. Lucas will see that it's off\./)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep it on" }));
+    expect(turnOff()).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Turn off Anchor" })).toBeInTheDocument();
+  });
+
+  it("turns off after \"Yes, turn it off\", and the page says protection is off", async () => {
+    render(<ParentScreen token="ptok" />);
+    fireEvent.click(screen.getByRole("button", { name: "Turn off Anchor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, turn it off" }));
+
+    expect(turnOff()).toHaveBeenCalledWith({ parentToken: "ptok" });
+    expect(await screen.findByRole("heading", { level: 1, name: "Protection is off" })).toBeInTheDocument();
+  });
+
+  it("can be turned off while the accounts are still being learned", () => {
+    seedParent("learning");
+    fakeBackend.setQuery("accounts:parentAccounts", []);
+    render(<ParentScreen token="ptok" />);
+    expect(screen.getByRole("button", { name: "Turn off Anchor" })).toBeInTheDocument();
+  });
+
+  it("says plainly when turning off fails, and keeps the choice open", async () => {
+    turnOff().mockRejectedValueOnce(new Error("offline"));
+    render(<ParentScreen token="ptok" />);
+    fireEvent.click(screen.getByRole("button", { name: "Turn off Anchor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, turn it off" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("That didn't work. Please try again.");
+    expect(screen.getByRole("button", { name: "Yes, turn it off" })).toBeEnabled();
   });
 });
