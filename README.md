@@ -16,9 +16,14 @@ link from their kid and say yes to Google.
 | **An AI investigator you can watch** | For suspicious mail, Claude (with web search and fetch) looks up the company's real addresses and follows each link without clicking it. The kid watches the steps live and gets a plain verdict with sources. |
 | **It knows the family** | Family emails about bills and Venmo are left alone; a hacked family account asking for gift cards is caught; a stranger using a family member's name, or an address that looks almost like theirs, is flagged for the kid (and held if it also asks for gift cards or links somewhere dangerous). |
 | **The parent's front door** | Their real accounts, found from their own email and ranked by real use, each a big button to the company's real sign-in page. |
-| **A loop that goes both ways** | The kid gets an alert only when something needs them, answers with one tap, and adds a note that reaches the parent in their own words (the parent can reply straight back). The parent can ask about any email by moving it to "⚠ Check with [kid]" in Gmail and see the answer on their page. One calm note a week, with one plain lesson. |
+| **A loop that goes both ways** | The kid gets an alert only when Anchor catches something or the parent asks, answers with one tap, and adds a note that reaches the parent in their own words (the parent can reply straight back). The parent can ask about any email by moving it to "⚠ Check with [kid]" in Gmail and see the answer on their page. One calm note a week, with one plain lesson. |
 
-Try it without signing in: run the app and open `/kid?demo=1` (sample data).
+**A 60-second tour, no sign-in** (run the app and open `/kid?demo=1`; it's sample data):
+1. On "This week", open the fake **Chase** email. The investigation replays step by step, then
+   says who really sent it and where its link goes.
+2. Back on "This week", open **Mom asked** (Kaiser), write a note and tap **It's fine**.
+3. Back on "This week", tap **See Mom's page** on the yellow banner: her accounts as big buttons,
+   and your answer under "Your questions for Lucas".
 
 ## How it decides
 

@@ -38,9 +38,9 @@ the parent does nothing new:
 - **Mom's front door.** One page of big buttons for every account she really uses (bank,
   doctor, phone bill), found from her own email, ranked by real use, each going straight to
   the real sign-in page. She never has to sign in through an email link again.
-- **The loop goes both ways.** The kid gets an alert only when something needs them, answers
-  with one tap, and adds a note that reaches the parent in their own words; the parent can
-  just hit Reply to write back. And the parent can ask: move any email to the "⚠ Check with
+- **The loop goes both ways.** The kid gets an alert only when Anchor catches something or the
+  parent asks, answers with one tap, and adds a note that reaches the parent in their own words;
+  the parent can just hit Reply to write back. And the parent can ask: move any email to the "⚠ Check with
   Lucas" folder in Gmail, and the kid gets it with the AI investigation, while the parent's
   page shows "Lucas is looking at it", then the answer. Once a week the parent gets one calm
   note, with one plain lesson from what was caught ("No real person or company asks to be
