@@ -12,11 +12,12 @@ Next.js + TypeScript, Convex (database, server functions, crons, auth), the Gmai
    ```bash
    npm install
    ```
-2. Start Convex. The first run asks you to log in and choose or create a project. **Pick the same project both times**, so you share one database:
+2. Start Convex. The Convex project is `calhacks-13-anchor` on Lucas's team; Lucas invites his brother under Team Settings → Members first. Run this, log in, and choose the **existing** project:
    ```bash
    npx convex dev
    ```
    It writes `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL` into `.env.local` and keeps running, syncing the `convex/` folder.
+   Each developer gets their **own** dev database inside the project (`dev/lucas`, and so on). The schema and code are shared through git, but rows are not. That's fine while Person B builds on mock data. For integration at hour 6, both point at one deployment.
 3. In a second terminal, start the web app:
    ```bash
    npm run dev
