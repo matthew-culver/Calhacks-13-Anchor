@@ -1,26 +1,52 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design tokens. "Seamless enough for a baby": big text, high contrast,
+ * one action per screen. Every text color here is at least 7:1 (WCAG AAA)
+ * on both the page background and its matching tint.
+ * Light only for now; a dark theme is a stretch goal.
+ */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Arial, sans-serif;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Body text is 20px, never smaller than 18px anywhere. */
+  --text-sm: 1.125rem;
+  --text-base: 1.25rem;
+  --text-lg: 1.5rem;
+  --text-xl: 1.75rem;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-page: #ffffff;
+  --color-ink: #111111;
+  --color-muted: #3d3d3d;
+  --color-line: #8a8a8a;
+
+  /* The one main action on each screen. */
+  --color-action: #0b3d91;
+  --color-action-hover: #082c69;
+  --color-on-action: #ffffff;
+
+  /* Verdict levels: "real", "unsure", "fake". Text on its tint. */
+  --color-real: #0a5c2e;
+  --color-real-tint: #eef8f1;
+  --color-unsure: #6e4300;
+  --color-unsure-tint: #fff7e6;
+  --color-fake: #9b111e;
+  --color-fake-tint: #fdf0f1;
+
+  /* Minimum height for anything you tap. */
+  --spacing-tap: 4rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.6;
+}
+
+:focus-visible {
+  outline: 4px solid var(--color-action);
+  outline-offset: 3px;
 }
