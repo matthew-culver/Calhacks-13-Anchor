@@ -17,7 +17,7 @@ import { type HistoryContext, relationship } from "./checks/relationship";
 import { checkResult, verdictLevel } from "./contract";
 import { accessTokenFor } from "./googleAuth";
 import { atLeast, explain, templateExplanation } from "./lib/explain";
-import { keyFor } from "./lib/history";
+import { contactName, keyFor, looksLikeAddress, mailboxId } from "./lib/history";
 import { pressureSignals, SCAM_SIGNALS } from "./checks/pressure";
 import { cleanUrl, probeLink } from "./lib/linkProbe";
 import { classifySite, linkIsRisky, linkTarget } from "./lib/sites";
@@ -141,15 +141,22 @@ export const alreadySeen = internalQuery({
 
 /** What the relationship check needs, looked up from A4's tables. */
 export const historyFor = internalQuery({
-  args: { familyId: v.id("families"), senderKey: v.string(), senderAddress: v.string(), claimedOrg: v.optional(v.string()) },
+  args: {
+    familyId: v.id("families"),
+    senderKey: v.string(),
+    senderAddress: v.string(),
+    senderName: v.optional(v.string()), // folded display name (contactName)
+    claimedOrg: v.optional(v.string()),
+  },
   returns: v.object({
     sender: v.optional(
       v.object({ messageCount: v.number(), parentSentCount: v.optional(v.number()), firstSeen: v.number(), authPassRate: v.number() }),
     ),
     claimedBrandHistory: v.optional(v.object({ messageCount: v.number(), firstSeen: v.number(), isAccount: v.boolean() })),
     trusted: v.optional(v.object({ who: v.string() })),
+    knownNameElsewhere: v.optional(v.object({ who: v.string(), lookalike: v.boolean() })),
   }),
-  handler: async (ctx, { familyId, senderKey, senderAddress, claimedOrg }) => {
+  handler: async (ctx, { familyId, senderKey, senderAddress, senderName, claimedOrg }) => {
     const rel = await ctx.db
       .query("relationships")
       .withIndex("by_family_key", (q) => q.eq("familyId", familyId).eq("key", senderKey))
@@ -177,6 +184,19 @@ export const historyFor = internalQuery({
         firstSeen: rel.firstSeen,
         authPassRate: rel.authPassRate,
       };
+    }
+    // A stranger using the name of someone Mom corresponds with (never for family or familiar senders).
+    const familiar = rel !== null && (rel.messageCount >= 2 || (rel.parentSentCount ?? 0) > 0);
+    if (senderName && !result.trusted && !familiar && address.includes("@")) {
+      const sameName = await ctx.db
+        .query("contactNames")
+        .withIndex("by_family_name", (q) => q.eq("familyId", familyId).eq("name", senderName))
+        .take(10);
+      const others = sameName.filter((c) => mailboxId(c.address) !== mailboxId(address));
+      if (others.length > 0) {
+        const lookalike = others.find((c) => looksLikeAddress(address, c.address));
+        result.knownNameElsewhere = { who: (lookalike ?? others[0]).display, lookalike: lookalike !== undefined };
+      }
     }
     const brand = claimedOrg ? BRANDS.find((b) => b.name === claimedOrg) : undefined;
     if (brand) {
@@ -445,10 +465,12 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
   const senderKey = email.fromAddress.includes("@")
     ? keyFor({ address: email.fromAddress, domain: email.fromDomain }).key
     : email.fromDomain || "unknown";
+  const senderName = contactName(email.fromName);
   const history = await ctx.runQuery(internal.mailWatch.historyFor, {
     familyId,
     senderKey,
     senderAddress: email.fromAddress,
+    ...(senderName !== null && { senderName }),
     ...(base.claimedOrg !== undefined && { claimedOrg: base.claimedOrg }),
   });
   const familiar =

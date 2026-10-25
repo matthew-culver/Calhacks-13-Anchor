@@ -73,6 +73,15 @@ export default defineSchema({
   }).index("by_family_message", ["familyId", "gmailMessageId"]),
 
   // A6: ids of the notes Anchor put in the parent's inbox, so the watcher skips them.
+  // The names of people the parent corresponds with, for spotting a stranger using one
+  // ("Aunt Sue" from an address Sue never used). Rebuilt by each history import.
+  contactNames: defineTable({
+    familyId: v.id("families"),
+    name: v.string(), // folded for matching ("sue miller")
+    display: v.string(), // as the parent's mail shows it ("Sue Miller")
+    address: v.string(),
+  }).index("by_family_name", ["familyId", "name"]),
+
   anchorNotes: defineTable({
     familyId: v.id("families"),
     gmailMessageId: v.string(),

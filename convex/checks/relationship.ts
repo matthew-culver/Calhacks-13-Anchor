@@ -31,6 +31,11 @@ export type HistoryContext = {
   claimedBrandHistory?: { messageCount: number; firstSeen: number; isAccount: boolean };
   /** Family: the kid's own sign-in address, or a sender the kid marked "always trust". */
   trusted?: { who: string };
+  /**
+   * A new sender using the name of someone the parent corresponds with ("Aunt Sue" from an
+   * address Sue has never used). `lookalike`: the address is a letter or two off the real one.
+   */
+  knownNameElsewhere?: { who: string; lookalike: boolean };
 };
 
 const yearOf = (ms: number) => new Date(ms).getUTCFullYear();
@@ -113,6 +118,26 @@ export function relationship(
       detail: `${s!.messageCount} prior messages from ${registrableDomain(email.fromDomain || "unknown")}`,
     };
   }
+  // Someone Mom knows, by name, on an address they've never used: the family impostor scam.
+  // A look-alike address is deliberate, so a fake; a plain new address asks the kid (people do
+  // get new addresses).
+  if (history.knownNameElsewhere) {
+    const { who, lookalike } = history.knownNameElsewhere;
+    return lookalike
+      ? {
+          id: "relationship",
+          status: "fail",
+          plainReason: `The address is made to look like ${who}'s, but it isn't theirs. Someone may be pretending to be ${who}.`,
+          detail: "look-alike of a known contact's address",
+        }
+      : {
+          id: "relationship",
+          status: "warn",
+          plainReason: `It uses the name ${who}, someone you know, but from an address they've never used with you.`,
+          detail: "known contact's name on a new address",
+        };
+  }
+
   // A new sender with no brand claim is normal (a new newsletter, a new doctor's office):
   // not suspicious on its own, so it doesn't change the level. Claude still sees it.
   return {

@@ -226,11 +226,12 @@ async function save(
   records: HeaderRecord[],
   opts: { historyId?: string; selfEmail?: string; lookUpSignIn?: boolean },
 ) {
-  const { relationships, accounts } = buildHistory(records, Date.now(), { selfEmail: opts.selfEmail });
+  const { relationships, accounts, contacts } = buildHistory(records, Date.now(), { selfEmail: opts.selfEmail });
   await ctx.runMutation(internal.gmailImport.saveImport, {
     familyId,
     relationships,
     accounts,
+    contacts,
     historyId: opts.historyId,
     ...(opts.lookUpSignIn === false && { lookUpSignIn: false }),
   });
@@ -365,11 +366,12 @@ export const saveImport = internalMutation({
     familyId: v.id("families"),
     relationships: v.array(relationship.omit("familyId")),
     accounts: v.array(account.omit("familyId")),
+    contacts: v.optional(v.array(v.object({ name: v.string(), display: v.string(), address: v.string() }))),
     historyId: v.optional(v.string()),
     lookUpSignIn: v.optional(v.boolean()),
   },
   returns: v.null(),
-  handler: async (ctx, { familyId, relationships, accounts, historyId, lookUpSignIn }) => {
+  handler: async (ctx, { familyId, relationships, accounts, contacts, historyId, lookUpSignIn }) => {
     const family = await ctx.db.get(familyId);
     if (family === null || family.status === "off") return null;
 
@@ -377,6 +379,12 @@ export const saveImport = internalMutation({
       await ctx.db.delete(r._id);
     }
     for (const r of relationships) await ctx.db.insert("relationships", { ...r, familyId });
+    if (contacts !== undefined) {
+      for await (const c of ctx.db.query("contactNames").withIndex("by_family_name", (q) => q.eq("familyId", familyId))) {
+        await ctx.db.delete(c._id);
+      }
+      for (const c of contacts) await ctx.db.insert("contactNames", { ...c, familyId });
+    }
     await upsertAccounts(ctx, familyId, accounts, { replace: true, lookUpSignIn: lookUpSignIn !== false });
 
     if (historyId !== undefined) {

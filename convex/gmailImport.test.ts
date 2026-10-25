@@ -166,6 +166,9 @@ describe("importHistory", () => {
     expect(rels.find((r) => r.key === "sue@gmail.com")).toMatchObject({ kind: "person", parentSentCount: 1 });
     expect(rels.find((r) => r.key === "mom.culver@gmail.com")).toBeUndefined(); // self and drafts skipped
     expect(rels.find((r) => r.key === "chase.com")).toMatchObject({ authPassRate: 0 });
+    // The names of people Mom corresponds with, for spotting a stranger using one.
+    const contacts = await t.run((ctx) => ctx.db.query("contactNames").collect());
+    expect(contacts.map((c) => [c.name, c.display, c.address])).toEqual([["aunt sue", "Aunt Sue", "sue@gmail.com"]]);
 
     const family = await t.run((ctx) => ctx.db.get(familyId));
     expect(family!.status).toBe("active");

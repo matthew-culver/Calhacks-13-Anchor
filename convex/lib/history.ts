@@ -52,6 +52,8 @@ export type AccountRow = Omit<Account, "familyId">;
 export const MAX_RELATIONSHIPS = 500;
 /** Every real account, most important first; bounded for one write and one screen. */
 export const MAX_ACCOUNTS = 60;
+/** Names of people Mom knows, kept for the impostor check (bounded for one write). */
+export const MAX_CONTACTS = 1000;
 /** An org is an account after this many authenticated emails over at least this long... */
 export const ACCOUNT_MIN_MESSAGES = 3;
 export const ACCOUNT_MIN_SPAN_MS = 14 * 24 * 60 * 60 * 1000;
@@ -372,6 +374,72 @@ export function isOnDomains(url: string, domains: string[]): boolean {
   return domains.some((d) => host === d || host.endsWith(`.${d}`));
 }
 
+// ---------- Names of people Mom knows (the impostor check) ----------
+// "Aunt Sue" writing from an address Sue has never used is the classic family scam. Names come
+// only from Mom's own sent mail (her address book) and from authenticated mail, so a forged
+// email can't teach us a name.
+
+// Words that aren't a person's name.
+const NOT_A_NAME = new Set(
+  "me info support team admin service help noreply no-reply notifications billing sales office contact customer service".split(" "),
+);
+
+/** A display name folded for comparing ("Suе  Miller" with a Cyrillic е → "sue miller"); null if it isn't a name. */
+export function contactName(raw: string): string | null {
+  if (!raw || raw.includes("@")) return null;
+  const s = foldText(raw.slice(0, MAX_NAME * 2))
+    .replace(/[^\p{L}\p{N}' -]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (s.length < 2 || s.length > MAX_NAME || !/\p{L}/u.test(s) || NOT_A_NAME.has(s)) return null;
+  return s;
+}
+
+/** A name as Mom's mail shows it, safe to put in a sentence. */
+function displayName(raw: string): string {
+  return raw
+    .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069"<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_NAME);
+}
+
+/** One mailbox, however it's written: Gmail ignores dots and anything after "+". */
+export function mailboxId(address: string): string {
+  const a = address.trim().toLowerCase();
+  const at = a.lastIndexOf("@");
+  const local = a.slice(0, at).split("+")[0];
+  const domain = a.slice(at + 1);
+  if (domain === "gmail.com" || domain === "googlemail.com") return `${local.replace(/\./g, "")}@gmail.com`;
+  return `${local}@${domain}`;
+}
+
+/** At most `max` single-letter edits apart (stops early past that). */
+function withinEdits(a: string, b: string, max: number): boolean {
+  if (Math.abs(a.length - b.length) > max) return false;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      best = Math.min(best, cur[j]);
+    }
+    if (best > max) return false;
+    prev = cur;
+  }
+  return prev[b.length] <= max;
+}
+
+/** A different mailbox made to look like this one: same provider, a letter or two off ("sue.miiler"). */
+export function looksLikeAddress(candidate: string, real: string): boolean {
+  const [x, y] = [mailboxId(candidate), mailboxId(real)];
+  if (x === y) return false;
+  const [lx, dx] = [x.slice(0, x.lastIndexOf("@")), x.slice(x.lastIndexOf("@") + 1)];
+  const [ly, dy] = [y.slice(0, y.lastIndexOf("@")), y.slice(y.lastIndexOf("@") + 1)];
+  return dx === dy && Math.min(lx.length, ly.length) >= 5 && withinEdits(lx, ly, 2);
+}
+
 // ---------- Parsing ----------
 
 type Mailbox = { address: string; domain: string; name: string };
@@ -445,7 +513,16 @@ type Use = {
   names: Map<string, number>; // display names on that mail
 };
 
-type Tally = RelationshipRow & { authPassCount: number; authFirst: number; authLast: number; use: Use };
+type Tally = RelationshipRow & {
+  authPassCount: number;
+  authFirst: number;
+  authLast: number;
+  use: Use;
+  names?: Map<string, { display: string; count: number }>; // what a person is called (impostor check)
+};
+
+/** Someone Mom knows, by the name her mail shows for them (see contactName). */
+export type ContactRow = { name: string; display: string; address: string };
 
 const newUse = (): Use => ({
   signals: new Set(),
@@ -462,7 +539,7 @@ export function buildHistory(
   records: HeaderRecord[],
   now = Date.now(),
   opts: { selfEmail?: string } = {},
-): { relationships: RelationshipRow[]; accounts: AccountRow[] } {
+): { relationships: RelationshipRow[]; accounts: AccountRow[]; contacts: ContactRow[] } {
   const self = opts.selfEmail?.toLowerCase();
   const selfDomain = self?.includes("@") ? registrableDomain(self.slice(self.lastIndexOf("@") + 1)) : undefined;
   const tallies = new Map<string, Tally>();
@@ -492,6 +569,14 @@ export function buildHistory(
     t.firstSeen = Math.min(t.firstSeen, date);
     t.lastSeen = Math.max(t.lastSeen, date);
   };
+  const called = (t: Tally, raw: string) => {
+    const name = contactName(raw);
+    if (t.kind !== "person" || name === null) return;
+    t.names ??= new Map();
+    const n = t.names.get(name) ?? { display: displayName(raw), count: 0 };
+    n.count += 1;
+    t.names.set(name, n);
+  };
 
   for (const r of records) {
     const date = Number.isFinite(r.date) && r.date > 0 ? Math.min(r.date, now) : now;
@@ -501,6 +586,7 @@ export function buildHistory(
         const t = tally(keyFor(m));
         t.parentSentCount = (t.parentSentCount ?? 0) + 1;
         seen(t, date);
+        called(t, m.name); // the name in Mom's own address book
       }
       continue;
     }
@@ -513,6 +599,7 @@ export function buildHistory(
     t.authPassCount += 1;
     t.authFirst = Math.min(t.authFirst, date);
     t.authLast = Math.max(t.authLast, date);
+    called(t, sender.name); // only from mail that really came from that address
     if (t.kind !== "org") continue;
     const signals = r.promotional ? [] : accountSignals(r.subject ?? "");
     if (signals.length === 0) continue;
@@ -654,7 +741,17 @@ export function buildHistory(
       authPassRate: t.authPassRate,
     }));
 
-  return { relationships, accounts: accounts.slice(0, MAX_ACCOUNTS) };
+  // The names of the people Mom really corresponds with (she wrote to them, or they wrote twice),
+  // so a stranger using one of those names can be spotted.
+  const contacts: ContactRow[] = [];
+  for (const t of tallies.values()) {
+    if (t.kind !== "person" || !t.names || !(t.messageCount >= 2 || (t.parentSentCount ?? 0) > 0)) continue;
+    for (const [name, n] of [...t.names.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 2)) {
+      contacts.push({ name, display: n.display, address: t.key });
+    }
+  }
+
+  return { relationships, accounts: accounts.slice(0, MAX_ACCOUNTS), contacts: contacts.slice(0, MAX_CONTACTS) };
 }
 
 /** Just the account fields of a stored row (no _id, _creationTime or familyId). */

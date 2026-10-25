@@ -445,6 +445,7 @@ describe("turnOff", () => {
       await ctx.db.insert("relationships", { familyId, kind: "org", key: "kp.org", firstSeen: 1, lastSeen: 2, messageCount: 3, authPassRate: 1 });
       await ctx.db.insert("accounts", { familyId, orgName: "Kaiser", category: "health", officialDomains: ["kp.org"], firstSeen: 1, messageCount: 3 });
       await ctx.db.insert("anchorNotes", { familyId, gmailMessageId: "n" });
+      await ctx.db.insert("contactNames", { familyId, name: "sue miller", display: "Sue Miller", address: "sue.miller@gmail.com" });
     });
     const calls = fakeGmail();
     await t.mutation(api.turnOff.turnOff, { parentToken });
@@ -454,7 +455,7 @@ describe("turnOff", () => {
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     const revoke = calls.find((c) => c.path === "/revoke")!;
     expect(String(revoke.body!.form)).toContain("token=refresh-1");
-    for (const table of ["verdicts", "feedItems", "relationships", "accounts", "gmailTokens", "anchorNotes", "oauthStates", "pollFailures"] as const) {
+    for (const table of ["verdicts", "feedItems", "relationships", "accounts", "gmailTokens", "anchorNotes", "oauthStates", "pollFailures", "contactNames"] as const) {
       expect(await t.run((ctx) => ctx.db.query(table).collect()), table).toHaveLength(0);
     }
     expect(await t.query(api.families.getParentView, { parentToken })).toMatchObject({ status: "off" });

@@ -77,7 +77,8 @@ export const repairAll = internalMutation({
       const leftover =
         (await ctx.db.query("gmailTokens").withIndex("by_family", (q) => q.eq("familyId", family._id)).first()) ??
         (await ctx.db.query("verdicts").withIndex("by_family_received", (q) => q.eq("familyId", family._id)).first()) ??
-        (await ctx.db.query("relationships").withIndex("by_family_key", (q) => q.eq("familyId", family._id)).first());
+        (await ctx.db.query("relationships").withIndex("by_family_key", (q) => q.eq("familyId", family._id)).first()) ??
+        (await ctx.db.query("contactNames").withIndex("by_family_name", (q) => q.eq("familyId", family._id)).first());
       if (leftover) await ctx.scheduler.runAfter(0, internal.turnOff.revokeAndDelete, { familyId: family._id });
     }
     return null;

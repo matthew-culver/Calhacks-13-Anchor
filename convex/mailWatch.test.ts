@@ -465,6 +465,91 @@ describe("pollFamily", () => {
     expect(await kid.query(api.feed.myFeed, {})).toEqual([]);
   });
 
+  describe("a stranger using the name of someone Mom knows", () => {
+    const fromSue = (id: string, address: string, subject: string, body: string, name = "Sue Miller") => [
+      `Authentication-Results: mx.google.com; dkim=pass header.i=@gmail.com; spf=pass smtp.mailfrom=${address}; dmarc=pass (p=NONE) header.from=gmail.com`,
+      `From: ${name} <${address}>`,
+      "To: mom.culver@gmail.com",
+      `Subject: ${subject}`,
+      `Message-ID: <${id}@mail.gmail.com>`,
+      "Content-Type: text/plain",
+      "",
+      body,
+      "",
+    ].join("\r\n");
+    const knowsSue = async (t: Awaited<ReturnType<typeof activeFamily>>["t"], familyId: Id<"families">) =>
+      t.run(async (ctx) => {
+        await ctx.db.insert("contactNames", { familyId, name: "sue miller", display: "Sue Miller", address: "sue.miller@gmail.com" });
+        await ctx.db.insert("relationships", {
+          familyId, kind: "person", key: "sue.miller@gmail.com", firstSeen: Date.now() - 900 * DAY, lastSeen: Date.now() - 5 * DAY, messageCount: 30, parentSentCount: 12, authPassRate: 1,
+        });
+      });
+    const levelOf = async (t: Awaited<ReturnType<typeof activeFamily>>["t"], id: string) =>
+      (await t.run((ctx) => ctx.db.query("verdicts").collect())).find((v) => v.gmailMessageId === id);
+
+    test("from a new address: asks the kid, and says whose name it uses", async () => {
+      const { t, familyId } = await activeFamily();
+      await knowsSue(t, familyId);
+      fakeWorld({ messages: { s1: fromSue("s1", "sue.miller.2026@gmail.com", "hi", "It's me, I got a new email address. Write back here!") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      const v = await levelOf(t, "s1");
+      expect(v?.level).toBe("unsure");
+      expect(v?.checks?.find((c) => c.id === "relationship")?.plainReason).toBe(
+        "It uses the name Sue Miller, someone you know, but from an address they've never used with you.",
+      );
+    });
+
+    test("even with look-alike letters in the name (a Cyrillic е)", async () => {
+      const { t, familyId } = await activeFamily();
+      await knowsSue(t, familyId);
+      fakeWorld({ messages: { s2: fromSue("s2", "sue.miller.2026@gmail.com", "hi", "New address!", "Su\u0435 Miller") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect((await levelOf(t, "s2"))?.level).toBe("unsure");
+    });
+
+    test("asking for gift cards from a new address is held as fake", async () => {
+      const { t, familyId } = await activeFamily();
+      await knowsSue(t, familyId);
+      fakeWorld({
+        messages: { s3: fromSue("s3", "sue.miller.2026@gmail.com", "need a favor", "I'm stuck. Please buy two Google Play gift cards and send me the numbers. Don't tell anyone.") },
+      });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect((await levelOf(t, "s3"))?.level).toBe("fake");
+    });
+
+    test("an address made to look like hers is held as fake", async () => {
+      const { t, familyId } = await activeFamily();
+      await knowsSue(t, familyId);
+      fakeWorld({ messages: { s4: fromSue("s4", "sue.miiler@gmail.com", "hi", "Can you call me later?") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      const v = await levelOf(t, "s4");
+      expect(v?.level).toBe("fake");
+      expect(v?.checks?.find((c) => c.id === "relationship")?.plainReason).toContain("made to look like Sue Miller's");
+    });
+
+    test("Sue herself, however Gmail writes her address, is not an impostor", async () => {
+      const { t, familyId } = await activeFamily();
+      await knowsSue(t, familyId);
+      fakeWorld({
+        messages: {
+          s5: fromSue("s5", "sue.miller@gmail.com", "lunch?", "Want to get lunch Tuesday?"),
+          s6: fromSue("s6", "suemiller@gmail.com", "lunch?", "Same me, without the dot."),
+        },
+      });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect((await levelOf(t, "s5"))?.level).toBe("real");
+      expect((await levelOf(t, "s6"))?.checks?.find((c) => c.id === "relationship")?.detail ?? "").not.toContain("known contact");
+    });
+
+    test("a stranger with a name nobody in Mom's mail uses is just a new sender", async () => {
+      const { t, familyId } = await activeFamily();
+      await knowsSue(t, familyId);
+      fakeWorld({ messages: { s7: fromSue("s7", "new.neighbor@gmail.com", "hello", "Hi, I'm your new neighbor!", "Pat Lee") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect((await levelOf(t, "s7"))?.level).toBe("real");
+    });
+  });
+
   test("the same address asking for gift cards and secrecy is flagged as a hacked account", async () => {
     const { t, familyId } = await activeFamily();
     const raw = [

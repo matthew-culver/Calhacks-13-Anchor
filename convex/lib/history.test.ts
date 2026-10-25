@@ -6,8 +6,11 @@ import {
   authenticatedFor,
   buildHistory,
   cleanOrgName,
+  contactName,
   type HeaderRecord,
+  looksLikeAddress,
   MAX_ACCOUNTS,
+  mailboxId,
   parseAddresses,
   rankAccount,
   senderOf,
@@ -529,5 +532,61 @@ describe("accounts with companies outside our list (A8)", () => {
     // A link off the company's own domain is never applied.
     const offDomain = applyDiscovered(accounts[0], { orgName: "Bayview", category: "health", loginUrl: "https://evil.example.com/login" });
     expect(offDomain.loginUrl).toBeUndefined();
+  });
+});
+
+describe("names of people Mom knows (impostor check)", () => {
+  const sentTo = (to: string, daysAgo: number): HeaderRecord => ({ from: "Mom <mom.culver@gmail.com>", to, authResults: [], date: now - daysAgo * DAY, sent: true });
+
+  test("learns the names of people Mom writes to, or who really write to her", () => {
+    const { contacts } = buildHistory(
+      [
+        sentTo("Sue Miller <sue.miller@gmail.com>", 10),
+        got("Lucas Culver <lucasculver2023@gmail.com>", 3),
+        got("Lucas Culver <lucasculver2023@gmail.com>", 9),
+        got("Once Only <once.only@gmail.com>", 4), // one email and never answered: not someone she knows
+      ],
+      now,
+    );
+    expect(contacts).toEqual(
+      expect.arrayContaining([
+        { name: "sue miller", display: "Sue Miller", address: "sue.miller@gmail.com" },
+        { name: "lucas culver", display: "Lucas Culver", address: "lucasculver2023@gmail.com" },
+      ]),
+    );
+    expect(contacts.find((c) => c.name === "once only")).toBeUndefined();
+  });
+
+  test("a forged email can't teach us a name, and company senders aren't people", () => {
+    const { contacts } = buildHistory(
+      [
+        got("Sue Miller <scammer@gmail.com>", 3, FAIL),
+        got("Sue Miller <scammer@gmail.com>", 5, FAIL),
+        got("Wells Fargo <alerts@notify.wellsfargo.com>", 2),
+        got("Wells Fargo <alerts@notify.wellsfargo.com>", 6),
+      ],
+      now,
+    );
+    expect(contacts).toEqual([]);
+  });
+
+  test("folds names for comparing, and refuses things that aren't names", () => {
+    expect(contactName("Su\u0435  Miller")).toBe("sue miller"); // a Cyrillic е
+    expect(contactName('"Sue Miller"')).toBe("sue miller");
+    for (const notName of ["", "sue@gmail.com", "Support", "x", "!!!"]) expect(contactName(notName), notName).toBeNull();
+  });
+
+  test("Gmail addresses are one mailbox however they're dotted", () => {
+    expect(mailboxId("Sue.Miller+news@gmail.com")).toBe(mailboxId("suemiller@googlemail.com"));
+    expect(mailboxId("sue.miller@yahoo.com")).not.toBe(mailboxId("suemiller@yahoo.com"));
+  });
+
+  test("spots an address made to look like a real one", () => {
+    expect(looksLikeAddress("sue.miiler@gmail.com", "sue.miller@gmail.com")).toBe(true);
+    expect(looksLikeAddress("suemi11er@gmail.com", "sue.miller@gmail.com")).toBe(true);
+    expect(looksLikeAddress("s.u.e.miller@gmail.com", "sue.miller@gmail.com")).toBe(false); // the same mailbox
+    expect(looksLikeAddress("sue.miller@yahoo.com", "sue.miller@gmail.com")).toBe(false); // another provider: not a typo trick
+    expect(looksLikeAddress("bob@gmail.com", "rob@gmail.com")).toBe(false); // too short to call it a trick
+    expect(looksLikeAddress("totally.different@gmail.com", "sue.miller@gmail.com")).toBe(false);
   });
 });
