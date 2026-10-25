@@ -101,7 +101,7 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
   - **Before the demo, smoke-test one real lookup** (never run against the real API yet): `npx convex run signInPages:lookUp '{"domain":"<a real local company's domain>","familyId":"<id>","nameHint":"<its name>"}'`, then check Data → orgDirectory.
   - Schema: added optional `orgDirectory.lookupStartedAt`.
   - Timing (simulated at real Gmail pacing): accounts on screen ~2 s after connecting, first pass ~10 s, then re-sorts every ~10 s during the deeper pass. Subjects are read in memory only, never stored.
-- [ ] **A9. Quiet mode.** No note per held email; one weekly digest note to Mom; the kid's own words still sent when they reply.
+- [x] **A9. Quiet mode.** No note per held or unsure email (they just leave the inbox or get the "Check with" label). One calm weekly note to Mom on Sundays, only if anything happened. A short note with the kid's own words when they answer with a note; no note when they answer without one. For the demo, send the weekly note on demand: `npx convex run gmailActions:sendWeeklyNote '{"familyId":"<id>"}'` (needs `ANCHOR_GMAIL_ACTIONS` on).
 - [ ] **Demo:** pre-connected demo account, scripted test emails (fake Chase, hacked-Aunt-Sue with a bad link, Aunt Sue with a YouTube link that stays real), runbook and backup plan.
 
 ### Person B
