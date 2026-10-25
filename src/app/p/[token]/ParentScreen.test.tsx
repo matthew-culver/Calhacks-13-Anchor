@@ -93,6 +93,12 @@ describe("parent weekly recap", () => {
     expect(screen.getByText("Nothing looked fake.")).toBeInTheDocument();
     expect(screen.queryByText(/Good catch/)).toBeNull();
   });
+
+  it("doesn't say \"checked 0 emails\" before any mail arrives", () => {
+    fakeBackend.setQuery("feed:parentWeeklyRecap", { weekStart: 0, checked: 0, held: 0, needAnswer: 0, goodCatches: 0 });
+    render(<ParentScreen token="ptok" />);
+    expect(screen.getByText("No new emails yet this week.")).toBeInTheDocument();
+  });
 });
 
 describe("turning it off", () => {
@@ -111,7 +117,8 @@ describe("turning it off", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Keep it on" }));
     expect(turnOff()).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Turn off Anchor" })).toBeInTheDocument();
+    // Focus goes back where the parent was, not to the top of the page.
+    expect(screen.getByRole("button", { name: "Turn off Anchor" })).toHaveFocus();
   });
 
   it("turns off after \"Yes, turn it off\", and the page says protection is off", async () => {

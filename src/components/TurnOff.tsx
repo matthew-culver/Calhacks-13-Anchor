@@ -15,10 +15,18 @@ export function TurnOff({ parentToken, kidName }: { parentToken: string; kidName
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The question replaces the button; put focus (and the screen reader) on it.
+  // The question replaces the button; put focus (and the screen reader) on it. On "Keep it on",
+  // put focus back on the button, so nobody loses their place on a long page.
   const question = useRef<HTMLHeadingElement>(null);
+  const start = useRef<HTMLElement>(null);
+  const asked = useRef(false);
   useEffect(() => {
-    if (confirming) question.current?.focus();
+    if (confirming) {
+      asked.current = true;
+      question.current?.focus();
+    } else if (asked.current) {
+      start.current?.querySelector("button")?.focus();
+    }
   }, [confirming]);
 
   const confirm = async () => {
@@ -34,7 +42,7 @@ export function TurnOff({ parentToken, kidName }: { parentToken: string; kidName
 
   if (!confirming) {
     return (
-      <section className="flex flex-col gap-3 border-t-2 border-line pt-6">
+      <section ref={start} className="flex flex-col gap-3 border-t-2 border-line pt-6">
         <p className="text-lg text-muted">You can turn Anchor off any time.</p>
         <BigButton secondary onClick={() => setConfirming(true)}>
           Turn off Anchor
@@ -56,11 +64,12 @@ export function TurnOff({ parentToken, kidName }: { parentToken: string; kidName
           {error}
         </p>
       )}
-      <BigButton onClick={() => void confirm()} disabled={busy}>
-        {busy ? "Turning off..." : "Yes, turn it off"}
-      </BigButton>
-      <BigButton secondary onClick={() => setConfirming(false)} disabled={busy}>
+      {/* Keeping it on is the big, easy choice; turning off is the deliberate one. */}
+      <BigButton onClick={() => setConfirming(false)} disabled={busy}>
         Keep it on
+      </BigButton>
+      <BigButton secondary onClick={() => void confirm()} disabled={busy}>
+        {busy ? "Turning off..." : "Yes, turn it off"}
       </BigButton>
     </section>
   );

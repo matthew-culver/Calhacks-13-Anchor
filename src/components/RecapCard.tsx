@@ -41,7 +41,11 @@ export function ParentRecapCard({ recap, kidName }: { recap: WeeklyRecap; kidNam
     <Card>
       <h2 className="mb-3 text-2xl font-bold">This week</h2>
       <ul className="flex flex-col gap-2 text-xl">
-        <li>{`We checked ${count(recap.checked, "email", "emails")} for you.`}</li>
+        <li>
+          {recap.checked === 0
+            ? "No new emails yet this week."
+            : `We checked ${count(recap.checked, "email", "emails")} for you.`}
+        </li>
         <li>
           {recap.held === 0
             ? "Nothing looked fake."
