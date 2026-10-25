@@ -30,10 +30,13 @@ To change a Gmail display name: Gmail → Settings → Accounts → "Send mail a
      got when setting up; it's also `parentToken` on the family in the Convex dashboard).
      Never show the full link on the projector: it's Mom's key.
    - **Terminal:** ready with the two commands below, family id filled in.
-5. **Start at zero:** clear old test emails from Anchor's screens (the emails stay in Gmail;
+5. **Turn on alerts:** on the kid's "This week" page, tap "Get an alert when something needs
+   you" once and allow notifications. New flagged or asked emails then pop up as a notification
+   on the laptop, even while you're showing Mom's Gmail (click it to open the email).
+6. **Start at zero:** clear old test emails from Anchor's screens (the emails stay in Gmail;
    accounts and history are kept): `npx convex run demo:clearChecked '{"familyId":"<familyId>"}'`.
-6. Have the four test emails below drafted (not sent) in the right accounts.
-7. Phone hotspot ready in case the venue Wi-Fi dies.
+7. Have the test emails below drafted (not sent) in the right accounts.
+8. Phone hotspot ready in case the venue Wi-Fi dies.
 
 ## Commands
 

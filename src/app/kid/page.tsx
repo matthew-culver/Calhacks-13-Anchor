@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import Link from "next/link";
 import { KidGate, SampleDataNote, type KidFamily } from "@/components/KidGate";
 import { KidRecapCard } from "@/components/RecapCard";
+import { AlertsButton, useNewItemAlerts } from "@/components/Alerts";
 import { Icon, Spinner } from "@/components/icons";
 import { TimeAgo, useClientNow } from "@/components/TimeAgo";
 import { Watching } from "@/components/Watching";
@@ -28,6 +29,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
   const liveRecap = useQuery(api.feed.myWeeklyRecap, !demo && now !== null ? { now: Math.floor(now / MIN) * MIN } : "skip");
   const recap = demo ? mockRecap : liveRecap;
   const { parentName } = family;
+  useNewItemAlerts(feed, parentName);
 
   if (feed === undefined) return <Screen focusTitle title="One moment..." />;
 
@@ -41,7 +43,12 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
   return (
     <Screen focusTitle title="This week">
       {demo && <SampleDataNote />}
-      {family.status === "active" && <Watching whose={`${parentName}'s`} lastCheckedAt={family.lastCheckedAt} />}
+      {family.status === "active" && (
+        <div className="flex flex-col gap-3">
+          <Watching whose={`${parentName}'s`} lastCheckedAt={family.lastCheckedAt} />
+          <AlertsButton />
+        </div>
+      )}
       <KidRecapCard recap={recap} needAnswer={needAnswer} parentName={parentName} />
 
       {family.status === "learning" && (
