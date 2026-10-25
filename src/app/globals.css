@@ -50,3 +50,9 @@ body {
   outline: 4px solid var(--color-action);
   outline-offset: 3px;
 }
+
+/* Titles we focus from code (tabindex="-1") so screen readers announce a new screen.
+   They can't be reached with Tab, so a keyboard ring there is just a stray box. */
+[tabindex="-1"]:focus {
+  outline: none;
+}

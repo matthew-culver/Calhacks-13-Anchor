@@ -3,7 +3,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetMockFeed } from "@/shared/feedApi";
+import { fakeBackend } from "@/test/fakeBackend";
+import { seedSignedInKid } from "@/test/seed";
 import { ItemScreen } from "./ItemScreen";
+
+vi.mock("convex/react", async () => (await import("@/test/fakeBackend")).convexReact);
 
 // Lets one test make the answer fail, the way a dropped connection would.
 const network = vi.hoisted(() => ({ down: false }));
@@ -20,6 +24,8 @@ vi.mock("@/shared/feedApi", async (importOriginal) => {
 });
 
 beforeEach(() => {
+  fakeBackend.reset();
+  seedSignedInKid();
   resetMockFeed();
   network.down = false;
 });
@@ -53,7 +59,7 @@ describe("feed item detail", () => {
 
   it("removes hidden characters that could disguise who sent it", () => {
     render(<ItemScreen id="mock_feed_chase" />);
-    expect(screen.getByRole("main").textContent).not.toMatch(/[‪-‮⁦-⁩]/);
+    expect(screen.getByRole("main").textContent).not.toMatch(/[\u202a-\u202e\u2066-\u2069]/);
   });
 
   it("shows what it claims and every check in plain words, never the technical detail", () => {

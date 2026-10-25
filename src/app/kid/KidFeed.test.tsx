@@ -1,12 +1,22 @@
 // B3 kid feed: needs-answer items first, held items below, answered ones last.
 
 import { act, render, renderHook, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeBackend } from "@/test/fakeBackend";
+import { seedSignedInKid } from "@/test/seed";
 import { resetMockFeed, useAnswerFeedItem } from "@/shared/feedApi";
 import { mockFeed } from "@/shared/mock";
 import KidFeed from "./page";
 
-beforeEach(() => resetMockFeed());
+vi.mock("convex/react", async () => (await import("@/test/fakeBackend")).convexReact);
+
+beforeEach(() => {
+  fakeBackend.reset();
+  seedSignedInKid();
+  resetMockFeed();
+});
+
+afterEach(() => sessionStorage.clear());
 
 const section = (name: string) => screen.getByRole("heading", { level: 2, name }).closest("section")!;
 const cards = (name: string) => within(section(name)).queryAllByRole("link").map((a) => a.textContent ?? "");
@@ -55,5 +65,35 @@ describe("kid feed", () => {
     expect(screen.getByText("0 need an answer")).toBeInTheDocument();
     expect(within(section("Needs your answer")).getByText(/Nothing to answer/)).toBeInTheDocument();
     expect(cards("You answered")).toContainEqual(expect.stringContaining("You said it's fine."));
+  });
+
+  it("shows this week's live numbers from the recap", () => {
+    render(<KidFeed />);
+    expect(screen.getByText("41 checked")).toBeInTheDocument();
+    expect(screen.getByText("3 held")).toBeInTheDocument();
+  });
+
+  it("names a sender plainly when the email gave no brand or name", () => {
+    const [first, ...rest] = fakeBackend.state.queries["feed:myFeed"] as typeof import("@/shared/feedApi").SAMPLE_FEED;
+    const verdict = { ...first.verdict, claimedOrg: undefined, fromName: undefined };
+    fakeBackend.setQuery("feed:myFeed", [{ ...first, verdict }, ...rest]);
+    render(<KidFeed />);
+    expect(screen.getByText("Says it's from an unknown sender")).toBeInTheDocument();
+  });
+
+  it("asks a signed-out kid to sign in instead of showing anything", () => {
+    fakeBackend.set({ isAuthenticated: false });
+    render(<KidFeed />);
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/start");
+    expect(screen.queryByText(/Says it's from/)).toBeNull();
+  });
+
+  it("shows the sample family in demo mode, signed in or not, and says it's sample data", () => {
+    sessionStorage.setItem("anchor.demo", "1");
+    fakeBackend.set({ isAuthenticated: false });
+    fakeBackend.setQuery("feed:myFeed", []);
+    render(<KidFeed />);
+    expect(screen.getByText("Sample data for the demo")).toBeInTheDocument();
+    expect(cards("Needs your answer")).toEqual([expect.stringContaining("Says it's from USPS")]);
   });
 });

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockAccounts, mockFeed, mockRecap } from "@/shared/mock";
 import { resetMockFeed } from "@/shared/feedApi";
 import { fakeBackend } from "@/test/fakeBackend";
+import { seedParent, seedSignedInKid } from "@/test/seed";
 import Home from "./page";
 import Start from "./start/page";
 import KidFeed from "./kid/page";
@@ -33,17 +34,9 @@ beforeEach(() => {
     status: "invited",
     inviteExpiresAt: Date.now() + 24 * 60 * 60 * 1000,
   });
-  // A signed-in kid whose parent is connected, with A4's accounts learned.
-  fakeBackend.set({ isAuthenticated: true });
-  fakeBackend.setQuery("families:getMyFamily", {
-    _id: "fam1",
-    parentName: "Mom",
-    parentEmail: "mom@gmail.com",
-    kidName: "Lucas",
-    status: "active",
-  });
-  fakeBackend.setQuery("accounts:myAccounts", mockAccounts);
-  fakeBackend.setQuery("accounts:parentAccounts", mockAccounts);
+  // A signed-in kid whose parent is connected, with A4's accounts and A5's feed.
+  seedSignedInKid();
+  seedParent();
 });
 
 const screens: [string, () => ReactElement][] = [
