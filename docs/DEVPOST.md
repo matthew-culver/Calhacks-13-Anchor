@@ -75,7 +75,7 @@ and no network (the floor): **25 of 25 scams caught (18 held automatically), 0 o
 emails held, 6 asked the kid** (first-ever emails from a real company, which the AI then
 clears, and one store's gift card promotion). Its first run caught only 18 of 21: tech-support,
 streaming and Zelle impostors got through. We added those brands and it now fails the build if
-a real email is ever held. 685 automated tests in all. Full table: `docs/ACCURACY.md`.
+a real email is ever held. 688 automated tests in all. Full table: `docs/ACCURACY.md`.
 
 ## Where it could go wrong (and what we did)
 
