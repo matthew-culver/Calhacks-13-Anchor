@@ -1,8 +1,10 @@
 // A6: act on verdicts inside the parent's Gmail, and tell the parent in plain words.
-//   fake   → "Anchor: Held" label, out of the inbox, plus a short note in the inbox
-//   unsure → "⚠ Check with [kid]" label (stays in the inbox), plus a note
-//   kid says "It's fine"   → back in the inbox, labels removed, note to the parent
-//   kid says "It's a scam" → held, note to the parent with the kid's words
+//   fake   → "Anchor: Held" label, out of the inbox. Quietly: no note (A9).
+//   unsure → "⚠ Check with [kid]" label (stays in the inbox). Quietly.
+//   kid says "It's fine"   → back in the inbox, labels removed
+//   kid says "It's a scam" → held
+//   kid adds their own words → a short warm note to the parent with those words
+//   once a week, if anything happened → one calm summary note (weeklyNotes cron)
 //
 // Safety switch: nothing touches Gmail unless the Convex env var ANCHOR_GMAIL_ACTIONS is "on"
 //   npx convex env set ANCHOR_GMAIL_ACTIONS on
@@ -44,10 +46,13 @@ const contextShape = v.union(
   }),
 );
 
-type Context = {
-  verdict: Doc<"verdicts">;
+type LabelContext = {
   family: Doc<"families">;
   labels: { held?: string; check?: string; note?: string };
+};
+
+type Context = LabelContext & {
+  verdict: Doc<"verdicts">;
   feedItem?: Doc<"feedItems">;
 };
 
@@ -108,6 +113,15 @@ export const markActionApplied = internalMutation({
   },
 });
 
+export const markAnswerApplied = internalMutation({
+  args: { feedItemId: v.id("feedItems") },
+  returns: v.null(),
+  handler: async (ctx, { feedItemId }) => {
+    if (await ctx.db.get(feedItemId)) await ctx.db.patch(feedItemId, { answerAppliedAt: Date.now() });
+    return null;
+  },
+});
+
 /**
  * Record a note we put in the parent's inbox AND mark what it was for, in one transaction, so
  * a retry can never find "note sent" without the watcher also knowing to skip that message.
@@ -144,7 +158,7 @@ async function listLabels(accessToken: string) {
   return new Map((res.labels ?? []).map((l) => [l.name.toLowerCase(), l.id]));
 }
 
-async function ensureLabels(ctx: ActionCtx, c: Context, accessToken: string): Promise<Labels> {
+async function ensureLabels(ctx: ActionCtx, c: LabelContext, accessToken: string): Promise<Labels> {
   if (c.labels.held && c.labels.check && c.labels.note) return c.labels as Labels;
   const wanted: Labels = { held: HELD_LABEL, check: checkLabelName(c.family.kidName), note: NOTE_LABEL };
   let byName = await listLabels(accessToken);
@@ -187,7 +201,7 @@ async function modify(accessToken: string, messageId: string, add: string[], rem
 }
 
 /** Run Gmail steps that use our labels; if Gmail says a cached label is gone (400), re-create once. */
-async function withLabels(ctx: ActionCtx, c: Context, token: string, steps: (labels: Labels) => Promise<void>) {
+async function withLabels(ctx: ActionCtx, c: LabelContext, token: string, steps: (labels: Labels) => Promise<void>) {
   const usedCache = c.labels.held !== undefined && c.labels.check !== undefined && c.labels.note !== undefined;
   try {
     await steps(await ensureLabels(ctx, c, token));
@@ -203,7 +217,7 @@ async function withLabels(ctx: ActionCtx, c: Context, token: string, steps: (lab
 async function sendNote(
   ctx: ActionCtx,
   token: string,
-  c: Context,
+  c: LabelContext,
   labels: Labels,
   note: { key: string; subject: string; lines: string[]; verdictId?: Id<"verdicts">; feedItemId?: Id<"feedItems"> },
 ) {
@@ -270,7 +284,7 @@ const errorText = (e: unknown) => (e instanceof GmailError ? e.message : e insta
 
 // ---------- actions ----------
 
-/** After a new flagged verdict: label or hold the email, then tell the parent. Idempotent. */
+/** After a new flagged verdict: label or hold the email, quietly (no note). Idempotent. */
 export const applyVerdict = internalAction({
   args: { verdictId: v.id("verdicts"), attempt: v.optional(v.number()) },
   returns: v.null(),
@@ -278,7 +292,6 @@ export const applyVerdict = internalAction({
     if (!actionsEnabled()) return null;
     const c: Context | null = await ctx.runQuery(internal.gmailActions.contextForVerdict, { verdictId });
     if (!c || c.family.status === "off" || c.verdict.level === "real") return null;
-    if (c.verdict.actionAppliedAt !== undefined && c.verdict.parentNoteSentAt !== undefined) return null;
     if (c.feedItem?.kidAnswer) {
       // The kid already decided; applyAnswer handles it. If our hold already landed, make sure
       // the kid's answer is re-applied on top so it wins in Gmail.
@@ -287,24 +300,14 @@ export const applyVerdict = internalAction({
       }
       return null;
     }
+    if (c.verdict.actionAppliedAt !== undefined) return null; // already done
 
     try {
       const ok = await withAccess(ctx, c.family._id, (token) =>
         withLabels(ctx, c, token, async (labels) => {
-          if (c.verdict.actionAppliedAt === undefined) {
-            if (c.verdict.level === "fake") await modify(token, c.verdict.gmailMessageId, [labels.held], ["INBOX"]);
-            else await modify(token, c.verdict.gmailMessageId, [labels.check], []);
-            await ctx.runMutation(internal.gmailActions.markActionApplied, { verdictId });
-          }
-          if (c.verdict.parentNoteSentAt === undefined) {
-            const org = c.verdict.claimedOrg; // from our own brand list, never the sender's text
-            await sendNote(ctx, token, c, labels, {
-              key: `verdict-${verdictId}`,
-              subject: c.verdict.level === "fake" ? `We held a message pretending to be ${org ?? "someone you know"}` : `We asked ${c.family.kidName} about a message`,
-              lines: [c.verdict.explanationForParent ?? ""],
-              verdictId,
-            });
-          }
+          if (c.verdict.level === "fake") await modify(token, c.verdict.gmailMessageId, [labels.held], ["INBOX"]);
+          else await modify(token, c.verdict.gmailMessageId, [labels.check], []);
+          await ctx.runMutation(internal.gmailActions.markActionApplied, { verdictId });
         }),
       );
       if (!ok) {
@@ -331,7 +334,8 @@ export const applyVerdict = internalAction({
 });
 
 /**
- * After the kid answers: release or hold the email, then pass the kid's words to the parent.
+ * After the kid answers: release or hold the email. If the kid wrote something, pass their
+ * words to the parent in a short note; otherwise it stays quiet.
  * `labelsOnly` re-applies just the Gmail labels (when a hold landed after the answer).
  */
 export const applyAnswer = internalAction({
@@ -358,14 +362,19 @@ export const applyAnswer = internalAction({
           if (answer.answer === "fine") await modify(token, c.verdict.gmailMessageId, ["INBOX"], [labels.held, labels.check]);
           else await modify(token, c.verdict.gmailMessageId, [labels.held], ["INBOX", labels.check]);
           if (labelsOnly) return;
+          const kidWords = cleanKidNote(answer.note);
+          if (!kidWords) {
+            await ctx.runMutation(internal.gmailActions.markAnswerApplied, { feedItemId });
+            return;
+          }
           const kid = c.family.kidName;
           const what = c.verdict.claimedOrg ? `the message that said it was from ${c.verdict.claimedOrg}` : "the message we asked about";
-          const kidWords = cleanKidNote(answer.note);
-          const lines =
+          const lines = [
             answer.answer === "fine"
-              ? [`${kid} looked at ${what} and says it's fine. It's back in your inbox.`]
-              : [`${kid} looked at ${what} and says it's a scam. We moved it out of your inbox. You don't need to do anything.`];
-          if (kidWords) lines.push(`${kid} says: "${kidWords}"`);
+              ? `${kid} looked at ${what} and says it's fine. It's back in your inbox.`
+              : `${kid} looked at ${what} and says it's a scam. We moved it out of your inbox. You don't need to do anything.`,
+            `${kid} says: "${kidWords}"`,
+          ];
           await sendNote(ctx, token, c, labels, {
             key: `answer-${feedItemId}`,
             subject: answer.answer === "fine" ? `${kid} says that message is fine` : `${kid} says that message is a scam`,
@@ -397,6 +406,88 @@ export const releaseVerdict = internalAction({
     } catch (e) {
       console.error(`gmailActions.releaseVerdict failed: ${errorText(e)}`);
     }
+    return null;
+  },
+});
+
+// ---------- the weekly note (A9) ----------
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const weekStats = internalQuery({
+  args: { familyId: v.id("families"), since: v.number() },
+  returns: v.union(
+    v.null(),
+    v.object({ family: schema.doc("families"), labels: v.object({ held: v.optional(v.string()), check: v.optional(v.string()), note: v.optional(v.string()) }), checked: v.number(), held: v.number(), kidLooked: v.number() }),
+  ),
+  handler: async (ctx, { familyId, since }) => {
+    const family = await ctx.db.get(familyId);
+    if (!family || family.status !== "active") return null;
+    const tokens = await ctx.db.query("gmailTokens").withIndex("by_family", (q) => q.eq("familyId", familyId)).unique();
+    const verdicts = await ctx.db
+      .query("verdicts")
+      .withIndex("by_family_received", (q) => q.eq("familyId", familyId).gte("receivedAt", since))
+      .take(5000);
+    const items = await ctx.db
+      .query("feedItems")
+      .withIndex("by_family_created", (q) => q.eq("familyId", familyId).gte("createdAt", since))
+      .take(1000);
+    return {
+      family,
+      labels: { held: tokens?.heldLabelId, check: tokens?.checkLabelId, note: tokens?.noteLabelId },
+      checked: verdicts.length,
+      held: verdicts.filter((x) => x.action === "held").length,
+      kidLooked: items.filter((i) => i.kidAnswer).length,
+    };
+  },
+});
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** One calm summary for the parent, at most once per week (the note key dedupes). */
+export const sendWeeklyNote = internalAction({
+  args: { familyId: v.id("families") },
+  returns: v.null(),
+  handler: async (ctx, { familyId }) => {
+    if (!actionsEnabled()) return null;
+    const now = Date.now();
+    const stats = await ctx.runQuery(internal.gmailActions.weekStats, { familyId, since: now - WEEK_MS });
+    if (!stats || stats.checked === 0) return null; // nothing happened: say nothing
+    const c: LabelContext = { family: stats.family, labels: stats.labels };
+    const kid = stats.family.kidName;
+    const lines = [
+      stats.held > 0
+        ? `This week Anchor checked ${plural(stats.checked, "email", "emails")} for you and kept ${plural(stats.held, "fake message", "fake messages")} out of your inbox. You didn't need to do anything.`
+        : `This week Anchor checked ${plural(stats.checked, "email", "emails")} for you. Nothing fake got through, and you didn't need to do anything.`,
+    ];
+    if (stats.kidLooked > 0) lines.push(`${kid} looked at ${plural(stats.kidLooked, "message", "messages")} for you.`);
+    if (stats.held > 0) lines.push(`If you ever want to see them, they're in the "Anchor: Held" folder.`);
+    const week = Math.floor(now / WEEK_MS);
+    try {
+      await withAccess(ctx, familyId, (token) =>
+        withLabels(ctx, c, token, (labels) =>
+          sendNote(ctx, token, c, labels, {
+            key: `weekly-${familyId}-${week}`,
+            subject: stats.held > 0 ? `This week: ${plural(stats.held, "fake message", "fake messages")} kept away from you` : "Your week with Anchor",
+            lines,
+          }),
+        ),
+      );
+    } catch (e) {
+      console.error(`gmailActions.sendWeeklyNote failed: ${errorText(e)}`);
+    }
+    return null;
+  },
+});
+
+/** Cron: once a week, schedule each active family's note. */
+export const weeklyNotes = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    if (!actionsEnabled()) return null;
+    const families = await ctx.db.query("families").withIndex("by_status", (q) => q.eq("status", "active")).take(500);
+    for (const f of families) await ctx.scheduler.runAfter(0, internal.gmailActions.sendWeeklyNote, { familyId: f._id });
     return null;
   },
 });
