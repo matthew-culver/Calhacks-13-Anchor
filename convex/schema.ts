@@ -41,6 +41,13 @@ export default defineSchema({
     .index("by_state", ["state"])
     .index("by_family", ["familyId"]), // at most one live attempt per family
 
+  // A5: emails that failed to check, so one bad email can't block the rest forever.
+  pollFailures: defineTable({
+    familyId: v.id("families"),
+    gmailMessageId: v.string(),
+    count: v.number(),
+  }).index("by_family_message", ["familyId", "gmailMessageId"]),
+
   // Gmail OAuth for the parent. Separate from the kid's Convex Auth login.
   // Server-only: internalQuery or internalAction, never a public query.
   gmailTokens: defineTable({
@@ -51,6 +58,7 @@ export default defineSchema({
     accessToken: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
     historyId: v.optional(v.string()), // Gmail history cursor, for fetching only new mail
+    pollingUntil: v.optional(v.number()), // A5 lease: one poll per family at a time
     heldLabelId: v.optional(v.string()), // "Anchor: Held"
     checkLabelId: v.optional(v.string()), // "⚠ Check with [kid]"
   })

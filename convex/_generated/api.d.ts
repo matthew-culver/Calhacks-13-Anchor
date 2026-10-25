@@ -19,21 +19,26 @@ import type * as checks_intel from "../checks/intel.js";
 import type * as checks_linkAudit from "../checks/linkAudit.js";
 import type * as checks_parse from "../checks/parse.js";
 import type * as checks_pressure from "../checks/pressure.js";
+import type * as checks_relationship from "../checks/relationship.js";
 import type * as checks_ruleLevel from "../checks/ruleLevel.js";
 import type * as checks_text from "../checks/text.js";
 import type * as checks_types from "../checks/types.js";
 import type * as contract from "../contract.js";
+import type * as crons from "../crons.js";
 import type * as families from "../families.js";
+import type * as feed from "../feed.js";
 import type * as gmailConnect from "../gmailConnect.js";
 import type * as gmailImport from "../gmailImport.js";
 import type * as googleAuth from "../googleAuth.js";
 import type * as http from "../http.js";
 import type * as lib_env from "../lib/env.js";
+import type * as lib_explain from "../lib/explain.js";
 import type * as lib_history from "../lib/history.js";
 import type * as lib_oauth from "../lib/oauth.js";
 import type * as lib_orgDirectory from "../lib/orgDirectory.js";
 import type * as lib_sampleHistory from "../lib/sampleHistory.js";
 import type * as lib_tokens from "../lib/tokens.js";
+import type * as mailWatch from "../mailWatch.js";
 
 import type {
   ApiFromModules,
@@ -53,21 +58,26 @@ declare const fullApi: ApiFromModules<{
   "checks/linkAudit": typeof checks_linkAudit;
   "checks/parse": typeof checks_parse;
   "checks/pressure": typeof checks_pressure;
+  "checks/relationship": typeof checks_relationship;
   "checks/ruleLevel": typeof checks_ruleLevel;
   "checks/text": typeof checks_text;
   "checks/types": typeof checks_types;
   contract: typeof contract;
+  crons: typeof crons;
   families: typeof families;
+  feed: typeof feed;
   gmailConnect: typeof gmailConnect;
   gmailImport: typeof gmailImport;
   googleAuth: typeof googleAuth;
   http: typeof http;
   "lib/env": typeof lib_env;
+  "lib/explain": typeof lib_explain;
   "lib/history": typeof lib_history;
   "lib/oauth": typeof lib_oauth;
   "lib/orgDirectory": typeof lib_orgDirectory;
   "lib/sampleHistory": typeof lib_sampleHistory;
   "lib/tokens": typeof lib_tokens;
+  mailWatch: typeof mailWatch;
 }>;
 
 /**

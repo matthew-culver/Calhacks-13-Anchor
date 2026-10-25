@@ -178,3 +178,24 @@ export const renewInvite = mutation({
     return { inviteToken };
   },
 });
+
+/**
+ * The parent's own page (/p/<parentToken>): who's watching and where things stand, so the page
+ * can tell "still learning" from "turned off". Null for an unknown link. Never returns tokens.
+ */
+export const getParentView = query({
+  args: { parentToken: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({ parentName: v.string(), kidName: v.string(), status: familyStatus }),
+  ),
+  handler: async (ctx, { parentToken }) => {
+    if (parentToken.length === 0) return null;
+    const family = await ctx.db
+      .query("families")
+      .withIndex("by_parent_token", (q) => q.eq("parentToken", parentToken))
+      .unique();
+    if (family === null) return null;
+    return { parentName: family.parentName, kidName: family.kidName, status: family.status };
+  },
+});
