@@ -120,7 +120,8 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
 - [x] **Front-end review fixes:** alerts can't crash a page (Chrome on Android refuses them) and now fire on every kid page, with a test alert when turned on; Mom's sign-in buttons come first on her page; headings are bigger than body text; 320px phones fit; the sample demo carries the kid's answer to Mom's sample page; a demo flag can't leak into a real sign-in; "It's fine" is the main button when an asked email looks real; slow loads say "Still connecting".
 - [x] **Honest AI wording everywhere:** the AI can't overrule our checks to let a scam through, and it can clear an unsure email only when our own records show the real company. (It said "only stricter" before, which wasn't quite true.)
 - [x] **Security page and injection demo:** `docs/SECURITY.md` lists each risk with its guard in code and its test. Demo email F (a scam with orders for the AI) and scene 5c are in `docs/DEMO.md`, with a test proving Claude never receives a stranger's email text.
-- [x] **Checked:** 688 tests, typecheck, lint and a production build all pass; the backend checks Mom's mail every minute.
+- [x] **Sunday note preview:** the kid's page shows Mom's weekly note word for word ("What Mom gets on Sunday"), built by the same code that sends it (`feed.myWeeklyNote`). It appears once there's mail this week.
+- [x] **Checked:** 690 tests, typecheck, lint and a production build all pass; the backend checks Mom's mail every minute.
 - [ ] **Morning:** rehearse every scene in `docs/DEMO.md` on the real inbox (especially 5a "Mom asks", 5b "family impostor" and 5c "orders for the AI", which are new), then submit on Devpost by 9:00.
 
 ### Person B

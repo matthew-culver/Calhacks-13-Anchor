@@ -58,7 +58,7 @@ Anchor off revokes Google access and deletes the family's data.
 and everyday mail including family bills and links) through the whole pipeline with no AI and no
 network: **25 of 25 scams caught, 18 held automatically, 0 of 33 real emails held.** The test
 fails if a real email is ever held or a scam is missed. Details: [docs/ACCURACY.md](docs/ACCURACY.md).
-688 automated tests in all (`npx vitest run`).
+690 automated tests in all (`npx vitest run`).
 
 ## Built with
 

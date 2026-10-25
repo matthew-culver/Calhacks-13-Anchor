@@ -43,8 +43,8 @@ the parent does nothing new:
   the parent can just hit Reply to write back. And the parent can ask: move any email to the "⚠ Check with
   Lucas" folder in Gmail, and the kid gets it with the AI investigation, while the parent's
   page shows "Lucas is looking at it", then the answer. Once a week the parent gets one calm
-  note, with one plain lesson from what was caught ("No real person or company asks to be
-  paid in gift cards").
+  note (the kid can read it word for word first), with one plain lesson from what was caught
+  ("No real person or company asks to be paid in gift cards").
 
 ## How we built it
 
@@ -75,7 +75,7 @@ and no network (the floor): **25 of 25 scams caught (18 held automatically), 0 o
 emails held, 6 asked the kid** (first-ever emails from a real company, which the AI then
 clears, and one store's gift card promotion). Its first run caught only 18 of 21: tech-support,
 streaming and Zelle impostors got through. We added those brands and it now fails the build if
-a real email is ever held. 688 automated tests in all. Full table: `docs/ACCURACY.md`.
+a real email is ever held. 690 automated tests in all. Full table: `docs/ACCURACY.md`.
 
 ## Where it could go wrong (and what we did)
 

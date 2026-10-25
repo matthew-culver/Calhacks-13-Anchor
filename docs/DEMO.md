@@ -109,7 +109,8 @@ them. For a stranger's email the AI never even reads the message: it works from 
 facts our checks found."
 
 **6. Quiet by design (20 s).** Run the weekly note command. Mom gets one calm email a week,
-only if something happened. "No alert per email. She just has a safer inbox."
+only if something happened; the kid's page shows it word for word first ("What Mom gets on
+Sunday"). "No alert per email. She just has a safer inbox."
 
 ## Test emails
 
