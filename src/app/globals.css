@@ -3,12 +3,13 @@
 /*
  * Design tokens. "Seamless enough for a baby": big text, high contrast,
  * one action per screen. Every text color here is at least 7:1 (WCAG AAA)
- * on both the page background and its matching tint.
+ * on white cards and on the page background; card borders and shadows are
+ * decoration only (the text inside always says what a card is).
  * Light only for now; a dark theme is a stretch goal.
  */
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Arial, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 
   /* Body text is 20px, never smaller than 18px anywhere. */
   --text-sm: 1.125rem;
@@ -16,23 +17,33 @@
   --text-lg: 1.5rem;
   --text-xl: 1.75rem;
 
-  --color-page: #ffffff;
-  --color-ink: #111111;
-  --color-muted: #3d3d3d;
-  --color-line: #8a8a8a;
+  --color-page: #f3f5f8;
+  --color-surface: #ffffff;
+  --color-ink: #0f172a;
+  --color-muted: #42506a;
+  --color-line: #dde2ea;
+  /* Edges you need to see to use something (text boxes, outlined buttons): 3:1 or more. */
+  --color-line-strong: #6b7a90;
+
+  /* The brand: the logo and the header. */
+  --color-brand: #0b2545;
 
   /* The one main action on each screen. */
-  --color-action: #0b3d91;
-  --color-action-hover: #082c69;
+  --color-action: #1d3c8f;
+  --color-action-hover: #142b69;
+  --color-action-tint: #edf2fd;
   --color-on-action: #ffffff;
 
   /* Verdict levels: "real", "unsure", "fake". Text on its tint. */
   --color-real: #0a5c2e;
-  --color-real-tint: #eef8f1;
+  --color-real-tint: #eaf6ee;
   --color-unsure: #6e4300;
-  --color-unsure-tint: #fff7e6;
+  --color-unsure-tint: #fdf4e3;
   --color-fake: #9b111e;
-  --color-fake-tint: #fdf0f1;
+  --color-fake-tint: #fcecee;
+
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 2px 8px rgb(15 23 42 / 0.04);
+  --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.06), 0 8px 24px rgb(15 23 42 / 0.08);
 
   /* Minimum height for anything you tap. */
   --spacing-tap: 4rem;
@@ -49,6 +60,7 @@
       transform: none;
     }
   }
+  --animate-spin-slow: spin 1.2s linear infinite;
 }
 
 body {
@@ -61,6 +73,7 @@ body {
      of pushing the page sideways (WCAG 1.4.10 Reflow, 320px wide at 200% text). No automatic
      hyphens: they split ordinary words ("ver-ify") and make text harder to read. */
   overflow-wrap: anywhere;
+  -webkit-font-smoothing: antialiased;
 }
 
 :focus-visible {
@@ -72,4 +85,15 @@ body {
    They can't be reached with Tab, so a keyboard ring there is just a stray box. */
 [tabindex="-1"]:focus {
   outline: none;
+}
+
+/* "How we checked" opens and closes; its own marker is replaced by a chevron we draw. */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details[open] .details-chevron {
+  transform: rotate(180deg);
 }

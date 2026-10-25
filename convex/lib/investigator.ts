@@ -63,7 +63,7 @@ Rules:
 - Only cite sources you actually saw.
 - Finish with ONLY a JSON object, no other text, in exactly this shape:
 {"level":"real"|"unsure"|"fake","summary":"one or two plain sentences for the adult child","sender":{"verdict":"genuine"|"unverified"|"impostor","reason":"plain sentence"},"links":[{"site":"domain","verdict":"safe"|"unknown"|"dangerous","reason":"plain sentence"}],"suggestion":"optional plain sentence, e.g. maybe call or text them","sources":[{"title":"page title","url":"https://..."}]}
-Plain English, no jargon, no phone numbers.`;
+Plain English, no jargon. Keep it short: the summary under 200 characters, every other sentence under 160. Don't repeat in one field what another field already says. Never write a web address, email address or phone number in a sentence (say "the Chase app" or "the number on the back of the card" instead).`;
 
 export function buildBrief(facts: Facts, emailText?: string): string {
   const f = {
@@ -129,7 +129,13 @@ export function parseOutput(text: string): AgentOutput | null {
 
 /** Plain, short, no links or numbers; cut at a sentence end rather than mid-word. */
 export function plain(s: string, max = 300): string {
-  const cleaned = oneLine(s, 2000)
+  const text = oneLine(s, 2000);
+  // A sentence with a web address, email address or phone number in it is dropped whole:
+  // cutting out just the address leaves "forward the email to." Only if every sentence has
+  // one are the addresses themselves cut instead.
+  const hasAddress = (x: string) => /\bhttps?:\/\/\S+/i.test(x) || /\S+@\S+\.\S+/.test(x) || /\+?\d[\d\s().-]{6,}\d/.test(x);
+  const kept = text.split(/(?<=[.!?])\s+/).filter((x) => !hasAddress(x));
+  const cleaned = (kept.length > 0 ? kept.join(" ") : text)
     .replace(/\bhttps?:\/\/\S+/gi, "")
     .replace(/\S+@\S+\.\S+/g, "")
     .replace(/\+?\d[\d\s().-]{6,}\d/g, "")
