@@ -1,7 +1,8 @@
-// The mock answer has to behave like the real one will, so the screens are tested honestly.
+// Live answers go to A6's api.feed.answer; demo mode keeps them in the browser and must behave
+// the same way, so the demo is honest.
 
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBackend } from "@/test/fakeBackend";
 import { seedSignedInKid } from "@/test/seed";
 import { MAX_NOTE, resetMockFeed, useAnswerFeedItem, useFeed } from "./feedApi";
@@ -17,6 +18,8 @@ beforeEach(() => {
   resetMockFeed();
 });
 
+afterEach(() => sessionStorage.clear());
+
 function setup() {
   const feed = renderHook(() => useFeed());
   const answer = renderHook(() => useAnswerFeedItem()).result.current;
@@ -24,7 +27,28 @@ function setup() {
   return { answer, kidAnswer };
 }
 
-describe("answering a feed item (mock)", () => {
+describe("answering live", () => {
+  it("sends the answer and note to api.feed.answer", async () => {
+    const { answer, kidAnswer } = setup();
+    await act(() => answer({ feedItemId: usps, answer: "scam", note: "Good catch, Mom." }));
+    expect(fakeBackend.mutations["feed:answer"]).toHaveBeenCalledWith({
+      feedItemId: usps,
+      answer: "scam",
+      note: "Good catch, Mom.",
+    });
+    expect(kidAnswer()).toMatchObject({ answer: "scam", note: "Good catch, Mom." });
+  });
+});
+
+describe("answering in demo mode", () => {
+  beforeEach(() => sessionStorage.setItem("anchor.demo", "1"));
+
+  it("never calls the backend", async () => {
+    const { answer } = setup();
+    await act(() => answer({ feedItemId: usps, answer: "scam" }));
+    expect(fakeBackend.mutations["feed:answer"]).not.toHaveBeenCalled();
+  });
+
   it("leaves the note out when it's empty or only spaces", async () => {
     const { answer, kidAnswer } = setup();
     await act(() => answer({ feedItemId: usps, answer: "scam", note: "   " }));

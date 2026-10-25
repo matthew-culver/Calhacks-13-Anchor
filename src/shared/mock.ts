@@ -90,6 +90,7 @@ export const mockVerdicts: Row<Verdict, "verdicts">[] = [
     level: "fake",
     ruleLevel: "fake",
     action: "held",
+    actionAppliedAt: now - 2 * 60 * MIN,
     parentNoteSentAt: now - 2 * 60 * MIN,
     checks: [
       { id: "header_auth", status: "fail", plainReason: "This email did not really come from Chase.", detail: "DMARC=fail for chase-secure-login.co" },
@@ -125,6 +126,7 @@ export const mockVerdicts: Row<Verdict, "verdicts">[] = [
     level: "fake",
     ruleLevel: "fake",
     action: "held",
+    actionAppliedAt: now - 30 * MIN,
     parentNoteSentAt: now - 30 * MIN,
     checks: [
       { id: "header_auth", status: "fail", plainReason: "This email did not really come from Wells Fargo.", detail: "SPF=fail, DMARC=fail" },
@@ -174,6 +176,7 @@ export const mockVerdicts: Row<Verdict, "verdicts">[] = [
     level: "unsure",
     ruleLevel: "unsure",
     action: "held", // the kid said "It's a scam", so it moved from the check label to Held
+    actionAppliedAt: now - 2 * DAY + 26 * MIN,
     parentNoteSentAt: now - 2 * DAY,
     checks: [
       { id: "header_auth", status: "pass", plainReason: "The sender's address checks out on its own." },

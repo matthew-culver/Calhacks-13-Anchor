@@ -1,6 +1,7 @@
 // B3 detail view: plain checks, and the kid's one-tap answer with an optional note.
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ConvexError } from "convex/values";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetMockFeed } from "@/shared/feedApi";
 import { fakeBackend } from "@/test/fakeBackend";
@@ -109,5 +110,12 @@ describe("feed item detail", () => {
     render(<ItemScreen id="nope" />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("We couldn't find that email");
     expect(screen.getByRole("link", { name: "Back to this week" })).toHaveAttribute("href", "/kid");
+  });
+
+  it("shows the server's own plain message when it refuses the answer", async () => {
+    fakeBackend.mutations["feed:answer"].mockRejectedValueOnce(new ConvexError("You already answered this one."));
+    render(<ItemScreen id="mock_feed_usps" />);
+    fireEvent.click(screen.getByRole("button", { name: "It's a scam" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("You already answered this one.");
   });
 });

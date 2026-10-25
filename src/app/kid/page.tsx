@@ -106,7 +106,11 @@ function FeedCard({ entry, parentName }: { entry: FeedEntry; parentName: string 
       }`}
     >
       {/* Said in words, so color is never the only clue. */}
-      <p className={`font-bold ${fake ? "text-fake" : "text-unsure"}`}>{fake ? "Looks fake" : "Not sure"}</p>
+      <p className={`font-bold ${fake ? "text-fake" : "text-unsure"}`}>
+        {fake ? "Looks fake" : "Not sure"}
+        {/* action is the decision; actionAppliedAt means Gmail really moved it (A6). */}
+        {verdict.action === "held" && verdict.actionAppliedAt === undefined && " · Being held…"}
+      </p>
       <p className="text-xl font-bold">{`Says it's from ${claimedSender(verdict)}`}</p>
       {verdict.subject && <p className="text-lg">{`“${senderText(verdict.subject)}”`}</p>}
       <p className="text-muted">

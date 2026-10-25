@@ -96,4 +96,14 @@ describe("kid feed", () => {
     expect(screen.getByText("Sample data for the demo")).toBeInTheDocument();
     expect(cards("Needs your answer")).toEqual([expect.stringContaining("Says it's from USPS")]);
   });
+
+  it("says \"Being held…\" until Gmail confirms the email really moved", () => {
+    const feed = fakeBackend.state.queries["feed:myFeed"] as typeof import("@/shared/feedApi").SAMPLE_FEED;
+    const chase = feed.find((e) => e._id === "mock_feed_chase")!;
+    const pending = { ...chase, verdict: { ...chase.verdict, actionAppliedAt: undefined } };
+    fakeBackend.setQuery("feed:myFeed", feed.map((e) => (e === chase ? pending : e)));
+    render(<KidFeed />);
+    expect(cards("We held these")).toContainEqual(expect.stringMatching(/^Looks fake · Being held…Says it's from Chase/));
+    expect(cards("We held these")).toContainEqual(expect.stringMatching(/^Looks fakeSays it's from Wells Fargo/));
+  });
 });
