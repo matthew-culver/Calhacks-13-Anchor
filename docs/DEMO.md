@@ -1,8 +1,9 @@
 # Anchor demo runbook
 
-About 3 minutes live, then questions. The expected result is next to each test email; the
-backend tests cover each one (`convex/mailWatch.test.ts`), and a full rehearsal on the real
-inbox is the last check before presenting.
+About 3 minutes live, then questions. Judging is a 2-minute pitch at the table, so use the
+tighter script in [PITCH.md](PITCH.md) and pick scenes from here. The expected result is next to
+each test email; the backend tests cover each one (`convex/mailWatch.test.ts`), and a full
+rehearsal on the real inbox is the last check before presenting.
 
 ## The cast
 
@@ -62,8 +63,8 @@ is her safe front door to the internet, and it keeps me in the loop without nagg
 
 **2. Mom's front door (30 s).** On the phone: her real accounts, found from her own email,
 grouped (Money, Health, Insurance, Bills, Government...) and most-used first (an old doctor she
-stopped using sinks to the bottom), each a big button straight to that company's real sign-in page. Tap one: it opens the real sign-in page, not a link from an
-email. "She never has to click a link in an email again."
+stopped using sinks to the bottom), each a big button straight to that company's real sign-in
+page. Tap one: it opens the real sign-in page, not a link from an email. "She never has to click a link in an email again."
 
 **3. A scam arrives (60 s).** The scammer sends **email A**. Run the poll. On the kid's feed it
 appears under "We held these"; open it and the investigation runs live: who really sent it,
@@ -167,7 +168,7 @@ name as it shows in his own emails)
 | Email doesn't show up | Run the poll again. Check it arrived in Mom's Gmail (not in Spam). Watch the `npx convex dev` terminal. |
 | The investigation is slow | The email is already held before the AI starts (the rules decide first, the AI can only make it stricter). Keep talking; it concludes from the checks alone after 3 minutes at most. |
 | The kid's screen says reconnect | Google token expired: click the reconnect link and sign in as Mom (takes 20 s). |
-| Google or Gmail is down | Open `localhost:3000/kid?demo=1`: the whole kid side runs on sample data, no sign-in or Gmail needed (feed, a replayed live investigation, accounts). `?demo=0` turns it off. Or fill My Accounts from a sample inbox: `npx convex run gmailImport:importSample '{"familyId":"<familyId>"}'`. |
+| Google or Gmail is down | Open `localhost:3000/kid?demo=1`: the whole kid side runs on sample data, no sign-in or Gmail needed (feed, a replayed live investigation, "Mom asked", accounts). Mom's side: `localhost:3000/p/sample?demo=1`. "Leave the demo" on the yellow banner turns it off. Or fill My Accounts from a sample inbox: `npx convex run gmailImport:importSample '{"familyId":"<familyId>"}'`. |
 | Wi-Fi is down | Phone hotspot. |
 
 ## Questions judges may ask
@@ -176,8 +177,10 @@ name as it shows in his own emails)
   stricter, never more lenient. The only thing that can clear an email is our own data (the
   company's real, authenticated address on our checked list), never the model's opinion. Mom
   only ever sees fixed, plain sentences, never model text.
-- **"What do you store?"** Never email bodies. Subjects are read in memory to spot account mail
-  and not kept. Turning Anchor off revokes Google access and deletes the family's data.
+- **"What do you store?"** Never email bodies. For a flagged email (or one Mom asks about) we
+  keep the sender and subject so the kid can see what was caught; for everything else, only the
+  sender's domain and the verdict. Turning Anchor off revokes Google access and deletes the
+  family's data.
 - **"Why not just a spam filter?"** Filters guess from the message alone. Anchor knows who Mom
   really deals with (her family, her bank, her doctor), so it can leave her son's bill reminder
   alone and still catch the same son's hacked account asking for gift cards.
