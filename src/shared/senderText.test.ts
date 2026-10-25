@@ -4,8 +4,8 @@ import { senderText } from "./senderText";
 describe("senderText", () => {
   it("removes invisible characters that reverse how text displays", () => {
     // U+202E flips what follows: this would display as "alerts@chase.com" backwards trickery.
-    expect(senderText("alerts@‮moc.esahc")).toBe("alerts@moc.esahc");
-    expect(senderText("⁦Chase⁩ ‏Bank")).toBe("Chase Bank");
+    expect(senderText("alerts@\u202emoc.esahc")).toBe("alerts@moc.esahc");
+    expect(senderText("\u2066Chase\u2069 \u200fBank")).toBe("Chase Bank");
   });
 
   it("collapses spaces and line breaks", () => {
