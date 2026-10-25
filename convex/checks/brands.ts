@@ -34,6 +34,21 @@ export const BRANDS: Brand[] = [
   { name: "IRS", officialDomains: ["irs.gov", "treasury.gov"], aliases: ["irs", "internal revenue service"], domainKeys: ["irs"] },
   { name: "CVS", officialDomains: ["cvs.com", "cvshealth.com", "caremark.com"], aliases: ["cvs", "cvs pharmacy", "cvs health", "cvs caremark"], domainKeys: ["cvs", "cvspharmacy", "cvshealth"] },
   { name: "PG&E", officialDomains: ["pge.com", "pgecorp.com"], aliases: ["pg&e", "pge", "pacific gas and electric", "pacific gas & electric"], domainKeys: ["pge", "pacificgasandelectric"] },
+  // Tech support, streaming, payment apps, parcels and antivirus: the other names scammers use
+  // most with older adults (the accuracy eval found these missing). Free mailbox domains anyone
+  // can sign up for are shared, never proof of who sent an email.
+  { name: "Microsoft", officialDomains: ["microsoft.com", "microsoftonline.com", "office.com"], sharedDomains: ["outlook.com", "hotmail.com", "live.com", "msn.com"], aliases: ["microsoft", "microsoft support", "microsoft account", "windows support", "windows defender"], domainKeys: ["microsoft", "windowsdefender"] },
+  { name: "Google", officialDomains: ["google.com", "youtube.com"], sharedDomains: ["gmail.com", "googlemail.com", "blogspot.com"], aliases: ["google", "google support", "google account", "gmail team"], ambiguous: true, domainKeys: ["google", "gmail"] },
+  { name: "Netflix", officialDomains: ["netflix.com"], aliases: ["netflix", "netflix support", "netflix billing"], domainKeys: ["netflix"] },
+  { name: "Zelle", officialDomains: ["zelle.com", "zellepay.com"], aliases: ["zelle", "zelle pay", "zelle support"], domainKeys: ["zelle", "zellepay"] },
+  { name: "Venmo", officialDomains: ["venmo.com"], aliases: ["venmo", "venmo support"], domainKeys: ["venmo"] },
+  { name: "Facebook", officialDomains: ["facebook.com", "facebookmail.com", "meta.com"], aliases: ["facebook", "facebook security", "facebook support", "meta support"], domainKeys: ["facebook", "facebookmail"] },
+  { name: "Social Security", officialDomains: ["ssa.gov"], aliases: ["social security", "social security administration", "ssa"], domainKeys: ["socialsecurity", "ssa"] },
+  { name: "UPS", officialDomains: ["ups.com"], aliases: ["ups", "ups delivery", "ups my choice", "united parcel service"], ambiguous: true, domainKeys: ["ups"], wordLikeKeys: true },
+  { name: "FedEx", officialDomains: ["fedex.com"], aliases: ["fedex", "fedex delivery", "federal express"], domainKeys: ["fedex"] },
+  { name: "Norton", officialDomains: ["norton.com", "nortonlifelock.com"], aliases: ["norton", "norton antivirus", "norton 360", "norton security", "nortonlifelock"], ambiguous: true, domainKeys: ["norton", "nortonlifelock"], wordLikeKeys: true },
+  { name: "McAfee", officialDomains: ["mcafee.com"], aliases: ["mcafee", "mcafee antivirus", "mcafee security"], domainKeys: ["mcafee"] },
+  { name: "Geek Squad", officialDomains: ["bestbuy.com", "geeksquad.com"], aliases: ["geek squad", "geeksquad", "best buy geek squad"], domainKeys: ["geeksquad"] },
 ];
 
 // Words that pad out a fake domain or a From name around a brand: "chase-secure-login",

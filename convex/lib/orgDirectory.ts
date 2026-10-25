@@ -30,6 +30,7 @@ export const ORGS: Org[] = [
   { name: "Vanguard", category: "bank", domains: ["vanguard.com"], loginUrl: "https://logon.vanguard.com/logon" },
   { name: "PayPal", category: "bank", domains: ["paypal.com"], loginUrl: "https://www.paypal.com/signin" },
   { name: "Venmo", category: "bank", domains: ["venmo.com"], loginUrl: "https://venmo.com/account/sign-in" },
+  { name: "Zelle", category: "bank", domains: ["zelle.com", "zellepay.com"], loginUrl: "https://www.zelle.com/" },
   { name: "PNC", category: "bank", domains: ["pnc.com"], loginUrl: "https://secure.pnc.com/" },
   { name: "Truist", category: "bank", domains: ["truist.com"], loginUrl: "https://dias.bank.truist.com/ui/login" },
   { name: "TD Bank", category: "bank", domains: ["td.com", "tdbank.com"], loginUrl: "https://onlinebanking.tdbank.com/" },
@@ -138,6 +139,10 @@ export const ORGS: Org[] = [
   { name: "Microsoft", category: "other", domains: ["microsoft.com"], loginUrl: "https://account.microsoft.com/" },
   { name: "Facebook", category: "other", domains: ["facebook.com", "facebookmail.com"], loginUrl: "https://www.facebook.com/login" },
   { name: "AARP", category: "other", domains: ["aarp.org"], loginUrl: "https://secure.aarp.org/applications/user/login" },
+  { name: "UPS", category: "shopping", domains: ["ups.com"], loginUrl: "https://www.ups.com/lasso/login" },
+  { name: "FedEx", category: "shopping", domains: ["fedex.com"], loginUrl: "https://www.fedex.com/secure-login/" },
+  { name: "Norton", category: "other", domains: ["norton.com", "nortonlifelock.com"], loginUrl: "https://my.norton.com/" },
+  { name: "McAfee", category: "other", domains: ["mcafee.com"], loginUrl: "https://home.mcafee.com/" },
 ];
 
 /** The directory org this registrable domain belongs to, if any. */
