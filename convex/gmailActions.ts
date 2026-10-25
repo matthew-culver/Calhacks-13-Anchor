@@ -414,11 +414,40 @@ export const releaseVerdict = internalAction({
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+type HeldMail = { claimedOrg?: string; checks?: { id: string; detail?: string }[] };
+
+/**
+ * One plain thing to remember, from the tricks Anchor caught this week: the most dangerous
+ * first (someone using a family member's name, then odd payments, then a company's name).
+ * Fixed sentences, never model text, so it's always true and always calm.
+ */
+export function weeklyLesson(held: HeldMail[]): string | undefined {
+  const details = held.flatMap((v) => (v.checks ?? []).map((c) => c.detail ?? ""));
+  if (details.some((d) => d.startsWith("known contact's name") || d.startsWith("look-alike of a known contact"))) {
+    return "if someone you know writes from a new address, call them on the number you already have before doing anything they ask.";
+  }
+  const signals = new Set(details.flatMap((d) => (/^signals: (.+)$/.exec(d)?.[1] ?? "").split(", ")));
+  const paidIn = signals.has("gift_card") ? "gift cards" : signals.has("wire") ? "wire transfers" : signals.has("crypto") ? "cryptocurrency" : null;
+  if (paidIn) return `no real person or company asks to be paid in ${paidIn}. If anyone does, it's a scam, even if it seems to come from family.`;
+  const counts = new Map<string, number>();
+  for (const v of held) if (v.claimedOrg) counts.set(v.claimedOrg, (counts.get(v.claimedOrg) ?? 0) + 1);
+  const brand = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (brand) return `scammers pretended to be ${brand} this week. To check on an account, use the button on your Anchor page, not a link in an email.`;
+  return undefined;
+}
+
 export const weekStats = internalQuery({
   args: { familyId: v.id("families"), since: v.number() },
   returns: v.union(
     v.null(),
-    v.object({ family: schema.doc("families"), labels: v.object({ held: v.optional(v.string()), check: v.optional(v.string()), note: v.optional(v.string()) }), checked: v.number(), held: v.number(), kidLooked: v.number() }),
+    v.object({
+      family: schema.doc("families"),
+      labels: v.object({ held: v.optional(v.string()), check: v.optional(v.string()), note: v.optional(v.string()) }),
+      checked: v.number(),
+      held: v.number(),
+      kidLooked: v.number(),
+      lesson: v.optional(v.string()),
+    }),
   ),
   handler: async (ctx, { familyId, since }) => {
     const family = await ctx.db.get(familyId);
@@ -432,12 +461,15 @@ export const weekStats = internalQuery({
       .query("feedItems")
       .withIndex("by_family_created", (q) => q.eq("familyId", familyId).gte("createdAt", since))
       .take(1000);
+    const held = verdicts.filter((x) => x.action === "held");
+    const lesson = weeklyLesson(held);
     return {
       family,
       labels: { held: tokens?.heldLabelId, check: tokens?.checkLabelId, note: tokens?.noteLabelId },
       checked: verdicts.length,
-      held: verdicts.filter((x) => x.action === "held").length,
+      held: held.length,
       kidLooked: items.filter((i) => i.kidAnswer).length,
+      ...(lesson !== undefined && { lesson }),
     };
   },
 });
@@ -461,6 +493,7 @@ export const sendWeeklyNote = internalAction({
         : `This week Anchor checked ${plural(stats.checked, "email", "emails")} for you. Nothing fake got through, and you didn't need to do anything.`,
     ];
     if (stats.kidLooked > 0) lines.push(`${kid} looked at ${plural(stats.kidLooked, "message", "messages")} for you.`);
+    if (stats.lesson) lines.push(`One thing to remember: ${stats.lesson}`);
     if (stats.held > 0) lines.push(`If you ever want to see them, they're in the "Anchor: Held" folder.`);
     const week = Math.floor(now / WEEK_MS);
     try {

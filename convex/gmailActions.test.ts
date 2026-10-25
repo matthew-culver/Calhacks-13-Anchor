@@ -409,6 +409,43 @@ describe("the weekly note", () => {
     expect(again.some((c) => c.method === "POST" && c.path === "/messages")).toBe(false);
   });
 
+  test("ends with one plain lesson from what was caught this week", async () => {
+    // The family's held email pretends to be Chase.
+    const brand = await family();
+    let calls = fakeGmail();
+    await brand.t.action(internal.gmailActions.sendWeeklyNote, { familyId: brand.familyId });
+    expect(noteText(calls)[0]).toContain(
+      "One thing to remember: scammers pretended to be Chase this week. To check on an account, use the button on your Anchor page, not a link in an email.",
+    );
+
+    // Gift cards beat a company's name: it's the more dangerous trick.
+    const gift = await family();
+    await gift.t.run(async (ctx) => {
+      const v = (await ctx.db.query("verdicts").collect())[0];
+      await ctx.db.patch(v._id, { checks: [{ id: "pressure", status: "fail", plainReason: "x", detail: "signals: gift_card, secrecy" }] });
+    });
+    calls = fakeGmail();
+    await gift.t.action(internal.gmailActions.sendWeeklyNote, { familyId: gift.familyId });
+    expect(noteText(calls)[0]).toContain("One thing to remember: no real person or company asks to be paid in gift cards.");
+
+    // Someone using a family member's name beats both.
+    const impostor = await family();
+    await impostor.t.run(async (ctx) => {
+      const v = (await ctx.db.query("verdicts").collect())[0];
+      await ctx.db.patch(v._id, {
+        checks: [
+          { id: "pressure", status: "fail", plainReason: "x", detail: "signals: gift_card" },
+          { id: "relationship", status: "warn", plainReason: "x", detail: "known contact's name on a new address" },
+        ],
+      });
+    });
+    calls = fakeGmail();
+    await impostor.t.action(internal.gmailActions.sendWeeklyNote, { familyId: impostor.familyId });
+    expect(noteText(calls)[0]).toContain(
+      "One thing to remember: if someone you know writes from a new address, call them on the number you already have before doing anything they ask.",
+    );
+  });
+
   test("says nothing in a week with no email, or with the safety switch off", async () => {
     const { t, familyId } = await family();
     await t.run(async (ctx) => {
