@@ -3,17 +3,27 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ScreenTitle } from "./ScreenTitle";
+
+const titleClass = "text-4xl leading-tight font-bold";
 
 export function Screen({
   title,
+  focusTitle,
   children,
 }: {
   title: string;
+  /** Move focus to the title when it appears. Use for steps that replace one another. */
+  focusTitle?: boolean;
   children?: ReactNode;
 }) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-12">
-      <h1 className="text-4xl leading-tight font-bold">{title}</h1>
+      {focusTitle ? (
+        <ScreenTitle className={titleClass}>{title}</ScreenTitle>
+      ) : (
+        <h1 className={titleClass}>{title}</h1>
+      )}
       {children}
     </main>
   );
@@ -66,7 +76,7 @@ export function BigButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`${className} disabled:opacity-60`}
+      className={className}
     >
       {children}
     </button>

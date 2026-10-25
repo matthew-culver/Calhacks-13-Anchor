@@ -3,7 +3,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { BigButton, Screen, TextField } from "@/components/ui";
 import { api } from "../../../convex/_generated/api";
 
@@ -21,7 +21,7 @@ export function StartFlow() {
     return <AccountStep onDone={setKidName} />;
   }
   if (family === undefined) {
-    return <Screen title="One moment..." />;
+    return <Screen focusTitle title="One moment..." />;
   }
   if (family === null) {
     return <ParentStep kidName={kidName} />;
@@ -38,7 +38,7 @@ export function StartFlow() {
     );
   }
   return (
-    <Screen title="You're all set up">
+    <Screen focusTitle title="You're all set up">
       <BigButton href="/kid">{`See what's happening with ${family.parentName}`}</BigButton>
     </Screen>
   );
@@ -55,7 +55,8 @@ function useSubmit(action: () => Promise<void>, fallbackError: string) {
       await action();
     } catch (err) {
       // Server messages from Person A's functions are already plain words.
-      setError(err instanceof ConvexError ? String(err.data) : fallbackError);
+      const serverMessage = err instanceof ConvexError && typeof err.data === "string";
+      setError(serverMessage ? err.data : fallbackError);
     } finally {
       setBusy(false);
     }
@@ -64,10 +65,11 @@ function useSubmit(action: () => Promise<void>, fallbackError: string) {
     e.preventDefault();
     void run();
   };
-  return { busy, error, run, onSubmit };
+  return { busy, error, run, onSubmit, clearError: () => setError(null) };
 }
 
 function ErrorText({ error }: { error: string | null }) {
+  if (!error) return null;
   return (
     <p role="alert" className="text-lg font-bold text-fake">
       {error}
@@ -81,10 +83,11 @@ function AccountStep({ onDone }: { onDone: (kidName: string) => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { busy, error, onSubmit } = useSubmit(
+  const { busy, error, onSubmit, clearError } = useSubmit(
     async () => {
       onDone(name.trim());
-      await signIn("password", { flow, email: email.trim(), password });
+      // Convex Auth matches the email exactly, and phones capitalize the first letter.
+      await signIn("password", { flow, email: email.trim().toLowerCase(), password });
     },
     flow === "signUp"
       ? "We couldn't make that account. If you've signed up before, sign in instead."
@@ -93,7 +96,7 @@ function AccountStep({ onDone }: { onDone: (kidName: string) => void }) {
   const isSignUp = flow === "signUp";
 
   return (
-    <Screen title={isSignUp ? "Let's get you set up" : "Welcome back"}>
+    <Screen focusTitle title={isSignUp ? "Let's get you set up" : "Welcome back"}>
       {isSignUp && <p className="text-lg text-muted">It takes about two minutes.</p>}
       <form onSubmit={onSubmit} className="flex flex-col gap-6">
         {isSignUp && (
@@ -116,7 +119,10 @@ function AccountStep({ onDone }: { onDone: (kidName: string) => void }) {
       </form>
       <button
         type="button"
-        onClick={() => setFlow(isSignUp ? "signIn" : "signUp")}
+        onClick={() => {
+          setFlow(isSignUp ? "signIn" : "signUp");
+          clearError();
+        }}
         className="min-h-tap text-lg font-bold text-action underline"
       >
         {isSignUp ? "I already have an account" : "I'm new here"}
@@ -141,7 +147,7 @@ function ParentStep({ kidName: knownKidName }: { kidName: string }) {
   }, "Something went wrong. Please try again.");
 
   return (
-    <Screen title="Who are we protecting?">
+    <Screen focusTitle title="Who are we protecting?">
       <form onSubmit={onSubmit} className="flex flex-col gap-6">
         {knownKidName === "" && (
           <TextField label="Your first name" name="kidName" autoComplete="given-name" value={kidName} onChange={setKidName} />
@@ -182,15 +188,22 @@ function ShareStep({
   inviteExpiresAt?: number;
 }) {
   const renewInvite = useMutation(api.families.renewInvite);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [openedAt] = useState(() => Date.now());
+
+  // "Copied!" goes back to "Copy the link" after a moment, so a second tap still means something.
+  useEffect(() => {
+    if (copyState !== "copied") return;
+    const timer = setTimeout(() => setCopyState("idle"), 2000);
+    return () => clearTimeout(timer);
+  }, [copyState]);
   const renew = useSubmit(async () => {
     await renewInvite();
   }, "Something went wrong. Please try again.");
 
   if (inviteExpiresAt !== undefined && inviteExpiresAt < openedAt) {
     return (
-      <Screen title={`${parentName}'s link ran out`}>
+      <Screen focusTitle title={`${parentName}'s link ran out`}>
         <p className="text-lg text-muted">
           Links last a week. Make a new one and send it again.
         </p>
@@ -208,15 +221,16 @@ function ShareStep({
 
   const copy = async () => {
     try {
+      // Missing entirely on plain-http pages, like a laptop's local address during a demo.
       await navigator.clipboard.writeText(link);
-      setCopied(true);
+      setCopyState("copied");
     } catch {
-      // Clipboard can be blocked; the link is on screen to copy by hand.
+      setCopyState("failed");
     }
   };
 
   return (
-    <Screen title={`Send ${parentName} their link`}>
+    <Screen focusTitle title={`Send ${parentName} their link`}>
       <p className="text-lg text-muted">
         {`${parentName} taps it once and says yes. That's all they do.`}
       </p>
@@ -227,10 +241,13 @@ function ShareStep({
         {`Text it to ${parentName}`}
       </BigButton>
       <BigButton secondary onClick={copy}>
-        {copied ? "Copied!" : "Copy the link"}
+        {copyState === "copied" ? "Copied!" : "Copy the link"}
       </BigButton>
+      <ErrorText
+        error={copyState === "failed" ? "Couldn't copy. Press and hold the link above to copy it." : null}
+      />
       <p aria-live="polite" className="sr-only">
-        {copied ? "Link copied" : ""}
+        {copyState === "copied" ? "Link copied" : ""}
       </p>
     </Screen>
   );

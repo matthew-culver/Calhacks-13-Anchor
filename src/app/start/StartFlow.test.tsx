@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ConvexError } from "convex/values";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBackend } from "@/test/fakeBackend";
 import { StartFlow } from "./StartFlow";
 
@@ -23,6 +23,14 @@ const waitingFamily = {
 const type = (label: RegExp, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
+/** Puts a fake clipboard on navigator; afterEach takes it off again. */
+const stubClipboard = (writeText: (text: string) => Promise<void>) =>
+  Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+afterEach(() => {
+  delete (navigator as { clipboard?: unknown }).clipboard;
+});
+
 beforeEach(() => {
   fakeBackend.reset();
   fakeBackend.signIn.mockImplementation(async () => {
@@ -39,11 +47,13 @@ beforeEach(() => {
 async function signUpAndCreateFamily() {
   render(<StartFlow />);
   type(/your first name/i, "Lucas");
-  type(/your email/i, " lucas@example.com ");
+  // A phone capitalizes the first letter; it must still be the same account later.
+  type(/your email/i, " Lucas@Example.com ");
   type(/password/i, "longenough");
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-  await screen.findByRole("heading", { name: "Who are we protecting?" });
+  const next = await screen.findByRole("heading", { name: "Who are we protecting?" });
+  expect(next).toHaveFocus();
   type(/what do you call them/i, " Mom ");
   type(/their gmail/i, "mom@gmail.com");
   fireEvent.click(screen.getByRole("button", { name: "Make their link" }));
@@ -76,10 +86,47 @@ describe("kid onboarding", () => {
     expect(decodeURIComponent(text.getAttribute("href")!)).toContain(link);
 
     const writeText = vi.fn(async () => {});
-    Object.assign(navigator, { clipboard: { writeText } });
+    stubClipboard(writeText);
     fireEvent.click(screen.getByRole("button", { name: "Copy the link" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(link));
     expect(await screen.findByRole("button", { name: "Copied!" })).toBeInTheDocument();
+    // Goes back after a moment.
+    expect(await screen.findByRole("button", { name: "Copy the link" }, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it("tells the kid how to copy by hand when the clipboard is blocked", async () => {
+    await signUpAndCreateFamily();
+    stubClipboard(async () => {
+      throw new Error("blocked");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Copy the link" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/press and hold the link/i);
+  });
+
+  it("shows a plain message when sign-up fails, and clears it when switching to sign in", async () => {
+    fakeBackend.signIn.mockRejectedValueOnce(new Error("Account already exists"));
+    render(<StartFlow />);
+    type(/your first name/i, "Lucas");
+    type(/your email/i, "lucas@example.com");
+    type(/password/i, "longenough");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/sign in instead/i);
+    fireEvent.click(screen.getByRole("button", { name: "I already have an account" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("never shows a raw object from the server", async () => {
+    fakeBackend.mutations["families:createFamily"].mockRejectedValueOnce(new ConvexError({ code: "x" }));
+    fakeBackend.set({ isAuthenticated: true });
+    fakeBackend.setQuery("families:getMyFamily", null);
+    render(<StartFlow />);
+    type(/your first name/i, "Lucas");
+    type(/what do you call them/i, "Mom");
+    type(/their gmail/i, "mom@gmail.com");
+    fireEvent.click(screen.getByRole("button", { name: "Make their link" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
   });
 
   it("shows the server's plain message when making the family fails", async () => {
@@ -103,11 +150,15 @@ describe("kid onboarding", () => {
     render(<StartFlow />);
     fireEvent.click(screen.getByRole("button", { name: "I already have an account" }));
     expect(screen.queryByLabelText(/your first name/i)).toBeNull();
-    type(/your email/i, "lucas@example.com");
+    type(/your email/i, "LUCAS@example.com");
     type(/password/i, "longenough");
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() =>
-      expect(fakeBackend.signIn).toHaveBeenCalledWith("password", expect.objectContaining({ flow: "signIn" })),
+      expect(fakeBackend.signIn).toHaveBeenCalledWith("password", {
+        flow: "signIn",
+        email: "lucas@example.com",
+        password: "longenough",
+      }),
     );
   });
 
