@@ -160,7 +160,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
         {stillFinding ? "Still finding more of your accounts…" : ""}
       </p>
       <ParentAccountList accounts={accounts} />
-      <p className="text-lg text-muted">{`${kidName} sees only this list and the emails we set aside.`}</p>
+      <p className="text-lg text-muted">{`${kidName} sees only this list, the emails we set aside or weren't sure about, and the ones you ask about.`}</p>
       {turnOff}
     </Screen>
   );

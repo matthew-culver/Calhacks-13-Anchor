@@ -23,7 +23,7 @@ describe("parent page", () => {
     expect(title()).toHaveTextContent("Your accounts");
     expect(screen.getByRole("main")).toHaveTextContent("Hi Mom.");
     expect(screen.getByRole("main")).toHaveTextContent("tap a button here instead of a link in an email");
-    expect(screen.getByRole("main")).toHaveTextContent("Lucas sees only this list and the emails we set aside.");
+    expect(screen.getByRole("main")).toHaveTextContent("Lucas sees only this list, the emails we set aside or weren't sure about, and the ones you ask about.");
     expect(screen.getByRole("link", { name: "Open Kaiser Permanente" })).toHaveAttribute(
       "href",
       "https://healthy.kaiserpermanente.org/",
