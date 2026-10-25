@@ -25,7 +25,8 @@ const STATUS: Record<Infer<typeof checkStatus>, { mark: string; label: string; c
 export function ItemScreen({ id }: { id: string }) {
   return (
     <KidGate>
-      {(family, demo) => <Item id={id} parentName={family.parentName} demo={demo} />}
+      {/* key: a different email starts fresh (its own investigation replay, its own answer state). */}
+      {(family, demo) => <Item key={id} id={id} parentName={family.parentName} demo={demo} />}
     </KidGate>
   );
 }

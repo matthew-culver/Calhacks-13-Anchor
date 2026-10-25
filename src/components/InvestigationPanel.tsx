@@ -28,6 +28,16 @@ const SENDER: Record<Sender, { label: string; className: string }> = {
   impostor: { label: "Pretending to be someone else", className: "text-fake" },
 };
 
+/** The host of an https URL, or null for anything else (javascript:, http:, garbage). */
+function httpsHost(url: string): string | null {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" ? u.hostname : null;
+  } catch {
+    return null;
+  }
+}
+
 export function InvestigationPanel({ investigation }: { investigation: InvestigationView | null | undefined }) {
   if (!investigation) return null;
   const { status, steps, conclusion, sources } = investigation;
@@ -56,8 +66,8 @@ export function InvestigationPanel({ investigation }: { investigation: Investiga
               <div>
                 <p className="text-lg font-bold">{conclusion.links.length === 1 ? "The link" : "The links"}</p>
                 <ul className="flex flex-col gap-2">
-                  {conclusion.links.map((l) => (
-                    <li key={l.site} className="text-lg">
+                  {conclusion.links.map((l, i) => (
+                    <li key={`${l.site}-${i}`} className="text-lg">
                       <span className="font-bold">{l.site}</span>
                       {": "}
                       <span className={`font-bold ${LINK[l.verdict].className}`}>{LINK[l.verdict].label}.</span>{" "}
@@ -77,15 +87,19 @@ export function InvestigationPanel({ investigation }: { investigation: Investiga
               <div>
                 <p className="text-lg font-bold">Based on</p>
                 <ul className="flex flex-col gap-1">
-                  {sources
-                    .filter((s) => s.url.startsWith("https://"))
-                    .map((s) => (
-                      <li key={s.url}>
-                        <a href={s.url} rel="noopener noreferrer" className="text-lg font-bold text-action underline">
+                  {sources.flatMap((s, i) => {
+                    const host = httpsHost(s.url);
+                    if (!host) return [];
+                    // The title comes from the agent; the address shows where the link really goes.
+                    return [
+                      <li key={`${s.url}-${i}`} className="text-lg">
+                        <a href={s.url} rel="noopener noreferrer" className="font-bold text-action underline">
                           {s.title}
-                        </a>
-                      </li>
-                    ))}
+                        </a>{" "}
+                        <span className="text-muted">({host})</span>
+                      </li>,
+                    ];
+                  })}
                 </ul>
               </div>
             )}
