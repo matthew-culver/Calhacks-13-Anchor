@@ -24,7 +24,12 @@ type Call = { method: string; path: string; body: Record<string, unknown> | null
 
 /** Fake Gmail. `labels` already exist; `fail` makes a path fail N times with a status. */
 function fakeGmail(
-  opts: { labels?: { id: string; name: string }[]; fail?: { match: string; status: number; times: number; method?: string }; alreadySent?: string[] } = {},
+  opts: {
+    labels?: { id: string; name: string }[];
+    fail?: { match: string; status: number; times: number; method?: string };
+    alreadySent?: string[];
+    checkLabeled?: string[]; // emails already under "Check with" in Gmail
+  } = {},
 ) {
   const calls: Call[] = [];
   let failures = opts.fail?.times ?? 0;
@@ -49,6 +54,7 @@ function fakeGmail(
       if (url.pathname.endsWith("/labels")) return json({ id: `Label_${nextLabel++}` });
       if (url.pathname.endsWith("/modify")) return json({});
       if (url.pathname.endsWith("/messages") && (init?.method ?? "GET") === "GET") {
+        if (url.searchParams.get("labelIds")) return json({ messages: (opts.checkLabeled ?? []).map((id) => ({ id })) });
         const q = url.searchParams.get("q") ?? "";
         return json({ messages: (opts.alreadySent ?? []).some((k) => q.includes(k)) ? [{ id: "already-there" }] : [] });
       }
@@ -427,6 +433,20 @@ describe("labels from day one", () => {
     expect(created).toEqual(["Anchor: Held", "⚠ Check with Lucas", "Anchor"]);
     const tokens = await t.run((ctx) => ctx.db.query("gmailTokens").first());
     expect(tokens).toMatchObject({ heldLabelId: "Label_1", checkLabelId: "Label_2", noteLabelId: "Label_3" });
+
+    // Reconnecting after Anchor was turned off: emails still carrying an old "Check with" label
+    // are Anchor's own, never the parent asking.
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("gmailTokens").first();
+      await ctx.db.patch(row!._id, { heldLabelId: undefined, checkLabelId: undefined, noteLabelId: undefined });
+    });
+    fakeGmail({
+      labels: [{ id: "Label_9", name: "Anchor: Held" }, { id: "Label_10", name: "⚠ Check with Lucas" }, { id: "Label_11", name: "Anchor" }],
+      checkLabeled: ["old1", "old2"],
+    });
+    await t.action(internal.gmailActions.prepareLabels, { familyId });
+    const ledger = await t.run((ctx) => ctx.db.query("anchorLedger").collect());
+    expect(ledger.map((r) => [r.kind, r.gmailId])).toEqual([["labeled", "old1"], ["labeled", "old2"]]);
 
     // Already there: nothing to do.
     const again = fakeGmail();

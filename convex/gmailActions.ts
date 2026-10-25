@@ -460,9 +460,34 @@ export const prepareLabels = internalAction({
     if (!found || (found.labels.held && found.labels.check && found.labels.note)) return null;
     const c: LabelContext = { family: found.family, labels: found.labels };
     try {
-      await withAccess(ctx, familyId, (token) => withLabels(ctx, c, token, async () => {}));
+      await withAccess(ctx, familyId, (token) =>
+        withLabels(ctx, c, token, async (labels) => {
+          // Emails already under "Check with" when Anchor (re)connects were labeled by an earlier
+          // Anchor, not asked about now: remember them as Anchor's own, never as the parent asking.
+          const listed = await gmailRequest<{ messages?: { id: string }[] }>(token, "/messages", {
+            params: { labelIds: labels.check, maxResults: "100" },
+          });
+          const ids = (listed.messages ?? []).map((m) => m.id);
+          if (ids.length > 0) await ctx.runMutation(internal.gmailActions.markAnchorLabeled, { familyId, ids });
+        }),
+      );
     } catch (e) {
       console.error(`gmailActions.prepareLabels failed: ${errorText(e)}`);
+    }
+    return null;
+  },
+});
+
+export const markAnchorLabeled = internalMutation({
+  args: { familyId: v.id("families"), ids: v.array(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, { familyId, ids }) => {
+    for (const gmailId of ids.slice(0, 100)) {
+      const known = await ctx.db
+        .query("anchorLedger")
+        .withIndex("by_family_kind_id", (q) => q.eq("familyId", familyId).eq("kind", "labeled").eq("gmailId", gmailId))
+        .first();
+      if (!known) await ctx.db.insert("anchorLedger", { familyId, kind: "labeled", gmailId });
     }
     return null;
   },
