@@ -175,13 +175,15 @@ export const completeConnect = internalMutation({
       .query("gmailTokens")
       .withIndex("by_family", (q) => q.eq("familyId", family._id))
       .unique();
-    // Reconnect: fresh tokens, but keep the label ids and history cursor, and go straight
-    // back to "active" instead of re-learning the history.
+    // Reconnect after a finished import: fresh tokens, keep the label ids and history cursor,
+    // and go straight back to "active". Otherwise (first connect, or the first import never
+    // finished) learn the history now.
     if (existing) await ctx.db.patch(existing._id, tokens);
     else await ctx.db.insert("gmailTokens", tokens);
+    const needsImport = !existing || existing.historyId === undefined;
 
     await ctx.db.patch(family._id, {
-      status: existing ? "active" : "learning",
+      status: needsImport ? "learning" : "active",
       connectedAt: Date.now(),
       inviteToken: undefined,
       inviteExpiresAt: undefined,
@@ -189,7 +191,7 @@ export const completeConnect = internalMutation({
     for await (const s of ctx.db.query("oauthStates").withIndex("by_family", (q) => q.eq("familyId", family._id))) {
       await ctx.db.delete(s._id);
     }
-    // TODO(A4): if (!existing) ctx.scheduler.runAfter(0, internal.gmailImport.importHistory, { familyId: family._id })
+    if (needsImport) await ctx.scheduler.runAfter(0, internal.gmailImport.importHistory, { familyId: family._id });
     return { ok: true as const, parentToken: family.parentToken };
   },
 });
