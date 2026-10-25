@@ -84,7 +84,14 @@ export const familyForPoll = internalQuery({
   args: { familyId: v.id("families") },
   returns: v.union(
     v.null(),
-    v.object({ status: v.string(), parentName: v.string(), kidName: v.string(), historyId: v.optional(v.string()), googleEmail: v.optional(v.string()) }),
+    v.object({
+      status: v.string(),
+      parentName: v.string(),
+      kidName: v.string(),
+      historyId: v.optional(v.string()),
+      googleEmail: v.optional(v.string()),
+      noteLabelId: v.optional(v.string()),
+    }),
   ),
   handler: async (ctx, { familyId }) => {
     const family = await ctx.db.get(familyId);
@@ -99,6 +106,7 @@ export const familyForPoll = internalQuery({
       kidName: family.kidName,
       historyId: tokens?.historyId,
       googleEmail: tokens?.googleEmail,
+      noteLabelId: tokens?.noteLabelId,
     };
   },
 });
@@ -111,7 +119,14 @@ export const alreadySeen = internalQuery({
       .query("verdicts")
       .withIndex("by_family_gmail_id", (q) => q.eq("familyId", familyId).eq("gmailMessageId", gmailMessageId))
       .first();
-    return row !== null;
+    if (row !== null) return true;
+    // Anchor's own notes to the parent are never checked. Known by the id Gmail gave us when we
+    // inserted them (a sender can't forge that), not by any header a scammer could copy.
+    const note = await ctx.db
+      .query("anchorNotes")
+      .withIndex("by_family_message", (q) => q.eq("familyId", familyId).eq("gmailMessageId", gmailMessageId))
+      .first();
+    return note !== null;
   },
 });
 
@@ -290,6 +305,8 @@ export const saveVerdict = internalMutation({
       kind: a.level === "fake" ? "held" : "needs_answer",
       createdAt: Date.now(),
     });
+    // A6: label or hold it in Gmail and tell the parent (no-op unless ANCHOR_GMAIL_ACTIONS is on).
+    await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId });
     return null;
   },
 });
@@ -302,7 +319,11 @@ type HistoryPage = {
   nextPageToken?: string;
 };
 
-async function newMessageIds(accessToken: string, startHistoryId: string): Promise<{ ids: string[]; historyId?: string }> {
+async function newMessageIds(
+  accessToken: string,
+  startHistoryId: string,
+  noteLabelId?: string,
+): Promise<{ ids: string[]; historyId?: string }> {
   const ids: string[] = [];
   let pageToken: string | undefined;
   let historyId: string | undefined;
@@ -317,6 +338,7 @@ async function newMessageIds(accessToken: string, startHistoryId: string): Promi
       for (const added of h.messagesAdded ?? []) {
         const labels = added.message.labelIds ?? [];
         if (labels.includes("SENT") || labels.includes("DRAFT") || labels.includes("SPAM")) continue;
+        if (noteLabelId && labels.includes(noteLabelId)) continue; // Anchor's own note to the parent
         ids.push(added.message.id);
       }
     }
@@ -470,7 +492,7 @@ export const pollFamily = internalAction({
 
       let found: { ids: string[]; historyId?: string };
       try {
-        found = await newMessageIds(access.accessToken, family.historyId);
+        found = await newMessageIds(access.accessToken, family.historyId, family.noteLabelId);
       } catch (e) {
         if (e instanceof GmailError && e.status === 404) {
           // The cursor is too old (Gmail keeps about a week, e.g. after a reconnect). Don't

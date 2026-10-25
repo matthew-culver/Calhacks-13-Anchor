@@ -282,6 +282,49 @@ describe("pollFamily", () => {
     expect(calls).toHaveLength(0);
   });
 
+  test("never checks Anchor's own notes: skipped by label and by recorded id", async () => {
+    const { t, familyId } = await activeFamily();
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("gmailTokens").first();
+      await ctx.db.patch(row!._id, { noteLabelId: "Label_Note" });
+      await ctx.db.insert("anchorNotes", { familyId, gmailMessageId: "note-by-id" });
+    });
+    const calls: string[] = fakeWorld({ messages: { "note-by-id": fixture("chase-phish.eml") } });
+    // Make the history report one note carrying our label and one recorded by id.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = new URL(String(input));
+        calls.push(url.toString());
+        if (url.pathname.endsWith("/history")) {
+          return new Response(
+            JSON.stringify({
+              historyId: "200",
+              history: [
+                { messagesAdded: [{ message: { id: "note-by-label", labelIds: ["INBOX", "Label_Note"] } }] },
+                { messagesAdded: [{ message: { id: "note-by-id", labelIds: ["INBOX"] } }] },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response("{}", { status: 404 });
+      }),
+    );
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    expect(calls.some((c) => c.includes("/messages/note-"))).toBe(false);
+    expect(await t.run((ctx) => ctx.db.query("verdicts").collect())).toHaveLength(0);
+    expect(await cursor(t)).toBe("200");
+  });
+
+  test("a flagged verdict schedules the Gmail action", async () => {
+    const { t, familyId } = await activeFamily();
+    fakeWorld({ messages: { m1: fixture("chase-phish.eml") } });
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(scheduled.map((s) => s.name)).toContain("gmailActions:applyVerdict");
+  });
+
   test("pollAll schedules one poll per active family", async () => {
     const { t } = await activeFamily();
     await t.mutation(internal.mailWatch.pollAll, {});

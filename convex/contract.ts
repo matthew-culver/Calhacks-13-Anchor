@@ -148,6 +148,7 @@ export const verdict = v.object({
     v.literal("held"), // fake: moved to the "Anchor: Held" label
     v.literal("released"), // held or unsure, then the kid said "It's fine": back in the inbox
   ),
+  actionAppliedAt: v.optional(v.number()), // A6: the label/hold was applied in Gmail
   parentNoteSentAt: v.optional(v.number()), // so retries never send the parent note twice
 });
 

@@ -48,6 +48,12 @@ export default defineSchema({
     count: v.number(),
   }).index("by_family_message", ["familyId", "gmailMessageId"]),
 
+  // A6: ids of the notes Anchor put in the parent's inbox, so the watcher skips them.
+  anchorNotes: defineTable({
+    familyId: v.id("families"),
+    gmailMessageId: v.string(),
+  }).index("by_family_message", ["familyId", "gmailMessageId"]),
+
   // Gmail OAuth for the parent. Separate from the kid's Convex Auth login.
   // Server-only: internalQuery or internalAction, never a public query.
   gmailTokens: defineTable({
@@ -61,6 +67,7 @@ export default defineSchema({
     pollingUntil: v.optional(v.number()), // A5 lease: one poll per family at a time
     heldLabelId: v.optional(v.string()), // "Anchor: Held"
     checkLabelId: v.optional(v.string()), // "⚠ Check with [kid]"
+    noteLabelId: v.optional(v.string()), // "Anchor": on Anchor's own notes, which the watcher skips
   })
     .index("by_family", ["familyId"])
     .index("by_google_email", ["googleEmail"]), // one family per mailbox
