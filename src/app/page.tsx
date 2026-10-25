@@ -133,6 +133,23 @@ export default function Home() {
           <Preview />
         </section>
 
+        {/* Measured, not promised: docs/ACCURACY.md, reproduced by convex/accuracy.test.ts. */}
+        <section aria-labelledby="tested" className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
+          <h2 id="tested" className="text-lg font-semibold text-muted">On our test set of 44 real-world scams and everyday emails</h2>
+          <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+            {[
+              ["24 of 24", "scams caught, from fake banks to a hacked family account"],
+              ["0 of 20", "real emails set aside by mistake, family bills included"],
+              ["1 minute", "for every new email to be checked, day and night"],
+            ].map(([n, label]) => (
+              <div key={n} className="flex flex-col-reverse rounded-3xl border border-line bg-surface p-6 shadow-card">
+                <dt className="text-lg text-muted">{label}</dt>
+                <dd className="text-4xl font-bold tracking-tight text-ink">{n}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
         <section className="border-y border-line bg-surface">
           <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
