@@ -9,9 +9,24 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as checks_brands from "../checks/brands.js";
+import type * as checks_claimedIdentity from "../checks/claimedIdentity.js";
+import type * as checks_headerAuth from "../checks/headerAuth.js";
+import type * as checks_index from "../checks/index.js";
+import type * as checks_injection from "../checks/injection.js";
+import type * as checks_intel from "../checks/intel.js";
+import type * as checks_linkAudit from "../checks/linkAudit.js";
+import type * as checks_parse from "../checks/parse.js";
+import type * as checks_pressure from "../checks/pressure.js";
+import type * as checks_ruleLevel from "../checks/ruleLevel.js";
+import type * as checks_text from "../checks/text.js";
+import type * as checks_types from "../checks/types.js";
 import type * as contract from "../contract.js";
 import type * as families from "../families.js";
+import type * as gmailConnect from "../gmailConnect.js";
 import type * as http from "../http.js";
+import type * as lib_env from "../lib/env.js";
+import type * as lib_oauth from "../lib/oauth.js";
 import type * as lib_tokens from "../lib/tokens.js";
 
 import type {
@@ -22,9 +37,24 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  "checks/brands": typeof checks_brands;
+  "checks/claimedIdentity": typeof checks_claimedIdentity;
+  "checks/headerAuth": typeof checks_headerAuth;
+  "checks/index": typeof checks_index;
+  "checks/injection": typeof checks_injection;
+  "checks/intel": typeof checks_intel;
+  "checks/linkAudit": typeof checks_linkAudit;
+  "checks/parse": typeof checks_parse;
+  "checks/pressure": typeof checks_pressure;
+  "checks/ruleLevel": typeof checks_ruleLevel;
+  "checks/text": typeof checks_text;
+  "checks/types": typeof checks_types;
   contract: typeof contract;
   families: typeof families;
+  gmailConnect: typeof gmailConnect;
   http: typeof http;
+  "lib/env": typeof lib_env;
+  "lib/oauth": typeof lib_oauth;
   "lib/tokens": typeof lib_tokens;
 }>;
 

@@ -30,6 +30,17 @@ export default defineSchema({
     .index("by_family_created", ["familyId", "createdAt"]) // the kid feed, newest first
     .index("by_verdict", ["verdictId"]), // idempotent retries
 
+  // One row per "Protect my email" attempt. Single use, 10-minute life. Server-only.
+  // Only `state` goes to Google; the invite token never does.
+  oauthStates: defineTable({
+    state: v.string(),
+    familyId: v.id("families"),
+    codeVerifier: v.string(), // PKCE secret, never leaves the server
+    expiresAt: v.number(),
+  })
+    .index("by_state", ["state"])
+    .index("by_family", ["familyId"]), // at most one live attempt per family
+
   // Gmail OAuth for the parent. Separate from the kid's Convex Auth login.
   // Server-only: internalQuery or internalAction, never a public query.
   gmailTokens: defineTable({
@@ -42,5 +53,7 @@ export default defineSchema({
     historyId: v.optional(v.string()), // Gmail history cursor, for fetching only new mail
     heldLabelId: v.optional(v.string()), // "Anchor: Held"
     checkLabelId: v.optional(v.string()), // "⚠ Check with [kid]"
-  }).index("by_family", ["familyId"]),
+  })
+    .index("by_family", ["familyId"])
+    .index("by_google_email", ["googleEmail"]), // one family per mailbox
 });

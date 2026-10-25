@@ -7,7 +7,10 @@ export const metadata: Metadata = {
   description: "Keeps scam emails away from your parents, and keeps you in the loop.",
   // Invite and parent links carry secret tokens: never send them in the Referer
   // header, and keep every page out of search results.
-  referrer: "no-referrer",
+  // strict-origin-when-cross-origin sends other sites only our origin, never the path with
+  // the token. Not "no-referrer": that makes the invite form send `Origin: null`, which
+  // /gmail/start rejects as cross-site.
+  referrer: "strict-origin-when-cross-origin",
   robots: { index: false, follow: false },
 };
 
