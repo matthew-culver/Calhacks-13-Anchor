@@ -16,6 +16,9 @@
   --text-base: 1.25rem;
   --text-lg: 1.5rem;
   --text-xl: 1.75rem;
+  /* Headings stay bigger than the big body text above (Tailwind's own 2xl would be smaller). */
+  --text-2xl: 1.875rem;
+  --text-3xl: 2.125rem;
 
   --color-page: #f3f5f8;
   --color-surface: #ffffff;

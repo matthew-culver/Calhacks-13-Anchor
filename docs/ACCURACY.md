@@ -3,8 +3,8 @@
 A labeled set of 58 emails, run through Anchor's whole pipeline: the scams are built from the
 patterns the FTC and AARP warn older adults about; the real mail is what a parent actually
 gets, including the family emails other filters flag (bills, Venmo, links from family). It runs
-with no AI and no network, so this is Anchor's floor: the AI investigator can only make a
-verdict stricter, and in real use it also clears a first email from a company's real address.
+with no AI and no network, so this is Anchor's floor: the AI investigator can't lower it for a
+scam, and in real use it also clears a first email from a company's real address (when our own records confirm it).
 
 Reproduce: `WRITE_ACCURACY=1 npx vitest run convex/accuracy` (the test itself fails if a real
 email is ever held, or a scam is missed).

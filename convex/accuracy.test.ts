@@ -2,8 +2,8 @@
 // The accuracy eval: a labeled set of realistic emails (scams built from the patterns the FTC
 // and AARP warn older adults about, and the everyday mail a parent gets) run through the whole
 // pipeline: parsing, link checks, the five checks, the relationship check against a parent's
-// history, and the rule level. No AI and no network: the AI can only make a verdict stricter,
-// so this is Anchor's floor.
+// history, and the rule level. No AI and no network: the AI can't lower a scam's verdict, so
+// this is Anchor's floor.
 //
 // What counts: a scam is "caught" when it isn't left as real (held as fake, or the kid is
 // asked). A real email "held" by mistake is the costly error; one that asks the kid is a small
@@ -206,8 +206,8 @@ test("accuracy on the labeled email set", { timeout: 120_000 }, async () => {
 A labeled set of ${rows.length} emails, run through Anchor's whole pipeline: the scams are built from the
 patterns the FTC and AARP warn older adults about; the real mail is what a parent actually
 gets, including the family emails other filters flag (bills, Venmo, links from family). It runs
-with no AI and no network, so this is Anchor's floor: the AI investigator can only make a
-verdict stricter, and in real use it also clears a first email from a company's real address.
+with no AI and no network, so this is Anchor's floor: the AI investigator can't lower it for a
+scam, and in real use it also clears a first email from a company's real address (when our own records confirm it).
 
 Reproduce: \`WRITE_ACCURACY=1 npx vitest run convex/accuracy\` (the test itself fails if a real
 email is ever held, or a scam is missed).

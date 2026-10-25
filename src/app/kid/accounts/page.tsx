@@ -2,8 +2,10 @@
 
 import { useQuery } from "convex/react";
 import { KidAccountList } from "@/components/AccountList";
+import { useNewItemAlerts } from "@/components/Alerts";
 import { KidGate, SampleDataNote, type KidFamily } from "@/components/KidGate";
 import { Screen } from "@/components/ui";
+import { useFeed } from "@/shared/feedApi";
 import { mockAccounts } from "@/shared/mock";
 import { api } from "../../../../convex/_generated/api";
 
@@ -17,6 +19,7 @@ function KidAccounts({ family, demo }: { family: KidFamily; demo: boolean }) {
   const live = useQuery(api.accounts.myAccounts, demo ? "skip" : {});
   const accounts = demo ? mockAccounts : live;
   const { parentName, status } = family;
+  useNewItemAlerts(useFeed(), parentName);
 
   if (accounts === undefined) {
     return <Screen focusTitle title="One moment..." />;

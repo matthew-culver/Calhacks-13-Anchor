@@ -38,15 +38,24 @@ const noSubscription = () => () => {};
  */
 export function useDemoMode({ sticky = true }: { sticky?: boolean } = {}): boolean {
   const demo = useSyncExternalStore(noSubscription, sticky ? readSticky : readFromAddressOnly, () => false);
-  // Remember ?demo=1 / ?demo=0 for the rest of this tab (kid pages read it back).
+  // Remember ?demo=1 / ?demo=0 for the rest of this tab (kid pages read it back). Not from the
+  // parent's page: it never sticks, so it never makes a later kid sign-in show sample data.
   useEffect(() => {
     const url = fromUrl();
-    if (!url) return;
-    try {
-      sessionStorage.setItem(KEY, url);
-    } catch {
-      // Blocked storage: demo mode then lasts only while ?demo=1 is in the address.
-    }
-  }, []);
+    if (url && sticky) remember(url);
+  }, [sticky]);
   return demo;
+}
+
+/** "Leave the demo": forget it for this tab, wherever the link goes next. */
+export function leaveDemo() {
+  remember("0");
+}
+
+function remember(value: "1" | "0") {
+  try {
+    sessionStorage.setItem(KEY, value);
+  } catch {
+    // Blocked storage: demo mode then lasts only while ?demo=1 is in the address.
+  }
 }

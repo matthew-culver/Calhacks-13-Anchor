@@ -209,8 +209,9 @@ export function InvestigationPanel({
             {checks && checks.length > 0 && <QuickChecks title="Our quick checks" checks={checks} />}
             <p className="flex gap-2 text-base text-muted">
               <Icon name="shieldCheck" className="mt-0.5 h-5 w-5" />
-              Our fixed checks decide first. The AI can make a verdict stricter, never more lenient, and
-              it treats the email as evidence, never as instructions.
+              Our fixed checks decide first. The AI can make a verdict stricter, and it can clear an unsure
+              one only when our own records show it&apos;s from the real company. It treats the email as
+              evidence, never as instructions.
             </p>
           </div>
         </details>

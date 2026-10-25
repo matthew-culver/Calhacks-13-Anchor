@@ -80,7 +80,7 @@ automated tests in all. Full table: `docs/ACCURACY.md`.
 ## Where it could go wrong (and what we did)
 
 - **A scam email tries to talk the AI into letting it through.** Email is evidence, never
-  instructions; the rules decide first and the AI can only make a verdict stricter. Our test
+  instructions; the rules decide first and the AI can't overrule them. Our test
   set includes a hidden-instructions email; it's held.
 - **A real email is held.** Nothing is deleted; one tap from the kid puts it back. We measure
   false holds and keep them at zero.

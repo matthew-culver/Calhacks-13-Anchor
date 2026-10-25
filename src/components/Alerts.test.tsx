@@ -39,3 +39,17 @@ describe("new email alerts", () => {
     expect(shown).toEqual([]);
   });
 });
+
+describe("a browser that refuses alerts", () => {
+  it("never breaks the page (Chrome on Android throws when asked for one)", () => {
+    class RefusingNotification {
+      static permission = "granted";
+      constructor() {
+        throw new TypeError("Illegal constructor");
+      }
+    }
+    vi.stubGlobal("Notification", RefusingNotification);
+    const { rerender } = renderHook(({ feed }) => useNewItemAlerts(feed, "Mom"), { initialProps: { feed: [] as FeedEntry[] } });
+    expect(() => rerender({ feed: [entry("d", "held")] })).not.toThrow();
+  });
+});

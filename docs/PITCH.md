@@ -26,8 +26,8 @@ never signs in from an email link again."
 pops up on the laptop. "That just landed in Mom's inbox, and it's already gone: held, not
 deleted. Here's why." Open it: the investigation runs live. "Claude is investigating it like a
 careful person would: who really sent it, where the link really goes (it follows it so nobody
-has to click), what Chase's real addresses are. And it can only make a verdict stricter. Our
-rules decide first, so a scam can't talk the AI into letting it through."
+has to click), what Chase's real addresses are. Our rules decide first and the AI can't
+overrule them, so a scam can't talk the AI into letting it through."
 
 **1:05 Family (25 s).** Matt sends **email B** (the bill). "My brother asking Mom to pay a
 bill by Venmo: money, a link, a deadline. Every filter flags that. Anchor knows he's family, so
@@ -55,7 +55,7 @@ inside Gmail. 25 of 25 scams caught on our test set, zero real emails held."
 - **Meta:** "The product is the family loop: worry calls become a one-tap answer in the kid's
   own words, and the parent can start the conversation from inside Gmail."
 - **Anthropic:** "A named community, a problem we live, it works on a real inbox, and we know
-  where it can go wrong: the AI can only make things stricter, email text is never
+  where it can go wrong: the AI can't overrule our checks, email text is never
   instructions, and clearing an email needs our own data, never the model's opinion." If there's
   time, send **email F** live: a scam telling the AI to mark it safe, held anyway.
 - **Microsoft:** "Measured, not promised: an accuracy eval in our test suite that fails the
@@ -68,8 +68,8 @@ inside Gmail. 25 of 25 scams caught on our test set, zero real emails held."
 ## Likely questions
 
 The full list is in [DEMO.md](DEMO.md). The three most likely:
-- **"What if it's wrong?"** It never deletes; one tap puts an email back. The AI can only raise
-  a verdict. We measure false holds and keep them at zero.
+- **"What if it's wrong?"** It never deletes; one tap puts an email back. The AI can't overrule
+  our checks to let a scam through. We measure false holds and keep them at zero.
 - **"Privacy?"** No email bodies stored; the kid only sees flagged emails or ones the parent
   asked about; turning it off deletes everything and revokes Google access.
 - **"Why would anyone pay?"** **[you]** The adult kid pays to stop worrying, the way people

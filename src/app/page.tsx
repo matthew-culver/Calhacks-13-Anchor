@@ -78,7 +78,7 @@ function Preview() {
 const RISKS: [string, string][] = [
   [
     "A scam email tries to talk the AI into letting it through.",
-    "The email is only ever evidence, never instructions. Our fixed checks decide first, and the AI can only make a verdict stricter. It can't let a fake through.",
+    "The email is only ever evidence, never instructions. Our fixed checks decide first, and the AI can't overrule them to let a fake through. It can only clear an email when our own records show it's from the real company.",
   ],
   [
     "Anchor sets aside an email that was real.",
@@ -100,10 +100,10 @@ export default function Home() {
       <SiteHeader wide>
         <nav aria-label="Main" className="flex items-center gap-1">
           {/* Sample data, no sign-in: what a family sees, for anyone curious (judges too). */}
-          <Link href="/kid?demo=1" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold whitespace-nowrap text-muted hover:bg-page hover:text-ink sm:px-4">
+          <Link href="/kid?demo=1" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold whitespace-nowrap max-[359px]:px-2 max-[359px]:text-base text-muted hover:bg-page hover:text-ink sm:px-4">
             See a demo
           </Link>
-          <Link href="/start" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold whitespace-nowrap text-action hover:bg-action-tint sm:px-4">
+          <Link href="/start" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold whitespace-nowrap max-[359px]:px-2 max-[359px]:text-base text-action hover:bg-action-tint sm:px-4">
             Sign in
           </Link>
         </nav>
@@ -138,7 +138,7 @@ export default function Home() {
           <h2 id="tested" className="text-lg font-semibold text-muted">On our test set of 58 real-world scams and everyday emails</h2>
           <dl className="mt-4 grid gap-4 sm:grid-cols-3">
             {[
-              ["25 of 25", "scams caught, from fake banks to a hacked family account"],
+              ["25 of 25", "scams caught: 18 set aside on their own, 7 sent to you to check"],
               ["0 of 33", "real emails set aside by mistake, family bills included"],
               ["1 minute", "for every new email to be checked, day and night"],
             ].map(([n, label]) => (

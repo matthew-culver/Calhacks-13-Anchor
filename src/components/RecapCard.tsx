@@ -32,7 +32,7 @@ export function KidRecapCard({
 }) {
   return (
     <Card compact>
-      <dl className="grid grid-cols-3 gap-2 sm:gap-3">
+      <dl className="grid grid-cols-3 gap-2 max-[359px]:grid-cols-1 sm:gap-3">
         {recap && <Stat label="Checked" value={recap.checked} />}
         {recap && <Stat label="Held" value={recap.held} className="text-fake" />}
         <Stat label={needAnswer === 1 ? "Needs an answer" : "Need an answer"} value={needAnswer} className="text-unsure" />

@@ -141,7 +141,11 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
         {`Hi ${parentName}. These are the real websites you use. To sign in, tap a button here instead of a link in an email.`}
       </p>
       {status === "active" && <Watching whose="your" lastCheckedAt={demo ? undefined : liveView?.lastCheckedAt} />}
-      {recap && <ParentRecapCard recap={recap} kidName={kidName} />}
+      {/* The buttons come first: they're what this page is for. */}
+      <p role="status" className="text-lg text-muted">
+        {stillFinding ? "Still finding more of your accounts…" : ""}
+      </p>
+      <ParentAccountList accounts={accounts} />
       {questions && <ParentQuestions entries={questions} kidName={kidName} />}
       {/* The loop goes both ways: the parent can ask about any email, from inside Gmail, once the
           label is there. */}
@@ -156,10 +160,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
           </p>
         </section>
       )}
-      <p role="status" className="text-lg text-muted">
-        {stillFinding ? "Still finding more of your accounts…" : ""}
-      </p>
-      <ParentAccountList accounts={accounts} />
+      {recap && <ParentRecapCard recap={recap} kidName={kidName} />}
       <p className="text-lg text-muted">{`${kidName} sees only this list, the emails we set aside or weren't sure about, and the ones you ask about.`}</p>
       {turnOff}
     </Screen>

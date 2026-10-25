@@ -3,6 +3,7 @@
 import { ConvexError } from "convex/values";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useNewItemAlerts } from "@/components/Alerts";
 import { Icon } from "@/components/icons";
 import { InvestigationPanel, QuickChecks } from "@/components/InvestigationPanel";
 import { KidGate, SampleDataNote } from "@/components/KidGate";
@@ -26,6 +27,7 @@ export function ItemScreen({ id }: { id: string }) {
 
 function Item({ id, parentName, demo }: { id: string; parentName: string; demo: boolean }) {
   const feed = useFeed();
+  useNewItemAlerts(feed, parentName);
   // A7's investigator, live as it works (a sample replay in demo mode). Asked only once the
   // feed confirms this email exists, so a bad id in the address can't crash the page.
   const investigation = useInvestigation(id, feed?.some((e) => e._id === id) ?? false);
@@ -161,6 +163,7 @@ function AnswerForm({
   const [trust, setTrust] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const looksReal = entry.verdict.level === "real";
 
   const send = async (answer: "fine" | "scam") => {
     setBusy(true);
@@ -200,7 +203,7 @@ function AnswerForm({
           }
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          className="rounded-2xl border-2 border-line-strong bg-surface p-4 text-xl placeholder:text-muted/70 focus:border-action"
+          className="rounded-2xl border-2 border-line-strong bg-surface p-4 text-xl placeholder:text-muted/85 focus:border-action"
         />
       </label>
       {error && (
@@ -208,11 +211,12 @@ function AnswerForm({
           {error}
         </p>
       )}
+      {/* The filled button is the likely answer: "It's fine" when our checks found nothing wrong. */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <BigButton onClick={() => void send("scam")} disabled={busy}>
+        <BigButton onClick={() => void send("scam")} disabled={busy} secondary={looksReal}>
           It&apos;s a scam
         </BigButton>
-        <BigButton onClick={() => void send("fine")} disabled={busy} secondary>
+        <BigButton onClick={() => void send("fine")} disabled={busy} secondary={!looksReal}>
           It&apos;s fine
         </BigButton>
       </div>

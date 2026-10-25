@@ -27,8 +27,8 @@ function Links({ path }: { path: string }) {
             key={l.href}
             href={l.href}
             aria-current={here ? "page" : undefined}
-            className={`flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold whitespace-nowrap sm:px-4 ${
-              here ? "bg-action-tint text-action" : "text-muted hover:bg-page hover:text-ink"
+            className={`flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold whitespace-nowrap max-[359px]:px-2 max-[359px]:text-base sm:px-4 ${
+              here ? "bg-action-tint text-action underline decoration-2 underline-offset-8" : "text-muted hover:bg-page hover:text-ink"
             }`}
           >
             {l.label}

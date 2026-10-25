@@ -30,7 +30,7 @@ new email ─► parse (in memory, never stored)
           ─► relationship check against the parent's own history (accounts, family,
              known contacts' names)
           ─► rule level (real / unsure / fake)  ◄── the floor
-          ─► Claude explains and investigates: can only make it STRICTER
+          ─► Claude explains and investigates: can make it STRICTER, never lower a red flag
           ─► Gmail: hold or label · kid's feed (live) · parent's note in the kid's words
 ```
 

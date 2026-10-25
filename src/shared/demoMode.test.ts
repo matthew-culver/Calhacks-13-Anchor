@@ -3,7 +3,7 @@
 
 import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useDemoMode } from "./demoMode";
+import { leaveDemo, useDemoMode } from "./demoMode";
 
 const at = (search: string) => window.history.replaceState(null, "", `/${search}`);
 
@@ -25,6 +25,21 @@ describe("useDemoMode", () => {
     expect(renderHook(() => useDemoMode({ sticky: false })).result.current).toBe(false);
     at("?demo=1");
     expect(renderHook(() => useDemoMode({ sticky: false })).result.current).toBe(true);
+  });
+
+  it("the parent's sample page never makes a later kid sign-in in this tab show sample data", () => {
+    at("?demo=1");
+    renderHook(() => useDemoMode({ sticky: false }));
+    at("");
+    expect(renderHook(() => useDemoMode()).result.current).toBe(false);
+  });
+
+  it("\"Leave the demo\" forgets it for this tab, wherever the link goes", () => {
+    at("?demo=1");
+    renderHook(() => useDemoMode());
+    leaveDemo();
+    at("");
+    expect(renderHook(() => useDemoMode()).result.current).toBe(false);
   });
 
   it("lets ?demo=0 turn off even a demo deployment", () => {

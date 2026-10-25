@@ -4,7 +4,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import type { ReactNode } from "react";
 import { BigButton, Screen } from "@/components/ui";
-import { useDemoMode } from "@/shared/demoMode";
+import { leaveDemo, useDemoMode } from "@/shared/demoMode";
 import { mockFamily } from "@/shared/mock";
 import { api } from "../../convex/_generated/api";
 
@@ -78,11 +78,11 @@ export function SampleDataNote({ other, leaveHref = "?demo=0" }: { other?: { hre
       <span>Sample data for the demo</span>
       <span className="flex flex-wrap gap-x-4 gap-y-1">
         {other && (
-          <a href={other.href} className="font-semibold underline">
+          <a href={other.href} className="inline-block py-1 font-semibold underline">
             {other.label}
           </a>
         )}
-        <a href={leaveHref} className="font-semibold underline">
+        <a href={leaveHref} onClick={leaveDemo} className="inline-block py-1 font-semibold underline">
           Leave the demo
         </a>
       </span>
