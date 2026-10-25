@@ -80,6 +80,12 @@ account may have been hacked." The kid taps **It's a scam** and writes a note: *
 Matt, his email got hacked. Never buy gift cards for anyone. Love you!* Mom gets one short email
 with those words. "That's the only email she gets from us, and it's in my words."
 
+**5a. Mom asks (30 s).** The loop goes both ways. In Mom's Gmail, move any email (say a real
+Kaiser or bank email) to the **"⚠ Check with Lucas"** folder. Run the poll. On the kid's feed:
+"Mom asked", with the AI investigation. Tap "It's fine" with a note ("That one's real, Mom.
+Thanks for asking!"). Mom's label comes off and she gets one short email with your words. "She
+doesn't have to call me and read it out loud anymore. One move in Gmail and I've got it."
+
 **5b. Someone pretending to be family (30 s, optional).** Matt first sends Mom any normal
 email (Anchor learns the name he goes by). Then the scammer Gmail changes its display name to
 Matt's exact name and sends **email E**. Run the poll. It's flagged: "It uses the name Matthew

@@ -136,6 +136,11 @@ export const finish = internalMutation({
     // The kid already decided: their answer stands. Record the findings, change nothing else.
     if (item?.kidAnswer) return null;
 
+    if (cleared && verdict.askedAt !== undefined) {
+      // The parent asked the kid about this one: it stays for the kid to answer, with the finding.
+      await ctx.db.patch(verdict._id, { level: "real", ...(kidText && { explanationForKid: kidText }) });
+      return null;
+    }
     if (cleared) {
       // Our own data confirms the company's real address: release it, take it off the feed.
       await ctx.db.patch(verdict._id, { level: "real", action: "released", ...(kidText && { explanationForKid: kidText }) });
@@ -150,7 +155,7 @@ export const finish = internalMutation({
         actionAppliedAt: undefined, // the check label was applied; now hold it properly
         ...(kidText && { explanationForKid: kidText }),
       });
-      if (item) await ctx.db.patch(item._id, { kind: "held" });
+      if (item && item.kind !== "asked") await ctx.db.patch(item._id, { kind: "held" });
       await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId: verdict._id });
       return null;
     }

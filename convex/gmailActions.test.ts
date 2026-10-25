@@ -403,6 +403,7 @@ describe("the weekly note", () => {
     expect(notes[0]).toContain("This week Anchor checked 4 emails for you and kept 1 fake message out of your inbox. You didn't need to do anything.");
     expect(notes[0]).toContain("Lucas looked at 1 message for you.");
     expect(notes[0]).toContain('they\'re in the "Anchor: Held" folder');
+    expect(notes[0]).toContain('Not sure about an email? Move it to the "⚠ Check with Lucas" folder, and Lucas will look at it for you.');
     const week = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
     const again = fakeGmail({ alreadySent: [`weekly-${familyId}-${week}`] });
     await t.action(internal.gmailActions.sendWeeklyNote, { familyId });

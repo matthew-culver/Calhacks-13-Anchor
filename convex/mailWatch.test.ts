@@ -71,6 +71,8 @@ type Opts = {
   sizes?: Record<string, number>; // sizeEstimate per id
   rawStatus?: Record<string, number>; // make the raw download fail for an id
   recent?: string[]; // ids for the catch-up messages.list
+  asked?: string[]; // ids under the "Check with" label (the parent asking the kid)
+  historyIds?: string[]; // which messages show up as new mail (default: all of them)
   web?: (url: URL) => Response | undefined; // other sites: DNS, RDAP, link probes
 };
 
@@ -103,11 +105,14 @@ function fakeWorld(opts: Opts) {
         if (opts.historyStatus) return json({}, opts.historyStatus);
         return json({
           historyId: opts.newHistoryId ?? "200",
-          history: Object.keys(opts.messages).map((id) => ({ messagesAdded: [{ message: { id, labelIds: ["INBOX"] } }] })),
+          history: (opts.historyIds ?? Object.keys(opts.messages)).map((id) => ({ messagesAdded: [{ message: { id, labelIds: ["INBOX"] } }] })),
         });
       }
       if (url.pathname.endsWith("/profile")) return json({ historyId: "999" });
-      if (url.pathname.endsWith("/messages")) return json({ messages: (opts.recent ?? []).map((id) => ({ id })) });
+      if (url.pathname.endsWith("/messages")) {
+        const ids = url.searchParams.get("labelIds") ? (opts.asked ?? []) : (opts.recent ?? []);
+        return json({ messages: ids.map((id) => ({ id })) });
+      }
       const id = url.pathname.split("/").pop()!;
       const raw = opts.messages[id];
       if (!raw) return json({}, 404);
@@ -589,6 +594,73 @@ describe("pollFamily", () => {
       fakeWorld({ messages: { s7: fromSue("s7", "new.neighbor@gmail.com", "hello", "Hi, I'm your new neighbor!", "Pat Lee") } });
       await t.action(internal.mailWatch.pollFamily, { familyId });
       expect((await levelOf(t, "s7"))?.level).toBe("real");
+    });
+  });
+
+  describe("Mom asks the kid about an email herself", () => {
+    const withCheckLabel = async (t: Awaited<ReturnType<typeof activeFamily>>["t"]) =>
+      t.run(async (ctx) => {
+        const tokens = (await ctx.db.query("gmailTokens").first())!;
+        await ctx.db.patch(tokens._id, { checkLabelId: "Label_check" });
+      });
+    const newsletter = [
+      "Authentication-Results: mx.google.com; dkim=pass header.i=@kp.org; spf=pass smtp.mailfrom=news@kp.org; dmarc=pass (p=REJECT) header.from=kp.org",
+      "From: Kaiser Permanente <news@kp.org>",
+      "To: mom.culver@gmail.com",
+      "Subject: Your flu shot is ready to schedule",
+      "Content-Type: text/plain",
+      "",
+      "Schedule your flu shot at https://healthy.kaiserpermanente.org/",
+      "",
+    ].join("\r\n");
+
+    test("an email Anchor found real goes to the kid as \"Mom asked\", with the investigation", async () => {
+      const { t, kid, familyId } = await activeFamily({ kaiserHistory: true });
+      await withCheckLabel(t);
+      fakeWorld({ messages: { a1: newsletter } });
+      await t.action(internal.mailWatch.pollFamily, { familyId }); // checked: real, private
+      expect(await kid.query(api.feed.myFeed, {})).toEqual([]);
+
+      fakeWorld({ messages: { a1: newsletter }, asked: ["a1"] }); // she moves it to "Check with Lucas"
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      const feed = await kid.query(api.feed.myFeed, {});
+      expect(feed).toHaveLength(1);
+      expect(feed[0]).toMatchObject({ kind: "asked", verdict: { gmailMessageId: "a1", subject: "Your flu shot is ready to schedule", fromName: "Kaiser Permanente" } });
+      expect(feed[0].verdict!.explanationForKid).toContain("Mom asked you about this email");
+      const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+      expect(scheduled.map((s) => s.name)).toContain("investigations:investigate");
+
+      // Asked once is enough: the next poll doesn't add it again.
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect(await kid.query(api.feed.myFeed, {})).toHaveLength(1);
+    });
+
+    test("an email she asks about that Anchor never saw gets the full check", async () => {
+      const { t, kid, familyId } = await activeFamily({ kaiserHistory: true });
+      await withCheckLabel(t);
+      // It came before Anchor was connected: it's not new mail, only under her label.
+      fakeWorld({ messages: { a2: newsletter }, asked: ["a2"], historyIds: [] });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect(await t.run((ctx) => ctx.db.query("verdicts").collect())).toEqual([
+        expect.objectContaining({ gmailMessageId: "a2", level: "real", action: "none", subject: "Your flu shot is ready to schedule" }),
+      ]);
+      const feed = await kid.query(api.feed.myFeed, {});
+      expect(feed.find((f) => f.verdict?.gmailMessageId === "a2")).toMatchObject({ kind: "asked" });
+    });
+
+    test("Anchor's own \"Check with\" label isn't mistaken for Mom asking", async () => {
+      const { t, kid, familyId } = await activeFamily();
+      await withCheckLabel(t);
+      await t.run(async (ctx) => {
+        const verdictId = await ctx.db.insert("verdicts", {
+          familyId, gmailMessageId: "u1", receivedAt: Date.now(), level: "unsure", ruleLevel: "unsure", fromDomain: "usps-track.co", action: "labeled_check",
+        });
+        await ctx.db.insert("feedItems", { familyId, verdictId, kind: "needs_answer", createdAt: Date.now() });
+      });
+      fakeWorld({ messages: {}, asked: ["u1"] });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      const feed = await kid.query(api.feed.myFeed, {});
+      expect(feed.map((f) => f.kind)).toEqual(["needs_answer"]);
     });
   });
 

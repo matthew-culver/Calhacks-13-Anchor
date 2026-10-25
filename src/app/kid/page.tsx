@@ -32,7 +32,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
   if (feed === undefined) return <Screen focusTitle title="One moment..." />;
 
   const newestFirst = [...feed].sort((a, b) => b.createdAt - a.createdAt);
-  const waiting = newestFirst.filter((e) => e.kind === "needs_answer" && !e.kidAnswer);
+  const waiting = newestFirst.filter((e) => (e.kind === "needs_answer" || e.kind === "asked") && !e.kidAnswer);
   const heldItems = newestFirst.filter((e) => e.kind === "held" && !e.kidAnswer);
   const answered = newestFirst.filter((e) => e.kidAnswer);
   // Counted from the feed so it changes the moment the kid answers.
@@ -97,8 +97,10 @@ function FeedSection({
 function FeedCard({ entry, parentName }: { entry: FeedEntry; parentName: string }) {
   const { verdict, kidAnswer } = entry;
   const fake = verdict.level === "fake";
+  const asked = entry.kind === "asked";
+  const status = asked ? `${parentName} asked` : fake ? "Looks fake" : "Not sure";
   // A short name for screen readers, instead of the whole card read as one run-on sentence.
-  const name = `Says it's from ${claimedSender(verdict)}. ${fake ? "Looks fake" : "Not sure"}.${
+  const name = `Says it's from ${claimedSender(verdict)}. ${status}.${
     kidAnswer ? ` You said it's ${kidAnswer.answer === "scam" ? "a scam" : "fine"}.` : ""
   }`;
   return (
@@ -110,16 +112,16 @@ function FeedCard({ entry, parentName }: { entry: FeedEntry; parentName: string 
       <span
         aria-hidden="true"
         className={`hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl min-[420px]:flex ${
-          fake ? "bg-fake-tint text-fake" : "bg-unsure-tint text-unsure"
+          asked ? "bg-action-tint text-action" : fake ? "bg-fake-tint text-fake" : "bg-unsure-tint text-unsure"
         }`}
       >
-        <Icon name={fake ? "shield" : "alert"} className="h-7 w-7" />
+        <Icon name={asked ? "heart" : fake ? "shield" : "alert"} className="h-7 w-7" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {/* Said in words, so color is never the only clue. */}
-          <Pill tone={fake ? "fake" : "unsure"}>
-            {fake ? "Looks fake" : "Not sure"}
+          <Pill tone={asked ? "action" : fake ? "fake" : "unsure"}>
+            {status}
             {/* action is the decision; actionAppliedAt means Gmail really moved it (A6). */}
             {verdict.action === "held" && verdict.actionAppliedAt === undefined && " · Being held…"}
           </Pill>

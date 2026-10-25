@@ -108,6 +108,16 @@ describe("kid feed", () => {
     expect(cards("Needs your answer")).toEqual([expect.stringContaining("Says it's from USPS")]);
   });
 
+  it("shows an email Mom asked about as needing an answer, and says she asked", () => {
+    const feed = fakeBackend.state.queries["feed:myFeed"] as typeof import("@/shared/feedApi").SAMPLE_FEED;
+    fakeBackend.setQuery("feed:myFeed", feed.map((e) => (e._id === "mock_feed_usps" ? { ...e, kind: "asked" as const } : e)));
+    render(<KidFeed />);
+    const card = within(section("Needs your answer")).getByRole("link");
+    expect(card).toHaveTextContent("Mom asked");
+    expect(card).toHaveAccessibleName("Says it's from USPS. Mom asked.");
+    expect(stat("Needs an answer")).toBe("1");
+  });
+
   it("says \"Being held…\" until Gmail confirms the email really moved", () => {
     const feed = fakeBackend.state.queries["feed:myFeed"] as typeof import("@/shared/feedApi").SAMPLE_FEED;
     const chase = feed.find((e) => e._id === "mock_feed_chase")!;

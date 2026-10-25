@@ -100,6 +100,7 @@ export const familyForPoll = internalQuery({
       historyId: v.optional(v.string()),
       googleEmail: v.optional(v.string()),
       noteLabelId: v.optional(v.string()),
+      checkLabelId: v.optional(v.string()),
     }),
   ),
   handler: async (ctx, { familyId }) => {
@@ -116,6 +117,7 @@ export const familyForPoll = internalQuery({
       historyId: tokens?.historyId,
       googleEmail: tokens?.googleEmail,
       noteLabelId: tokens?.noteLabelId,
+      checkLabelId: tokens?.checkLabelId,
     };
   },
 });
@@ -336,6 +338,7 @@ export const saveVerdict = internalMutation({
     checks: v.array(checkResult),
     explanationForParent: v.string(),
     explanationForKid: v.string(),
+    asked: v.optional(v.boolean()), // the parent put it in "Check with [kid]" herself
   },
   returns: v.union(v.null(), v.id("verdicts")),
   handler: async (ctx, a) => {
@@ -348,9 +351,29 @@ export const saveVerdict = internalMutation({
       .query("verdicts")
       .withIndex("by_family_gmail_id", (q) => q.eq("familyId", a.familyId).eq("gmailMessageId", a.gmailMessageId))
       .first();
-    if (dupe) return null;
+    if (dupe) {
+      // Mom asked about mail we had already found real: now (and only now, because she asked)
+      // the kid sees who sent it and what we checked.
+      if (!a.asked || dupe.askedAt !== undefined || dupe.action !== "none") return null;
+      const level = atLeast(dupe.level, a.level);
+      await ctx.db.patch(dupe._id, {
+        level,
+        fromName: Array.from(a.fromName).slice(0, 120).join(""),
+        fromAddress: Array.from(a.fromAddress).slice(0, 254).join(""),
+        subject: Array.from(a.subject).slice(0, 200).join(""),
+        ...(a.claimedOrg !== undefined && { claimedOrg: a.claimedOrg }),
+        checks: a.checks,
+        explanationForParent: a.explanationForParent,
+        explanationForKid: a.explanationForKid,
+        askedAt: Date.now(),
+        ...(level === "fake" && { action: "held" as const }),
+      });
+      await ctx.db.insert("feedItems", { familyId: a.familyId, verdictId: dupe._id, kind: "asked", createdAt: Date.now() });
+      if (level === "fake") await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId: dupe._id });
+      return dupe._id;
+    }
 
-    if (a.level === "real") {
+    if (a.level === "real" && !a.asked) {
       // Real mail stays private to the parent: keep only what the checks and counts need.
       await ctx.db.insert("verdicts", {
         familyId: a.familyId,
@@ -377,16 +400,20 @@ export const saveVerdict = internalMutation({
       checks: a.checks,
       explanationForParent: a.explanationForParent,
       explanationForKid: a.explanationForKid,
-      action: a.level === "fake" ? "held" : "labeled_check", // A6 carries this out in Gmail
+      // A6 carries this out in Gmail. Mom's own "Check with" label is already on an asked email.
+      action: a.level === "fake" ? "held" : a.asked ? "none" : "labeled_check",
+      ...(a.asked && { askedAt: Date.now() }),
     });
     await ctx.db.insert("feedItems", {
       familyId: a.familyId,
       verdictId,
-      kind: a.level === "fake" ? "held" : "needs_answer",
+      kind: a.asked ? "asked" : a.level === "fake" ? "held" : "needs_answer",
       createdAt: Date.now(),
     });
     // A6: label or hold it in Gmail and tell the parent (no-op unless ANCHOR_GMAIL_ACTIONS is on).
-    await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId });
+    if (a.level !== "real" && !(a.asked && a.level === "unsure")) {
+      await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId });
+    }
     return verdictId;
   },
 });
@@ -464,7 +491,14 @@ async function saveUnchecked(ctx: ActionCtx, familyId: Id<"families">, family: F
   });
 }
 
-async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: FamilyInfo, accessToken: string, id: string) {
+async function checkOne(
+  ctx: ActionCtx,
+  familyId: Id<"families">,
+  family: FamilyInfo,
+  accessToken: string,
+  id: string,
+  opts: { asked?: boolean } = {},
+) {
   // Size first: never download a huge email into memory.
   const head = await gmail<{ sizeEstimate?: number; labelIds?: string[] }>(accessToken, `/messages/${encodeURIComponent(id)}`, {
     format: "minimal",
@@ -578,9 +612,16 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
   const overCap =
     floor !== "real" &&
     (await ctx.runQuery(internal.mailWatch.recentFlagged, { familyId, since: Date.now() - 3600_000 })) >= CLAUDE_PER_HOUR;
+  const asked = opts.asked === true;
   const explained =
     floor === "real"
-      ? null
+      ? asked
+        ? {
+            level: "real" as const,
+            explanationForParent: "",
+            explanationForKid: `${family.parentName} asked you about this email. Our quick checks didn't find anything wrong with it.`,
+          }
+        : null
       : await explain(
           {
             ruleLevel: floor,
@@ -607,10 +648,14 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
     ...(base.claimedOrg !== undefined && { claimedOrg: base.claimedOrg }),
     checks,
     explanationForParent: explained?.explanationForParent ?? "",
-    explanationForKid: explained?.explanationForKid ?? "",
+    explanationForKid: asked && explained?.level !== "real" && explained
+      ? `${family.parentName} asked you about this email. ${explained.explanationForKid}`
+      : (explained?.explanationForKid ?? ""),
+    ...(asked && { asked: true }),
   });
 
-  // A7: every suspicious email gets the AI investigator (facts only; never the body).
+  // A7: every suspicious email, and every email Mom asks about, gets the AI investigator
+  // (facts only; never the body).
   if (verdictId && explained) {
     const brand = base.claimedOrg ? BRANDS.find((b) => b.name === base.claimedOrg) : undefined;
     await ctx.scheduler.runAfter(0, internal.investigations.investigate, {
@@ -637,6 +682,49 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
         })),
       },
     });
+  }
+}
+
+// ---------- Mom asks the kid ----------
+// The parent can ask about any email herself: she moves it to the "⚠ Check with [kid]" label
+// (the one Anchor uses for emails it isn't sure about). Each poll looks at that label; an email
+// there that Anchor didn't label gets the full check and investigation, and goes to the kid's
+// feed as "asked". The kid's answer comes back to her in their own words, like any other.
+
+const MAX_ASKED_PER_POLL = 3;
+
+/** Of these emails under the "Check with" label, the ones Mom put there and nobody has handled. */
+export const newlyAsked = internalQuery({
+  args: { familyId: v.id("families"), ids: v.array(v.string()) },
+  returns: v.array(v.string()),
+  handler: async (ctx, { familyId, ids }) => {
+    const out: string[] = [];
+    for (const id of ids.slice(0, 20)) {
+      const verdict = await ctx.db
+        .query("verdicts")
+        .withIndex("by_family_gmail_id", (q) => q.eq("familyId", familyId).eq("gmailMessageId", id))
+        .first();
+      // Anchor labeled it, it's held or answered, or she already asked: nothing new.
+      if (verdict && (verdict.askedAt !== undefined || verdict.action !== "none")) continue;
+      out.push(id);
+    }
+    return out;
+  },
+});
+
+async function checkAsked(ctx: ActionCtx, familyId: Id<"families">, family: FamilyInfo, accessToken: string, checkLabelId: string) {
+  try {
+    const listed = await gmail<{ messages?: { id: string }[] }>(accessToken, "/messages", {
+      labelIds: checkLabelId,
+      maxResults: "10",
+    });
+    const ids = (listed.messages ?? []).map((m) => m.id);
+    if (ids.length === 0) return;
+    const fresh = await ctx.runQuery(internal.mailWatch.newlyAsked, { familyId, ids });
+    for (const id of fresh.slice(0, MAX_ASKED_PER_POLL)) await checkOne(ctx, familyId, family, accessToken, id, { asked: true });
+  } catch (e) {
+    // Never let an ask break the regular check; it's tried again next minute.
+    console.error(`mailWatch.checkAsked failed: ${e instanceof Error ? e.message : "unknown"}`);
   }
 }
 
@@ -717,6 +805,7 @@ export const pollFamily = internalAction({
         await ctx.runMutation(internal.mailWatch.saveHistoryId, { familyId, historyId: found.historyId });
       }
       checked = done;
+      if (done && family.checkLabelId) await checkAsked(ctx, familyId, family, access.accessToken, family.checkLabelId);
       return null;
     } finally {
       await ctx.runMutation(internal.mailWatch.releasePoll, { familyId, ...(checked && { checkedAt: Date.now() }) });

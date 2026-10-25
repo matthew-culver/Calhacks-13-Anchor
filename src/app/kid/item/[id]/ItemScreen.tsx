@@ -46,6 +46,7 @@ function Item({ id, parentName, demo }: { id: string; parentName: string; demo: 
   const who = claimedSender(verdict);
   const fake = verdict.level === "fake";
   const held = verdict.action === "held";
+  const asked = entry.kind === "asked";
   return (
     <Screen
       focusTitle
@@ -58,6 +59,15 @@ function Item({ id, parentName, demo }: { id: string; parentName: string; demo: 
       }
     >
       {demo && <SampleDataNote />}
+      {asked && (
+        <p className="flex items-start gap-3 rounded-3xl bg-action-tint px-5 py-4 text-lg text-ink">
+          <Icon name="heart" className="mt-1 h-6 w-6 text-action" />
+          <span>
+            <strong>{`${parentName} asked you about this email.`}</strong>
+            {` It was moved to “Check with” in Gmail on purpose. Your answer goes back to ${parentName} in your own words.`}
+          </span>
+        </p>
+      )}
       <Card compact>
         <div className="flex flex-col gap-2 [overflow-wrap:anywhere]">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

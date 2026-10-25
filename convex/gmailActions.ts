@@ -368,7 +368,12 @@ export const applyAnswer = internalAction({
             return;
           }
           const kid = c.family.kidName;
-          const what = c.verdict.claimedOrg ? `the message that said it was from ${c.verdict.claimedOrg}` : "the message we asked about";
+          const what =
+            c.verdict.askedAt !== undefined
+              ? "the message you asked about"
+              : c.verdict.claimedOrg
+                ? `the message that said it was from ${c.verdict.claimedOrg}`
+                : "the message we asked about";
           const lines = [
             answer.answer === "fine"
               ? `${kid} looked at ${what} and says it's fine. It's back in your inbox.`
@@ -494,6 +499,7 @@ export const sendWeeklyNote = internalAction({
     ];
     if (stats.kidLooked > 0) lines.push(`${kid} looked at ${plural(stats.kidLooked, "message", "messages")} for you.`);
     if (stats.lesson) lines.push(`One thing to remember: ${stats.lesson}`);
+    lines.push(`Not sure about an email? Move it to the "⚠ Check with ${kid}" folder, and ${kid} will look at it for you.`);
     if (stats.held > 0) lines.push(`If you ever want to see them, they're in the "Anchor: Held" folder.`);
     const week = Math.floor(now / WEEK_MS);
     try {

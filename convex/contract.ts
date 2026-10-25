@@ -166,6 +166,7 @@ export const verdict = v.object({
     v.literal("released"), // held or unsure, then the kid said "It's fine": back in the inbox
   ),
   actionAppliedAt: v.optional(v.number()), // A6: the label/hold was applied in Gmail
+  askedAt: v.optional(v.number()), // the parent asked the kid about it (moved it to "Check with [kid]")
   parentNoteSentAt: v.optional(v.number()), // so retries never send the parent note twice
 });
 
@@ -226,7 +227,8 @@ export const feedItem = v.object({
   verdictId: v.id("verdicts"),
   // "needs_answer": unsure, so the kid's phone buzzes. "held": fake, informational, but the kid
   // may still answer, for example "It's fine" to release a real email that was held by mistake.
-  kind: v.union(v.literal("needs_answer"), v.literal("held")),
+  // "asked": the parent put it in "Check with [kid]" herself, asking the kid about it.
+  kind: v.union(v.literal("needs_answer"), v.literal("held"), v.literal("asked")),
   createdAt: v.number(),
   notifiedKidAt: v.optional(v.number()), // the phone buzzes once
   kidAnswer: v.optional(kidAnswer), // set once the kid taps "It's fine" or "It's a scam"
