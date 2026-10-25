@@ -12,7 +12,7 @@ import KidFeed from "./kid/page";
 import KidAccounts from "./kid/accounts/page";
 import { InviteScreen } from "./invite/[token]/InviteScreen";
 import { ParentScreen } from "./p/[token]/ParentScreen";
-import { ConnectProblemScreen } from "./connect-problem/ConnectProblemScreen";
+import { ConnectProblemScreen, PROBLEM_REASONS } from "./connect-problem/ConnectProblemScreen";
 
 vi.mock("convex/react", async () => (await import("@/test/fakeBackend")).convexReact);
 vi.mock("@convex-dev/auth/react", async () => (await import("@/test/fakeBackend")).authReact);
@@ -21,6 +21,7 @@ vi.mock("@convex-dev/auth/react", async () => (await import("@/test/fakeBackend"
 const BANNED = /\b(safe|phishing|domain|dkim|spf|dmarc)\b/i;
 
 beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_CONVEX_SITE_URL", "https://x.convex.site");
   fakeBackend.reset();
   fakeBackend.setQuery("families:getInvite", {
     parentName: "Mom",
@@ -31,17 +32,6 @@ beforeEach(() => {
   });
 });
 
-const problemReasons = [
-  "invite_invalid",
-  "invite_expired",
-  "cancelled",
-  "session",
-  "wrong_account",
-  "missing_permission",
-  "already_protected",
-  "google_error",
-];
-
 const screens: [string, () => ReactElement][] = [
   ["/", () => <Home />],
   ["/start", () => <Start />],
@@ -50,7 +40,7 @@ const screens: [string, () => ReactElement][] = [
   ["/invite/[token]", () => <InviteScreen token="tok123" />],
   ["/p/[token]", () => <ParentScreen token="tok123" />],
   ["/p/[token]?connected=1", () => <ParentScreen token="tok123" justConnected />],
-  ...problemReasons.map((r): [string, () => ReactElement] => [
+  ...PROBLEM_REASONS.map((r): [string, () => ReactElement] => [
     `/connect-problem?reason=${r}`,
     () => <ConnectProblemScreen reason={r} />,
   ]),

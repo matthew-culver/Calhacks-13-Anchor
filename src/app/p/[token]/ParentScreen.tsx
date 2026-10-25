@@ -11,8 +11,10 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
     return (
       <Screen title="You're done">
         <p className="text-xl">You don&apos;t need to do anything else.</p>
+        {/* No names until B4 looks up the real family: a mock name here would be a stranger's. */}
         <p className="text-lg text-muted">
-          {`We'll quietly set aside scam emails, and ${family?.kidName ?? "your family"} hears about anything we're not sure of.`}
+          We&apos;ll quietly set aside scam emails, and your family hears about anything
+          we&apos;re not sure of.
         </p>
       </Screen>
     );

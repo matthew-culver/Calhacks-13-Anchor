@@ -2,6 +2,7 @@
 
 import { Screen } from "@/components/ui";
 import { useRememberedKidName } from "@/shared/kidName";
+import type { ConnectProblem } from "../../../convex/lib/oauth";
 
 // Where Person A's /gmail/callback sends the parent when connecting didn't work.
 // One plain sentence and one next step per reason (wording from TASKS.md B2).
@@ -9,7 +10,8 @@ import { useRememberedKidName } from "@/shared/kidName";
 
 type Words = { title: string; body: (kid: string) => string };
 
-const WORDS: Record<string, Words> = {
+// Keyed by Person A's ConnectProblem, so a new reason doesn't compile until it has words.
+const WORDS: Record<ConnectProblem, Words> = {
   invite_invalid: {
     title: "This link was already used",
     body: (kid) => `Ask ${kid} for a new one.`,
@@ -44,9 +46,14 @@ const WORDS: Record<string, Words> = {
   },
 };
 
+export const PROBLEM_REASONS = Object.keys(WORDS) as ConnectProblem[];
+
+const isProblem = (reason: string | undefined): reason is ConnectProblem =>
+  reason !== undefined && Object.hasOwn(WORDS, reason);
+
 export function ConnectProblemScreen({ reason }: { reason: string | undefined }) {
   const kidName = useRememberedKidName();
-  const words = (reason && Object.hasOwn(WORDS, reason) ? WORDS[reason] : undefined) ?? WORDS.google_error;
+  const words = WORDS[isProblem(reason) ? reason : "google_error"];
   return (
     <Screen title={words.title}>
       <p className="text-xl">{words.body(kidName ?? "the person who sent you the link")}</p>

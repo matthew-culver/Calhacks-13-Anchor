@@ -16,44 +16,87 @@ const invite = {
   inviteExpiresAt: Date.now() + DAY,
 };
 
+const form = () => screen.getByRole("button", { name: /protect my email|opening google/i }).closest("form")!;
+
 beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_CONVEX_SITE_URL", "https://x.convex.site/");
   fakeBackend.reset();
   fakeBackend.setQuery("families:getInvite", invite);
 });
 
-afterEach(() => sessionStorage.clear());
+afterEach(() => {
+  sessionStorage.clear();
+  vi.restoreAllMocks();
+});
 
 describe("parent invite page", () => {
-  it("says exactly who is asking, with their email", () => {
+  it("says exactly who is asking, with their email, in two short lines", () => {
     render(<InviteScreen token="tok123" />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Hi Mom");
-    const main = screen.getByRole("main");
-    expect(main).toHaveTextContent("Lucas (lucas@example.com) wants to help keep scam emails away from you.");
-    expect(main).toHaveTextContent("Only continue if Lucas asked you.");
+    expect(screen.getByText(/wants to help keep scam emails away from you\.$/)).toHaveTextContent(
+      "Lucas (lucas@example.com) wants to help keep scam emails away from you.",
+    );
+    expect(screen.getByText("Only tap the button if Lucas asked you.")).toBeInTheDocument();
   });
 
-  it("posts the invite in a form body, never in the URL", () => {
+  it("tells the parent the real name of Google's button", () => {
     render(<InviteScreen token="tok123" />);
-    const button = screen.getByRole("button", { name: "Protect my email" });
-    const form = button.closest("form")!;
-    expect(form).toHaveAttribute("method", "POST");
-    expect(form.getAttribute("action")).toMatch(/\/gmail\/start$/);
-    expect(form.getAttribute("action")).not.toContain("tok123");
-    expect(form.querySelector('input[type="hidden"][name="invite"]')).toHaveValue("tok123");
-    expect(button).toHaveAttribute("type", "submit");
+    expect(screen.getByText(/Tap Continue\./)).toBeInTheDocument();
+  });
+
+  it("posts the invite in a form body to the Convex site, never in the URL", () => {
+    render(<InviteScreen token="tok123" />);
+    expect(form()).toHaveAttribute("method", "POST");
+    expect(form()).toHaveAttribute("action", "https://x.convex.site/gmail/start");
+    expect(form().querySelector('input[type="hidden"][name="invite"]')).toHaveValue("tok123");
+    expect(screen.getByRole("button", { name: "Protect my email" })).toHaveAttribute("type", "submit");
+  });
+
+  it("shows it's working after the tap, and ignores a second tap", () => {
+    render(<InviteScreen token="tok123" />);
+    // jsdom doesn't navigate on submit; the handler still runs.
+    fireEvent.submit(form());
+    expect(screen.getByRole("button", { name: "Opening Google..." })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Taking you to Google");
+
+    const second = fireEvent.submit(form());
+    expect(second).toBe(false); // default prevented
+  });
+
+  it("turns the button back on when the parent comes back with Back", () => {
+    render(<InviteScreen token="tok123" />);
+    fireEvent.submit(form());
+    const back = new Event("pageshow") as PageTransitionEvent;
+    Object.defineProperty(back, "persisted", { value: true });
+    fireEvent(window, back);
+    expect(screen.getByRole("button", { name: "Protect my email" })).toBeEnabled();
   });
 
   it("remembers the kid's name for the problem page when the parent taps", () => {
     render(<InviteScreen token="tok123" />);
-    // jsdom doesn't navigate on submit; the handler still runs.
-    fireEvent.submit(screen.getByRole("button", { name: "Protect my email" }).closest("form")!);
+    fireEvent.submit(form());
     expect(sessionStorage.getItem("anchor.kidName")).toBe("Lucas");
+  });
+
+  it("still works when the browser blocks storage", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    render(<InviteScreen token="tok123" />);
+    expect(() => fireEvent.submit(form())).not.toThrow();
+    expect(screen.getByRole("button", { name: "Opening Google..." })).toBeInTheDocument();
   });
 
   it("leaves out the email when the kid has none on file", () => {
     fakeBackend.setQuery("families:getInvite", { ...invite, kidEmail: null });
     render(<InviteScreen token="tok123" />);
-    expect(screen.getByRole("main")).toHaveTextContent(/^Hi MomLucas wants to help/);
+    expect(screen.getByText(/wants to help/)).toHaveTextContent(/^Lucas wants to help/);
+  });
+
+  it("leaves expiry to the server, so a phone with a fast clock can't turn away a good link", () => {
+    fakeBackend.setQuery("families:getInvite", { ...invite, inviteExpiresAt: Date.now() - DAY });
+    render(<InviteScreen token="tok123" />);
+    expect(screen.getByRole("button", { name: "Protect my email" })).toBeInTheDocument();
   });
 
   it("explains a used or unknown link calmly, with nothing to tap", () => {
@@ -61,14 +104,6 @@ describe("parent invite page", () => {
     render(<InviteScreen token="tok123" />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("This link was already used");
     expect(screen.getByRole("main")).toHaveTextContent("Ask the person who sent it to you for a new one.");
-    expect(screen.queryByRole("button")).toBeNull();
-  });
-
-  it("tells the parent to ask the kid for a new link when it's too old", () => {
-    fakeBackend.setQuery("families:getInvite", { ...invite, inviteExpiresAt: Date.now() - DAY });
-    render(<InviteScreen token="tok123" />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("This link is too old");
-    expect(screen.getByRole("main")).toHaveTextContent("Ask Lucas to send you a new one.");
     expect(screen.queryByRole("button")).toBeNull();
   });
 });

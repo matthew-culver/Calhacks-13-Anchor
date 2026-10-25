@@ -1,10 +1,21 @@
 // B2: where the parent lands when connecting Gmail didn't work.
 
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConnectProblemScreen } from "./ConnectProblemScreen";
 
-afterEach(() => sessionStorage.clear());
+afterEach(() => {
+  sessionStorage.clear();
+  vi.restoreAllMocks();
+});
+
+it("falls back to plain words when the browser blocks storage", () => {
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new Error("blocked");
+  });
+  render(<ConnectProblemScreen reason="invite_expired" />);
+  expect(screen.getByRole("main")).toHaveTextContent("Ask the person who sent you the link to send you a new one.");
+});
 
 describe("connect problem page", () => {
   it("uses the kid's name remembered from the invite page", () => {
