@@ -58,7 +58,8 @@ function normalizeHref(raw: string): string {
 }
 
 /** Full web addresses tucked inside a link, as redirect wrappers do: "?url=https://...". */
-function innerUrls(href: string): string[] {
+/** URLs wrapped inside a redirect link (google.com/url?q=..., urldefense, l.php?u=...). */
+export function innerUrls(href: string): string[] {
   const found: string[] = [];
   const query = href.indexOf("?");
   if (query !== -1) {

@@ -102,6 +102,8 @@ export const deleteFamilyData = internalMutation({
     await sweep(await ctx.db.query("pollFailures").withIndex("by_family_message", (q) => q.eq("familyId", familyId)).take(BATCH));
     await sweep(await ctx.db.query("anchorNotes").withIndex("by_family_message", (q) => q.eq("familyId", familyId)).take(BATCH));
     await sweep(await ctx.db.query("oauthStates").withIndex("by_family", (q) => q.eq("familyId", familyId)).take(BATCH));
+    await sweep(await ctx.db.query("investigations").withIndex("by_family", (q) => q.eq("familyId", familyId)).take(BATCH));
+    await sweep(await ctx.db.query("trustedSenders").withIndex("by_family_address", (q) => q.eq("familyId", familyId)).take(BATCH));
     if (!keepToken) {
       await sweep(await ctx.db.query("gmailTokens").withIndex("by_family", (q) => q.eq("familyId", familyId)).take(BATCH));
     }
