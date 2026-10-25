@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { ParentAccountList } from "@/components/AccountList";
 import { SampleDataNote } from "@/components/KidGate";
+import { ParentQuestions } from "@/components/ParentQuestions";
 import { ParentRecapCard } from "@/components/RecapCard";
 import { useClientNow } from "@/components/TimeAgo";
 import { Icon } from "@/components/icons";
@@ -35,6 +36,8 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
     demo || justConnected || now === null ? "skip" : { parentToken: token, now: Math.floor(now / MIN) * MIN },
   );
   const sample = useSampleImport(demo);
+  // The emails the parent asked their kid about, and the answers.
+  const liveFeed = useQuery(api.feed.parentFeed, demo || justConnected ? "skip" : { parentToken: token });
 
   const view = demo ? SAMPLE_VIEW : liveView;
   const accounts = demo ? sample.accounts : liveAccounts;
@@ -137,6 +140,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
       </p>
       {status === "active" && <Watching whose="your" lastCheckedAt={demo ? undefined : liveView?.lastCheckedAt} />}
       {recap && <ParentRecapCard recap={recap} kidName={kidName} />}
+      {liveFeed && <ParentQuestions entries={liveFeed} kidName={kidName} />}
       {/* The loop goes both ways: the parent can ask about any email, from inside Gmail. */}
       <section className="rounded-3xl border border-line bg-action-tint p-6 shadow-card sm:p-7">
         <h2 className="flex items-center gap-3 text-2xl font-bold">
