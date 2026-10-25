@@ -795,8 +795,9 @@ async function checkAsked(ctx: ActionCtx, familyId: Id<"families">, family: Fami
       }
     }
   } catch (e) {
-    // Never let an ask break the regular check; it's tried again next minute.
-    console.error(`mailWatch.checkAsked failed: ${e instanceof Error ? e.message : "unknown"}`);
+    // Never let an ask break the regular check; it's tried again next minute (Gmail being busy
+    // is normal, e.g. during a history import, so only real failures are logged).
+    if (!isTransient(e)) console.error(`mailWatch.checkAsked failed: ${e instanceof Error ? e.message : "unknown"}`);
   }
 }
 
