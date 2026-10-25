@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { InviteScreen } from "./InviteScreen";
+
+export const metadata: Metadata = { title: "Protect your email" };
 
 type Params = PageProps<"/invite/[token]">["params"];
 

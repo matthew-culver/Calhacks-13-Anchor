@@ -3,7 +3,9 @@ import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Anchor",
+  // Each page names itself ("Protect your email · Anchor"), so a screen reader or a browser
+  // tab says where you are (WCAG 2.4.2).
+  title: { default: "Anchor", template: "%s · Anchor" },
   description: "Keeps scam emails away from your parents, and keeps you in the loop.",
   // Invite and parent links carry secret tokens: never send them in the Referer
   // header, and keep every page out of search results.
