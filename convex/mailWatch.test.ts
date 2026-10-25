@@ -73,6 +73,9 @@ type Opts = {
   recent?: string[]; // ids for the catch-up messages.list
   asked?: string[]; // ids under the "Check with" label (the parent asking the kid)
   historyIds?: string[]; // which messages show up as new mail (default: all of them)
+  threadOf?: Record<string, string>; // conversation of an asked email (default: its own, "t-<id>")
+  threads?: Record<string, { id: string; labelIds?: string[]; internalDate?: string }[]>; // a conversation's emails
+  failThreads?: string[]; // conversations whose fetch fails (a broken ask)
   web?: (url: URL) => Response | undefined; // other sites: DNS, RDAP, link probes
 };
 
@@ -110,8 +113,15 @@ function fakeWorld(opts: Opts) {
       }
       if (url.pathname.endsWith("/profile")) return json({ historyId: "999" });
       if (url.pathname.endsWith("/messages")) {
-        const ids = url.searchParams.get("labelIds") ? (opts.asked ?? []) : (opts.recent ?? []);
-        return json({ messages: ids.map((id) => ({ id })) });
+        if (url.searchParams.get("labelIds")) {
+          return json({ messages: (opts.asked ?? []).map((id) => ({ id, threadId: opts.threadOf?.[id] ?? `t-${id}` })) });
+        }
+        return json({ messages: (opts.recent ?? []).map((id) => ({ id })) });
+      }
+      if (url.pathname.includes("/threads/")) {
+        const tid = decodeURIComponent(url.pathname.split("/").pop()!);
+        if (opts.failThreads?.includes(tid)) return json({ error: "broken" }, 400);
+        return json({ messages: opts.threads?.[tid] ?? [{ id: tid.replace(/^t-/, ""), labelIds: ["INBOX"], internalDate: "1" }] });
       }
       const id = url.pathname.split("/").pop()!;
       const raw = opts.messages[id];
@@ -657,6 +667,52 @@ describe("pollFamily", () => {
       const feed = await kid.query(api.feed.myFeed, {});
       expect(feed).toEqual([expect.objectContaining({ kind: "asked" })]);
       expect(feed[0].verdict!.explanationForKid).toContain("Mom asked you about this email. We couldn't check it");
+    });
+
+    test("Anchor's own label is never mistaken for Mom asking, even after old test emails are cleared", async () => {
+      const { t, kid, familyId } = await activeFamily();
+      await withCheckLabel(t);
+      fakeWorld({ messages: { u2: fixture("usps-unsure.eml") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId }); // unsure: Anchor labels it
+      expect((await kid.query(api.feed.myFeed, {})).map((f) => f.kind)).toEqual(["needs_answer"]);
+      await t.mutation(internal.demo.clearChecked, { familyId }); // "start at zero" before a demo
+      fakeWorld({ messages: { u2: fixture("usps-unsure.eml") }, asked: ["u2"], historyIds: [] }); // its label is still on it
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect(await kid.query(api.feed.myFeed, {})).toEqual([]);
+    });
+
+    test("a whole conversation she labels is one ask, about the newest email someone sent her", async () => {
+      const { t, kid, familyId } = await activeFamily({ kaiserHistory: true });
+      await withCheckLabel(t);
+      fakeWorld({
+        messages: { c1: newsletter, c2: newsletter, c3: newsletter },
+        asked: ["c3", "c2", "c1", "mine"], // Gmail puts the label on every email in the conversation
+        threadOf: { c1: "conv", c2: "conv", c3: "conv", mine: "conv" },
+        threads: {
+          conv: [
+            { id: "c1", labelIds: ["INBOX"], internalDate: "1" },
+            { id: "c2", labelIds: ["INBOX"], internalDate: "2" },
+            { id: "mine", labelIds: ["SENT"], internalDate: "4" }, // her own reply: not the question
+            { id: "c3", labelIds: ["INBOX"], internalDate: "3" },
+          ],
+        },
+        historyIds: [],
+      });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      await t.action(internal.mailWatch.pollFamily, { familyId }); // and it stays one
+      const feed = await kid.query(api.feed.myFeed, {});
+      expect(feed.map((f) => [f.kind, f.verdict?.gmailMessageId])).toEqual([["asked", "c3"]]);
+    });
+
+    test("an ask that keeps failing is given up after a few tries and doesn't block the others", async () => {
+      const { t, kid, familyId } = await activeFamily({ kaiserHistory: true });
+      await withCheckLabel(t);
+      fakeWorld({ messages: { ok1: newsletter }, asked: ["bad", "ok1"], failThreads: ["t-bad"], historyIds: [] });
+      for (let i = 0; i < 4; i++) await t.action(internal.mailWatch.pollFamily, { familyId });
+      const feed = await kid.query(api.feed.myFeed, {});
+      expect(feed.map((f) => f.verdict?.gmailMessageId)).toEqual(["ok1"]);
+      const failures = await t.run((ctx) => ctx.db.query("pollFailures").collect());
+      expect(failures.find((f) => f.gmailMessageId === "ask:t-bad")?.count).toBe(3); // then left alone
     });
 
     test("Anchor's own \"Check with\" label isn't mistaken for Mom asking", async () => {

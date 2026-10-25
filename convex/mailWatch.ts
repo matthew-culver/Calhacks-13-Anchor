@@ -410,6 +410,10 @@ export const saveVerdict = internalMutation({
       kind: a.asked ? "asked" : a.level === "fake" ? "held" : "needs_answer",
       createdAt: Date.now(),
     });
+    // Remember that this "Check with" label is Anchor's own, whatever happens to the verdict.
+    if (a.level === "unsure" && !a.asked) {
+      await ctx.db.insert("anchorLedger", { familyId: a.familyId, kind: "labeled", gmailId: a.gmailMessageId });
+    }
     // A6: label or hold it in Gmail and tell the parent (no-op unless ANCHOR_GMAIL_ACTIONS is on).
     if (a.level !== "real" && !(a.asked && a.level === "unsure")) {
       await ctx.scheduler.runAfter(0, internal.gmailActions.applyVerdict, { verdictId });
@@ -705,35 +709,87 @@ async function checkOne(
 
 const MAX_ASKED_PER_POLL = 3;
 
-/** Of these emails under the "Check with" label, the ones Mom put there and nobody has handled. */
-export const newlyAsked = internalQuery({
-  args: { familyId: v.id("families"), ids: v.array(v.string()) },
-  returns: v.array(v.string()),
-  handler: async (ctx, { familyId, ids }) => {
-    const out: string[] = [];
-    for (const id of ids.slice(0, 20)) {
+/**
+ * Of the conversations under the "Check with" label (one listed email each), the ones the parent
+ * put there that nobody has handled: not Anchor's own label, not already asked about, not held
+ * or answered, and not failing over and over.
+ */
+export const openAsks = internalQuery({
+  args: { familyId: v.id("families"), threads: v.array(v.object({ threadId: v.string(), id: v.string() })) },
+  returns: v.array(v.object({ threadId: v.string(), id: v.string() })),
+  handler: async (ctx, { familyId, threads }) => {
+    const ledger = (kind: "labeled" | "askedThread", gmailId: string) =>
+      ctx.db
+        .query("anchorLedger")
+        .withIndex("by_family_kind_id", (q) => q.eq("familyId", familyId).eq("kind", kind).eq("gmailId", gmailId))
+        .first();
+    const out: { threadId: string; id: string }[] = [];
+    for (const t of threads.slice(0, 50)) {
+      if ((await ledger("askedThread", t.threadId)) || (await ledger("labeled", t.id))) continue;
       const verdict = await ctx.db
         .query("verdicts")
-        .withIndex("by_family_gmail_id", (q) => q.eq("familyId", familyId).eq("gmailMessageId", id))
+        .withIndex("by_family_gmail_id", (q) => q.eq("familyId", familyId).eq("gmailMessageId", t.id))
         .first();
-      // Anchor labeled it, it's held or answered, or she already asked: nothing new.
       if (verdict && (verdict.askedAt !== undefined || verdict.action !== "none")) continue;
-      out.push(id);
+      const failures = await ctx.db
+        .query("pollFailures")
+        .withIndex("by_family_message", (q) => q.eq("familyId", familyId).eq("gmailMessageId", `ask:${t.threadId}`))
+        .unique();
+      if (failures && failures.count >= MAX_FAILURES) continue;
+      out.push(t);
     }
     return out;
   },
 });
 
+/** This conversation's ask is handled: never again, even if the label stays on it. */
+export const markAsked = internalMutation({
+  args: { familyId: v.id("families"), threadId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { familyId, threadId }) => {
+    const family = await ctx.db.get(familyId);
+    if (!family || family.status === "off") return null;
+    const known = await ctx.db
+      .query("anchorLedger")
+      .withIndex("by_family_kind_id", (q) => q.eq("familyId", familyId).eq("kind", "askedThread").eq("gmailId", threadId))
+      .first();
+    if (!known) await ctx.db.insert("anchorLedger", { familyId, kind: "askedThread", gmailId: threadId });
+    return null;
+  },
+});
+
 async function checkAsked(ctx: ActionCtx, familyId: Id<"families">, family: FamilyInfo, accessToken: string, checkLabelId: string) {
   try {
-    const listed = await gmail<{ messages?: { id: string }[] }>(accessToken, "/messages", {
+    const listed = await gmail<{ messages?: { id: string; threadId?: string }[] }>(accessToken, "/messages", {
       labelIds: checkLabelId,
-      maxResults: "10",
+      maxResults: "50",
     });
-    const ids = (listed.messages ?? []).map((m) => m.id);
-    if (ids.length === 0) return;
-    const fresh = await ctx.runQuery(internal.mailWatch.newlyAsked, { familyId, ids });
-    for (const id of fresh.slice(0, MAX_ASKED_PER_POLL)) await checkOne(ctx, familyId, family, accessToken, id, { asked: true });
+    // Gmail labels whole conversations: one ask per conversation, about its newest email.
+    const threads = new Map<string, string>();
+    for (const m of listed.messages ?? []) if (!threads.has(m.threadId ?? m.id)) threads.set(m.threadId ?? m.id, m.id);
+    if (threads.size === 0) return;
+    const open = await ctx.runQuery(internal.mailWatch.openAsks, {
+      familyId,
+      threads: [...threads].map(([threadId, id]) => ({ threadId, id })),
+    });
+    for (const { threadId } of open.slice(0, MAX_ASKED_PER_POLL)) {
+      try {
+        const thread = await gmail<{ messages?: { id: string; labelIds?: string[]; internalDate?: string }[] }>(
+          accessToken,
+          `/threads/${encodeURIComponent(threadId)}`,
+          { format: "minimal", fields: "messages(id,labelIds,internalDate)" },
+        );
+        // The newest email someone sent her: not her own replies or drafts.
+        const theirs = (thread.messages ?? []).filter((m) => !(m.labelIds ?? []).some((l) => l === "SENT" || l === "DRAFT"));
+        const newest = theirs.sort((a, b) => Number(b.internalDate ?? 0) - Number(a.internalDate ?? 0))[0];
+        if (newest) await checkOne(ctx, familyId, family, accessToken, newest.id, { asked: true });
+        await ctx.runMutation(internal.mailWatch.markAsked, { familyId, threadId });
+      } catch (e) {
+        if (isTransient(e)) return; // Gmail trouble: the next minute tries again
+        // This one keeps failing: count it (given up on after a few), and go on to the next.
+        await ctx.runMutation(internal.mailWatch.recordFailure, { familyId, gmailMessageId: `ask:${threadId}` });
+      }
+    }
   } catch (e) {
     // Never let an ask break the regular check; it's tried again next minute.
     console.error(`mailWatch.checkAsked failed: ${e instanceof Error ? e.message : "unknown"}`);

@@ -82,6 +82,15 @@ export default defineSchema({
     address: v.string(),
   }).index("by_family_name", ["familyId", "name"]),
 
+  // Emails Anchor itself labeled "Check with [kid]", and conversations the parent already asked
+  // about. Kept apart from verdicts, so clearing old test emails (demo.clearChecked) can never
+  // make Anchor's own label look like the parent asking.
+  anchorLedger: defineTable({
+    familyId: v.id("families"),
+    kind: v.union(v.literal("labeled"), v.literal("askedThread")),
+    gmailId: v.string(),
+  }).index("by_family_kind_id", ["familyId", "kind", "gmailId"]),
+
   anchorNotes: defineTable({
     familyId: v.id("families"),
     gmailMessageId: v.string(),
