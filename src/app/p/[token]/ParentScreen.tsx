@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { ParentAccountList } from "@/components/AccountList";
 import { SampleDataNote } from "@/components/KidGate";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { ParentQuestions } from "@/components/ParentQuestions";
 import { ParentRecapCard } from "@/components/RecapCard";
 import { useClientNow } from "@/components/TimeAgo";
@@ -106,7 +107,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
   }
 
   if (view === undefined || accounts === undefined) {
-    return <Screen focusTitle title="One moment..." />;
+    return <LoadingScreen />;
   }
 
   const { parentName, kidName, status } = view;

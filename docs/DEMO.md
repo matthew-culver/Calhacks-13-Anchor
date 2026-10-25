@@ -196,7 +196,7 @@ Paste the link as plain text so Gmail makes it a link. Don't add a signature wit
 | The kid's screen says reconnect | Google token expired: click the reconnect link and sign in as Mom (takes 20 s). |
 | Google or Gmail is down | Open `localhost:3000/kid?demo=1`: the whole kid side runs on sample data, no sign-in or Gmail needed (feed, a replayed live investigation, "Mom asked", accounts). Mom's side: `localhost:3000/p/sample?demo=1`. "Leave the demo" on the yellow banner turns it off. Or fill My Accounts from a sample inbox: `npx convex run gmailImport:importSample '{"familyId":"<familyId>"}'`. |
 | Wi-Fi is down | Phone hotspot. |
-| A page sits on "One moment..." after a Wi-Fi blip | It reconnects by itself within about a minute; reloading the page is faster. The backend keeps working the whole time. |
+| A page sits on "One moment..." after a Wi-Fi blip | It reconnects by itself within about a minute (after 8 seconds the page says "Still connecting"). Faster: open the same address in a new tab. The backend keeps working the whole time. |
 
 ## Questions judges may ask
 

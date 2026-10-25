@@ -7,6 +7,7 @@ import { useNewItemAlerts } from "@/components/Alerts";
 import { Icon } from "@/components/icons";
 import { InvestigationPanel, QuickChecks } from "@/components/InvestigationPanel";
 import { KidGate, SampleDataNote } from "@/components/KidGate";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { TimeAgo } from "@/components/TimeAgo";
 import { BigButton, Card, Pill, Screen } from "@/components/ui";
 import { MAX_NOTE, useAnswerFeedItem, useFeed, type FeedEntry } from "@/shared/feedApi";
@@ -34,7 +35,7 @@ function Item({ id, parentName, demo }: { id: string; parentName: string; demo: 
   // Set when the kid answers on this visit, so focus moves to the result (not on a later visit).
   const [justAnswered, setJustAnswered] = useState(false);
 
-  if (feed === undefined) return <Screen focusTitle title="One moment..." />;
+  if (feed === undefined) return <LoadingScreen />;
   const entry = feed.find((e) => e._id === id);
   if (!entry) {
     return (

@@ -3,6 +3,7 @@
 import { useConvexAuth, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import type { ReactNode } from "react";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { BigButton, Screen } from "@/components/ui";
 import { leaveDemo, useDemoMode } from "@/shared/demoMode";
 import { mockFamily } from "@/shared/mock";
@@ -37,7 +38,7 @@ export function KidGate({ children }: { children: (family: KidFamily, demo: bool
     );
   }
   if (family === undefined) {
-    return <Screen focusTitle title="One moment..." />;
+    return <LoadingScreen />;
   }
   if (family === null) {
     return (

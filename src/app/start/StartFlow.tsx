@@ -4,6 +4,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { useEffect, useState, type FormEvent } from "react";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { BigButton, Screen, TextField } from "@/components/ui";
 import { api } from "../../../convex/_generated/api";
 
@@ -21,7 +22,7 @@ export function StartFlow() {
     return <AccountStep onDone={setKidName} />;
   }
   if (family === undefined) {
-    return <Screen focusTitle title="One moment..." />;
+    return <LoadingScreen />;
   }
   if (family === null) {
     return <ParentStep kidName={kidName} />;

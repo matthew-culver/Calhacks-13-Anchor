@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icons";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { BigButton, Card, Screen } from "@/components/ui";
 import { convexSiteUrl } from "@/shared/convexSite";
 import { rememberKidName } from "@/shared/kidName";
@@ -27,7 +28,7 @@ export function InviteScreen({ token }: { token: string }) {
   }, []);
 
   if (invite === undefined) {
-    return <Screen focusTitle title="One moment..." />;
+    return <LoadingScreen />;
   }
   if (invite === null) {
     return (

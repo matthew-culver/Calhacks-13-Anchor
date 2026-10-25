@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { KidGate, SampleDataNote, type KidFamily } from "@/components/KidGate";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { KidRecapCard } from "@/components/RecapCard";
 import { AlertsButton, useNewItemAlerts } from "@/components/Alerts";
 import { Icon, Spinner } from "@/components/icons";
@@ -31,7 +32,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
   const { parentName } = family;
   useNewItemAlerts(feed, parentName);
 
-  if (feed === undefined) return <Screen focusTitle title="One moment..." />;
+  if (feed === undefined) return <LoadingScreen />;
 
   const newestFirst = [...feed].sort((a, b) => b.createdAt - a.createdAt);
   const waiting = newestFirst.filter((e) => (e.kind === "needs_answer" || e.kind === "asked") && !e.kidAnswer);
