@@ -23,7 +23,8 @@ Next.js + TypeScript, Convex (database, server functions, crons, auth), the Gmai
    npm run dev
    ```
    Then open http://localhost:3000.
-4. Server secrets live in Convex, not in the repo. One of you sets them once (see `.env.example` for the list):
+4. Kid sign-in (Convex Auth) needs `JWT_PRIVATE_KEY`, `JWKS` and `SITE_URL` set on the Convex deployment. They're already set on `calhacks-13-anchor`. A new deployment needs fresh keys, or every request is silently signed out.
+5. Server secrets live in Convex, not in the repo. One of you sets them once (see `.env.example` for the list):
    ```bash
    npx convex env set ANTHROPIC_API_KEY sk-ant-...
    ```
