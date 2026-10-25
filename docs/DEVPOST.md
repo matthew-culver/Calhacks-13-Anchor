@@ -93,6 +93,9 @@ automated tests in all. Full table: `docs/ACCURACY.md`.
 - **What we chose not to build:** password storage, reading or relaying login codes, sending
   email as the parent. Those are exactly what scammers want an AI to do.
 
+The full list, each risk with its guard in code and the test that proves it, is in
+`docs/SECURITY.md`.
+
 ## Challenges
 
 - Not flagging family. One of us emails our dad all the time asking him to pay a bill, and an

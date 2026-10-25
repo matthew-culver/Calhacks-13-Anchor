@@ -38,7 +38,8 @@ Safety rules are enforced in code, not just asked for in a prompt: the AI can ne
 deterministic red flag; email text is marked untrusted; once it has read an email's text it can
 only raise; its sources must come from its own tool results; clearing an email needs our own
 data (the company's real, authenticated address on our curated list); the parent never sees
-model text. Held scam emails never count toward "someone the parent knows".
+model text. Held scam emails never count toward "someone the parent knows". Every risk we know
+of, with its guard in code and the test that proves it: [docs/SECURITY.md](docs/SECURITY.md).
 
 **Privacy:** email bodies are never stored. For a flagged email (or one the parent asks about)
 the sender and subject are kept so the kid can see what was caught; for everything else, only
