@@ -27,5 +27,8 @@ npm-debug.log*
 .DS_Store
 *.pem
 
+# Personal Claude Code settings
+.claude/settings.local.json
+
 # Real family emails used as test fixtures
 convex/checks/fixtures/private/

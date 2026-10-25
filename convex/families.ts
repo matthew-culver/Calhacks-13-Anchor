@@ -4,7 +4,7 @@
 // only names and status to whoever holds the link.
 
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { ConvexError, v } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { familyStatus } from "./contract";
@@ -100,7 +100,9 @@ export const getMyFamily = query({
   },
 });
 
-function toMyFamily(family: Doc<"families">) {
+// Annotated so clients see the invite fields: without it, TypeScript folds the two return
+// shapes into the one without them.
+function toMyFamily(family: Doc<"families">): Infer<typeof myFamily> {
   const base = {
     _id: family._id,
     parentName: family.parentName,

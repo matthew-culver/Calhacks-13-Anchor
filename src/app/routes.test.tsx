@@ -3,7 +3,7 @@
 
 import { render, screen, within } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mockAccounts, mockRecap } from "@/shared/mock";
 import Home from "./page";
 import Start from "./start/page";
@@ -11,6 +11,9 @@ import KidFeed from "./kid/page";
 import KidAccounts from "./kid/accounts/page";
 import { InviteScreen } from "./invite/[token]/InviteScreen";
 import { ParentScreen } from "./p/[token]/ParentScreen";
+
+vi.mock("convex/react", async () => (await import("@/test/fakeBackend")).convexReact);
+vi.mock("@convex-dev/auth/react", async () => (await import("@/test/fakeBackend")).authReact);
 
 // From CLAUDE.md: plain words only, and never say "safe".
 const BANNED = /\b(safe|phishing|domain|dkim|spf|dmarc)\b/i;
