@@ -46,13 +46,13 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
 
 ## Person B: the experience (`src/`)
 
-- [ ] **B0. App shell.** Add the Convex provider in `layout.tsx`. Create the routes: `/` (landing), `/start` (kid sign-up), `/kid` (feed), `/kid/accounts`, `/invite/[token]` (the parent's one tap), `/p/[token]` (the parent page). Add design tokens: big text, high contrast, one action per screen.
-- [ ] **B1. Kid onboarding:** sign up, then "Who are we protecting?" (name and email), then a share-the-link screen with copy and text buttons. A2's functions are live:
+- [x] **B0. App shell.** Add the Convex provider in `layout.tsx`. Create the routes: `/` (landing), `/start` (kid sign-up), `/kid` (feed), `/kid/accounts`, `/invite/[token]` (the parent's one tap), `/p/[token]` (the parent page). Add design tokens: big text, high contrast, one action per screen.
+- [x] **B1. Kid onboarding:** sign up, then "Who are we protecting?" (name and email), then a share-the-link screen with copy and text buttons. A2's functions are live:
   - **Sign up and sign in:** `useAuthActions().signIn("password", formData)`, with a `flow` field of `"signUp"` or `"signIn"` plus `email` and `password` (8 or more characters).
   - **Setup:** `api.families.createFamily({ parentName, parentEmail, kidName })` returns `{ familyId, inviteToken }`. The invite link is `/invite/<inviteToken>`.
   - **Status:** `api.families.getMyFamily` returns `null` before setup. It includes `inviteToken` and `inviteExpiresAt` only while waiting for the parent. `api.families.renewInvite` makes a new link.
   - **Errors** are `ConvexError`s. Show `err instanceof ConvexError ? err.data : "Something went wrong"`.
-- [ ] **B2. Parent one-tap page** `/invite/[token]`: a short video spot, one big "Protect my email" button, then "You're done. You don't need to do anything else."
+- [x] **B2. Parent one-tap page** `/invite/[token]`: a short video spot, one big "Protect my email" button, then "You're done. You don't need to do anything else."
   - `api.families.getInvite({ token })` returns `{ parentName, kidName, kidEmail, status, inviteExpiresAt }`.
   - **Show who is asking:** "Lucas (lucas@…) wants to help keep scam emails away from you. Only continue if Lucas asked you." Anyone can sign up and claim to be a kid, so this line matters.
   - **Expired** means `inviteExpiresAt < Date.now()`. Compare in the page, don't pass time to the query.
@@ -78,17 +78,35 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
       | `already_protected` | "This Gmail is already protected by Anchor." |
       | `google_error` | "Google had a hiccup. Please try again in a minute." |
       Use the reason only for the wording. Don't put tokens or emails in this URL.
-- [ ] **B3. Kid feed** from `mockFeed` (backend live: in `src/shared/feedApi.ts`, swap `useFeed` to `useQuery(api.feed.myFeed)` and `useAnswerFeedItem` to `useMutation(api.feed.answer)`; both match `FeedEntry` and `Answer` exactly. `myFeed` is `[]` before the parent connects and after "off". `answer` errors are ConvexErrors: "You already answered this one.", "We couldn't find that message.", "Protection isn't on for your family right now."): needs-answer items first, held items below. A detail view shows the plain checks. Add "It's fine" and "It's a scam" buttons plus an optional note.
-- [ ] **B4. My Accounts:** (Showing an email as "held": `verdict.action` is the decision, `verdict.actionAppliedAt` means it really happened in Gmail. Before that, say "being held…".) a kid version and a parent big-text version (`/p/[token]`). No link when `loginUrl` is empty. A4 is live:
+- [x] **B3. Kid feed** from `mockFeed` (backend live: in `src/shared/feedApi.ts`, swap `useFeed` to `useQuery(api.feed.myFeed)` and `useAnswerFeedItem` to `useMutation(api.feed.answer)`; both match `FeedEntry` and `Answer` exactly. `myFeed` is `[]` before the parent connects and after "off". `answer` errors are ConvexErrors: "You already answered this one.", "We couldn't find that message.", "Protection isn't on for your family right now."): needs-answer items first, held items below. A detail view shows the plain checks. Add "It's fine" and "It's a scam" buttons plus an optional note.
+- [x] **B4. My Accounts:** (Showing an email as "held": `verdict.action` is the decision, `verdict.actionAppliedAt` means it really happened in Gmail. Before that, say "being held…".) a kid version and a parent big-text version (`/p/[token]`). No link when `loginUrl` is empty. A4 is live:
   - Kid: `useQuery(api.accounts.myAccounts)`. Parent: `useQuery(api.accounts.parentAccounts, { parentToken })`. Both return `{ _id, orgName, category, officialDomains, loginUrl?, firstSeen, messageCount }[]`, sorted by name.
   - While `getMyFamily().status === "learning"`, show "Learning who [parent] really deals with…". It takes under a minute.
   - Say "in your email for 2 years" rather than "customer since". It's mail seen, not proof of an account.
   - On the parent page, call `api.families.getParentView({ parentToken })` alongside it. It returns `{ parentName, kidName, status }`, or `null` for a bad link, so the page can tell `learning` ("Getting to know your email…") from `off` ("Protection is off") and from an empty list.
-- [ ] **B5. Weekly recap card** ("41 checked, 2 held, 0 need a call") and the parent's "Turn it off" button. Data for the recap: `api.feed.myWeeklyRecap({ now })` and `api.feed.parentWeeklyRecap({ parentToken, now })`. Round `now` to the minute so the query isn't re-run every render. The feed is `api.feed.myFeed` / `api.feed.parentFeed`. Turn-off is live: `useMutation(api.turnOff.turnOff)({ parentToken })`. Call it only from an explicit button click with a "Yes, turn it off" confirm step, never on page load or from a link, since email scanners open links. After it runs, `getParentView` shows `status: "off"`. Email scanners open links automatically and would switch it off. The parent page is view-only otherwise.
+- [x] **B5. Weekly recap card** ("41 checked, 2 held, 0 need a call") and the parent's "Turn it off" button. Data for the recap: `api.feed.myWeeklyRecap({ now })` and `api.feed.parentWeeklyRecap({ parentToken, now })`. Round `now` to the minute so the query isn't re-run every render. The feed is `api.feed.myFeed` / `api.feed.parentFeed`. Turn-off is live: `useMutation(api.turnOff.turnOff)({ parentToken })`. Call it only from an explicit button click with a "Yes, turn it off" confirm step, never on page load or from a link, since email scanners open links. After it runs, `getParentView` shows `status: "off"`. Email scanners open links automatically and would switch it off. The parent page is view-only otherwise.
 - [ ] **Checkpoint 1 (hour 6):** swap mocks for real Convex queries where A's functions exist.
-- [ ] **B6. Accessibility pass** (ECC `accessibility` skill) on the parent screens.
+- [x] **B6. Accessibility pass** (ECC `accessibility` skill) on the parent screens.
 - [ ] **B7. Story:** a 60-second setup video, the pitch deck and the Devpost write-up.
 - [ ] **Checkpoint 2 (hour 11): feature freeze.**
+
+## v2: the final 9 hours (see "v2 direction" in CLAUDE.md)
+
+### Person A
+- [ ] **A7. Investigator agent.** Claude (`claude-opus-5-5`) with web search/fetch + RDAP + Safe Browsing + history, run for every unsure email and for familiar senders acting unlike themselves (new link site that isn't an established site, document/sign-in lures, money or urgency, reply-to mismatch, known name on a new address). Writes `investigations` rows live (steps appended as it works). Safety rules from CLAUDE.md enforced in code. Queries: `api.investigations.forFeedItem({ feedItemId })` (kid) and the parent equivalent.
+- [ ] **A8. Accounts v2.** Score accounts by real-use signals + recency (fills `rank`, `signals`, `lastActivity`); show many (not just 4), most important first; direct sign-in URLs for the curated list; agent-found official sign-in pages for others (`orgDirectory` table, only if the login host is the org's own domain). Fast first pass (~20 s, account-signal Gmail search), saving in batches so the screen fills in live; deeper pass after. `accounts.myAccounts` / `parentAccounts` return sorted by `rank` desc.
+- [ ] **A9. Quiet mode.** No note per held email; one weekly digest note to Mom; the kid's own words still sent when they reply.
+- [ ] **Demo:** pre-connected demo account, scripted test emails (fake Chase, hacked-Aunt-Sue with a bad link, Aunt Sue with a YouTube link that stays real), runbook and backup plan.
+
+### Person B
+- [ ] **B8. Parent "front door" page.** Mom's accounts as big sign-in buttons, grouped (Money, Health, Bills, Shopping, Other), most important first (`rank` desc), animated as they appear and re-sort live during the import. No link when `loginUrl` is missing.
+- [ ] **B9. Live investigation view.** On the kid's item page: the agent's steps appearing live (`investigations.steps`), then the conclusion: sender finding, each link (safe / unknown / dangerous with reason), suggestion ("Maybe text Aunt Sue?"), sources.
+- [ ] **B10. Connect screen live.** After the parent connects, show accounts appearing and sorting in real time.
+- [ ] **B7. Story** (after the hour-6 freeze): 60-second video, pitch deck, Devpost.
+
+**Data shapes for B8–B10 are in `convex/contract.ts`** (`account` v2 fields, `investigation`). Build on sample data until A7/A8 land; the fields are optional so nothing breaks meanwhile.
+
+**Hour-6 checkpoint: feature freeze.** Full demo end to end on a real inbox, then only fixes, demo and story.
 
 ## Together
 - [ ] Decide who is Person A and who is Person B.

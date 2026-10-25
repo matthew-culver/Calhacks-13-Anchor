@@ -4,6 +4,23 @@ Working name: **Anchor** (not final). A personal trust layer that protects older
 
 **Team:** two twin brothers, whose parents are 73+ and live this every day. **Time:** 17 hours. **Target prizes:** Meta and Anthropic, plus People-First Social Impact as a natural fit.
 
+## v2 direction (final 9 hours): "Mom's safe front door to the internet"
+This section overrides anything below that conflicts with it. v1 (A0–A6, B0–B6) is built and live.
+Anchor is three things, each worth using on its own:
+
+1. **AI investigator for every suspicious email (A7).** What a careful person does by hand in ChatGPT, done automatically before Mom sees the email. A Claude agent with web search and fetch, plus RDAP, Safe Browsing and Mom's history, checks the two things that decide a scam:
+   - **Is each link safe to click?** Judged by the site itself, never by "Mom hasn't seen it before". Established, reputable sites (YouTube, Reddit, Wikipedia, major news) are safe. Sites anyone can publish on (Google Forms/Sites/Drive, Dropbox, OneDrive, Wix, GitHub Pages, Notion…) get the destination page inspected, because fake sign-in pages live there. Unknown, young or low-reputation domains get a full investigation: where the link really goes (tracking codes stripped first), what the page asks for, web reputation, age. Lookalikes, impersonation and listed sites are dangerous.
+   - **Is the sender really who they seem?** Authentication, claimed identity against official addresses (researched on the web for any company), freemail posing as a company, lookalikes, reply-to mismatch, and a known contact's NAME on a DIFFERENT address ("Aunt Sue" from a new Gmail).
+   - **Do link, messenger and message fit together?** "Aunt Sue + cute video + YouTube" is fine. "Aunt Sue + I'm stranded, buy gift cards + unknown site" is a scam. Hacked familiar accounts are a key case.
+   - The kid watches each step live; the conclusion names the sender finding and each link's finding.
+2. **A real portal map (A8).** Every account Mom actually uses, most important first: ranked by real-use signals in authenticated mail (sign-in alerts, security, password resets, codes, statements, bills, orders, appointments) and recency, then grouped by category. Each is a big button to that site's real sign-in page; the agent finds official sign-in pages for companies not in our list. The import saves accounts in batches as it finds them, so the screen fills in and re-sorts live (~20 s first pass, deeper pass in the background).
+3. **Quiet, warm family loop (A9).** No note per held scam: held mail just leaves the inbox (into "Anchor: Held", recoverable). One calm weekly note to Mom. The kid's own words still reach Mom when they reply.
+
+**Investigator safety rules (enforced in code):**
+- Brand emails: the agent sees only structured facts (sender, links, check results), not the email text. It may CLEAR (lower) an "unsure" brand email only by citing a page hosted on that company's official domain that confirms the sender. It can always raise.
+- Familiar senders: the agent may read the email text (marked untrusted) to judge "does this sound like them?", but whenever it has read email text it can only RAISE, never lower.
+- Never lower a deterministic "fake". Strip tracking parameters before visiting a link. Cap steps and cost per family.
+
 ## The problem
 - Targeted scam emails are now hard to tell from real ones. The FTC reported that adults 60+ lost about $3B to fraud in 2025, up from about $600M in 2020.
 - Seniors juggle many portals (bank, pharmacy, insurance, Medicare, utilities) and don't know which links are real.
@@ -25,7 +42,7 @@ If any step needs explaining, it's not done. This applies to setup, the screens,
    - **My Accounts:** the services they use (Kaiser, Wells Fargo, PG&E...) with the verified official login link for each. The kid sees it right away, and the parent gets a big-text version. This is the "wow" moment and replaces the "portal map" with no typing.
 4. **Watch new mail (automatic):** Each new email goes through the verification pipeline below.
 5. **Act inside Gmail:**
-   - **Looks fake:** It's moved to an "Anchor: Held" label, and a short note goes to the parent's inbox: "We held a message pretending to be Chase. You don't have a Chase account. Nothing to do."
+   - **Looks fake:** It's moved to an "Anchor: Held" label, quietly (v2: no per-email note; a weekly summary instead).
    - **Not sure:** The message gets a "⚠ Check with [kid's name]" label and the kid is alerted.
    - **Real:** Nothing changes.
 6. **Family loop (the Meta angle: bringing people closer):**

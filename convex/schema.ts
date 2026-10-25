@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { account, family, feedItem, relationship, verdict } from "./contract";
+import { account, family, feedItem, investigation, relationship, verdict } from "./contract";
 
 export default defineSchema({
   ...authTables,
@@ -40,6 +40,21 @@ export default defineSchema({
   })
     .index("by_state", ["state"])
     .index("by_family", ["familyId"]), // at most one live attempt per family
+
+  // A7: the AI investigator's live record for one suspicious email.
+  investigations: defineTable(investigation)
+    .index("by_verdict", ["verdictId"])
+    .index("by_family", ["familyId"]),
+
+  // A8: official sign-in pages found by the agent for companies not in the curated list,
+  // shared by all families (looked up once per company domain). Server-only.
+  orgDirectory: defineTable({
+    domain: v.string(), // registrable sending domain, e.g. "sunrisecenter.org"
+    orgName: v.string(),
+    category: v.string(),
+    loginUrl: v.optional(v.string()), // only if its host is on the org's own domain
+    checkedAt: v.number(),
+  }).index("by_domain", ["domain"]),
 
   // A5: emails that failed to check, so one bad email can't block the rest forever.
   pollFailures: defineTable({
