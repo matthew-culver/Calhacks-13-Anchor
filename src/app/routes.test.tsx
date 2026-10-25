@@ -4,7 +4,8 @@
 import { render, screen, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockAccounts, mockRecap } from "@/shared/mock";
+import { mockAccounts, mockFeed, mockRecap } from "@/shared/mock";
+import { resetMockFeed } from "@/shared/feedApi";
 import { fakeBackend } from "@/test/fakeBackend";
 import Home from "./page";
 import Start from "./start/page";
@@ -12,6 +13,7 @@ import KidFeed from "./kid/page";
 import KidAccounts from "./kid/accounts/page";
 import { InviteScreen } from "./invite/[token]/InviteScreen";
 import { ParentScreen } from "./p/[token]/ParentScreen";
+import { ItemScreen } from "./kid/item/[id]/ItemScreen";
 import { ConnectProblemScreen, PROBLEM_REASONS } from "./connect-problem/ConnectProblemScreen";
 
 vi.mock("convex/react", async () => (await import("@/test/fakeBackend")).convexReact);
@@ -23,6 +25,7 @@ const BANNED = /\b(safe|phishing|domain|dkim|spf|dmarc)\b/i;
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_CONVEX_SITE_URL", "https://x.convex.site");
   fakeBackend.reset();
+  resetMockFeed();
   fakeBackend.setQuery("families:getInvite", {
     parentName: "Mom",
     kidName: "Lucas",
@@ -48,6 +51,7 @@ const screens: [string, () => ReactElement][] = [
   ["/start", () => <Start />],
   ["/kid", () => <KidFeed />],
   ["/kid/accounts", () => <KidAccounts />],
+  ...mockFeed.map((f): [string, () => ReactElement] => [`/kid/item/${f._id}`, () => <ItemScreen id={f._id} />]),
   ["/invite/[token]", () => <InviteScreen token="tok123" />],
   ["/p/[token]", () => <ParentScreen token="tok123" />],
   ["/p/[token]?connected=1", () => <ParentScreen token="tok123" justConnected />],

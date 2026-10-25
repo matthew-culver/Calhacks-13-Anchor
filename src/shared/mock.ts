@@ -96,7 +96,7 @@ export const mockVerdicts: Row<Verdict, "verdicts">[] = [
       { id: "pressure", status: "warn", plainReason: "It tries to rush you with a 24-hour deadline." },
     ],
     explanationForParent: "We held a message pretending to be Chase. You don't have a Chase account, so you don't need to do anything.",
-    explanationForKid: "A convincing Chase phish: wrong sending domain, a link to a 3-day-old lookalike site, and no Chase history in Mom's inbox. Held automatically.",
+    explanationForKid: "A convincing fake Chase email: sent from the wrong website, a link to a 3-day-old copycat site, and no Chase history in Mom's inbox. Held automatically.",
   },
   {
     // Real mail keeps only what the checks and counts need. The kid never sees it.
@@ -155,7 +155,7 @@ export const mockVerdicts: Row<Verdict, "verdicts">[] = [
       { id: "pressure", status: "pass", plainReason: "Nothing pushy in this email." },
     ],
     explanationForParent: "We're not sure about this one, so we asked Lucas. Please don't click anything in it yet.",
-    explanationForKid: "A delivery notice from a domain that isn't usps.com, with no history. Did Mom order something recently?",
+    explanationForKid: "A delivery notice from a website that isn't usps.com, with no history. Did Mom order something recently?",
   },
   {
     // An older unsure email the kid already answered: the "Good catch, Mom" moment.
