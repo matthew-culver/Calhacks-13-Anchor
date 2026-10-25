@@ -230,6 +230,7 @@ async function sendNote(
   });
   let id = existing.messages?.[0]?.id;
   if (!id) {
+    const replyTo = await ctx.runQuery(internal.gmailActions.kidEmailFor, { familyId: c.family._id });
     const raw = buildNote({
       messageId: note.key,
       to: c.family.parentEmail,
@@ -237,6 +238,7 @@ async function sendNote(
       subject: note.subject,
       lines: note.lines,
       parentPageUrl: `${site}/p/${c.family.parentToken}`,
+      ...(replyTo && { replyTo }),
     });
     id = (
       await gmailRequest<{ id: string }>(token, "/messages", {
@@ -415,6 +417,17 @@ export const releaseVerdict = internalAction({
       console.error(`gmailActions.releaseVerdict failed: ${errorText(e)}`);
     }
     return null;
+  },
+});
+
+/** The kid's sign-in address, so the parent's reply to a note reaches them. */
+export const kidEmailFor = internalQuery({
+  args: { familyId: v.id("families") },
+  returns: v.union(v.null(), v.string()),
+  handler: async (ctx, { familyId }) => {
+    const family = await ctx.db.get(familyId);
+    const kid = family ? await ctx.db.get(family.kidUserId) : null;
+    return kid?.email ?? null;
   },
 });
 

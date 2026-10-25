@@ -52,6 +52,7 @@ export type Note = {
   lines: string[]; // paragraphs of plain text
   parentPageUrl: string; // our own /p/<parentToken> page
   date?: Date;
+  replyTo?: string; // the kid's address: a reply ("Thank you, sweetie") goes straight to them
 };
 
 /** The RFC 822 Message-ID for a note key. Gmail can search for it: rfc822msgid:<id>. */
@@ -62,14 +63,17 @@ export function noteMessageId(key: string): string {
 /** base64url raw message for Gmail's messages.insert. */
 export function buildNote(note: Note): string {
   const kid = oneLine(note.kidName, 40);
+  const replyTo = note.replyTo && /^[^\s<>@,;"]+@[^\s<>@,;"]+\.[^\s<>@,;"]+$/.test(note.replyTo) ? note.replyTo : undefined;
   const body = [
     ...note.lines.map((l) => oneLine(l, 600)),
+    ...(replyTo ? [`Reply to this email to write back to ${kid}.`] : []),
     "",
     `See what ${kid} sees, or turn Anchor off: ${note.parentPageUrl}`,
   ].join("\r\n\r\n");
   const headers = [
     `From: ${encodeWord(`Anchor (with ${kid})`)} <no-reply@anchor.invalid>`,
     `To: <${oneLine(note.to, 254).replace(/[<>]/g, "")}>`,
+    ...(replyTo ? [`Reply-To: ${encodeWord(kid)} <${replyTo}>`] : []),
     `Subject: ${encodeWord(oneLine(note.subject, 120))}`,
     `Date: ${(note.date ?? new Date()).toUTCString()}`,
     `Message-ID: ${noteMessageId(note.messageId)}`,

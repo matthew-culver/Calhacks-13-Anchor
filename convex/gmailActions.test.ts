@@ -112,6 +112,17 @@ const noteText = (calls: Call[]) =>
   calls.filter((c) => c.method === "POST" && c.path === "/messages").map((c) => decode(String(c.body!.raw)));
 
 describe("parent notes", () => {
+  test("a reply goes to the kid", () => {
+    const base = { messageId: "answer-1", to: "mom@gmail.com", kidName: "Lucas", subject: "Lucas says that message is fine", lines: ["Line one."], parentPageUrl: "http://localhost:3000/p/T" };
+    const text = decode(buildNote({ ...base, replyTo: "lucas@example.com" }));
+    expect(text).toMatch(/^Reply-To: \S+ <lucas@example\.com>$/m); // the name is header-encoded
+    expect(text).toContain("Reply to this email to write back to Lucas.");
+    // Anything that isn't a plain address never reaches a header.
+    const odd = decode(buildNote({ ...base, replyTo: "x@y.com>\r\nBcc: evil@z.com" }));
+    expect(odd).not.toContain("Reply-To");
+    expect(odd).not.toContain("Bcc");
+  });
+
   test("plain text with our own parent link, encoded headers", () => {
     const raw = buildNote({
       messageId: "verdict-abc",
