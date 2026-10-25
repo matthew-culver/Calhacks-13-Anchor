@@ -1,0 +1,55 @@
+// Check 2: does the brand the email claims to be match where it was really sent from?
+import type { CheckResult } from "../contract";
+import { brandForDomain, brandInName, brandInSubject, isOfficialFor, isPlausibleHost, lookalikeOf, type Brand } from "./brands";
+import { hasNonAscii } from "./text";
+import type { ParsedEmail } from "./types";
+
+// "name": the From name is the brand ("Chase Bank"). "mention": the From name or subject only
+// mentions it ("Humana Medicare", "USPS: your package...").
+type Claim = { brand: Brand; how: "name" | "mention" };
+
+function findClaim(email: ParsedEmail): Claim | undefined {
+  const inName = brandInName(email.fromName);
+  if (inName?.strict) return { brand: inName.brand, how: "name" };
+  const mentioned = inName?.brand ?? brandInSubject(email.subject);
+  return mentioned ? { brand: mentioned, how: "mention" } : undefined;
+}
+
+/** The brand the email presents itself as, for `verdict.claimedOrg`. */
+export function findClaimedBrand(email: ParsedEmail): Brand | undefined {
+  return findClaim(email)?.brand ?? lookalikeOf(email.fromDomain);
+}
+
+export function claimedIdentity(email: ParsedEmail): CheckResult {
+  if (!email.fromDomain || !isPlausibleHost(email.fromDomain)) {
+    return { id: "claimed_identity", status: "warn", plainReason: "We couldn't tell who sent this email.", detail: email.fromDomain ? "sender address is not a real address" : "no sender address" };
+  }
+  const claim = findClaim(email);
+  const imitated = lookalikeOf(email.fromDomain);
+
+  if (claim && !isOfficialFor(email.fromDomain, claim.brand)) {
+    const name = claim.brand.name;
+    if (claim.how === "name" || imitated) {
+      return { id: "claimed_identity", status: "fail", plainReason: `This email says it is from ${name}, but it was not sent by ${name}.`, detail: `${claim.how} claims ${name}; sender is not one of ${name}'s addresses` };
+    }
+    // A shipping email from a real store can mention USPS without pretending to be USPS.
+    if (!brandForDomain(email.fromDomain)) {
+      return { id: "claimed_identity", status: "warn", plainReason: `This email talks about ${name}, but it was not sent by ${name}.`, detail: `mentions ${name}; sender is not one of ${name}'s addresses` };
+    }
+  }
+
+  if (imitated) {
+    const name = imitated.name;
+    return { id: "claimed_identity", status: "fail", plainReason: `The sender's address is made to look like ${name}, but it is not ${name}.`, detail: `sender address imitates ${imitated.officialDomains[0]}` };
+  }
+
+  // Letters from other alphabets in the address itself ("chas\u00e9.com"), with no brand to compare.
+  if (hasNonAscii(email.fromDomain) || email.fromDomain.split(".").some((l) => l.startsWith("xn--"))) {
+    return { id: "claimed_identity", status: "warn", plainReason: "The sender's address uses odd letters that can trick the eye.", detail: "non-ASCII sender address" };
+  }
+
+  if (claim && isOfficialFor(email.fromDomain, claim.brand)) {
+    return { id: "claimed_identity", status: "pass", plainReason: `It says it is from ${claim.brand.name}, and the address is ${claim.brand.name}'s.`, detail: `sender is on ${claim.brand.name}'s list` };
+  }
+  return { id: "claimed_identity", status: "pass", plainReason: "It doesn't use the name of a company we know.", detail: "no known brand claimed" };
+}
