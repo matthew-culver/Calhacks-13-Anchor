@@ -396,7 +396,7 @@ export function contactName(raw: string): string | null {
 }
 
 /** A name as Mom's mail shows it, safe to put in a sentence. */
-function displayName(raw: string): string {
+export function displayName(raw: string): string {
   return raw
     .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069"<>]/g, " ")
     .replace(/\s+/g, " ")

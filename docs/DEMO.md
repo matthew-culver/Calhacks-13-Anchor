@@ -80,6 +80,12 @@ account may have been hacked." The kid taps **It's a scam** and writes a note: *
 Matt, his email got hacked. Never buy gift cards for anyone. Love you!* Mom gets one short email
 with those words. "That's the only email she gets from us, and it's in my words."
 
+**5b. Someone pretending to be family (30 s, optional).** Matt first sends Mom any normal
+email (Anchor learns the name he goes by). Then the scammer Gmail changes its display name to
+Matt's exact name and sends **email E**. Run the poll. It's flagged: "It uses the name Matthew
+Culver, someone you know, but from an address they've never used with you." "Spam filters
+don't know who your family is. Anchor does."
+
 **6. Quiet by design (20 s).** Run the weekly note command. Mom gets one calm email a week,
 only if something happened. "No alert per email. She just has a safer inbox."
 
@@ -131,6 +137,17 @@ Paste the link as plain text so Gmail makes it a link. Don't add a signature wit
   ```
 - Expect: **held**, "Their account may have been hacked"; the investigation reads the message
   (Matt is family) and explains why it doesn't sound like him.
+
+**E. Someone using Matt's name** (from the scammer Gmail, display name set to Matt's exact
+name as it shows in his own emails)
+- Subject: `new email address`
+- Body:
+  ```
+  Hi Mom, I lost my phone so this is my new email. Can you reply here when you get this?
+  I need to ask you something important.
+  ```
+- Expect: **Check with Lucas** (unsure): "It uses the name ..., someone you know, but from an
+  address they've never used with you." Matt must have sent Mom one normal email first.
 
 ## If something goes wrong
 

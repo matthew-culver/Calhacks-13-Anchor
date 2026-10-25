@@ -17,7 +17,7 @@ import { type HistoryContext, relationship } from "./checks/relationship";
 import { checkResult, verdictLevel } from "./contract";
 import { accessTokenFor } from "./googleAuth";
 import { atLeast, explain, templateExplanation } from "./lib/explain";
-import { contactName, keyFor, looksLikeAddress, mailboxId } from "./lib/history";
+import { contactName, displayName, keyFor, looksLikeAddress, MAX_CONTACTS, mailboxId } from "./lib/history";
 import { pressureSignals, SCAM_SIGNALS } from "./checks/pressure";
 import { cleanUrl, probeLink } from "./lib/linkProbe";
 import { classifySite, linkIsRisky, linkTarget } from "./lib/sites";
@@ -286,6 +286,26 @@ export const recentFlagged = internalQuery({
   },
 });
 
+/** Remember the name a known contact goes by (see checkOne). Once per name and address. */
+export const learnName = internalMutation({
+  args: { familyId: v.id("families"), name: v.string(), display: v.string(), address: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { familyId, name, display, address }) => {
+    const same = await ctx.db
+      .query("contactNames")
+      .withIndex("by_family_name", (q) => q.eq("familyId", familyId).eq("name", name))
+      .take(20);
+    if (same.some((c) => mailboxId(c.address) === mailboxId(address)) || same.length >= 20) return null;
+    const total = await ctx.db
+      .query("contactNames")
+      .withIndex("by_family_name", (q) => q.eq("familyId", familyId))
+      .take(MAX_CONTACTS);
+    if (total.length >= MAX_CONTACTS) return null;
+    await ctx.db.insert("contactNames", { familyId, name, display, address });
+    return null;
+  },
+});
+
 export const saveHistoryId = internalMutation({
   args: { familyId: v.id("families"), historyId: v.string() },
   returns: v.null(),
@@ -536,6 +556,22 @@ async function checkOne(ctx: ActionCtx, familyId: Id<"families">, family: Family
   const behavior = { riskySites: linkFacts.filter((l) => l.risky).map((l) => l.site), scamPressure };
   const checks = [...baseChecks, relationship(email, base.claimedOrg, history, claimStatus, behavior)];
   const floor = ruleLevel(checks);
+
+  // Someone Mom knows wrote, it really came from their address, and nothing about it was odd:
+  // remember the name they go by, so a stranger using it later stands out (the import learns
+  // names too; this keeps up between imports).
+  const authenticated = checks.some((c) => c.id === "header_auth" && c.status === "pass");
+  if (familiar && floor === "real" && authenticated && senderName !== null && email.fromAddress.includes("@")) {
+    const isPerson = keyFor({ address: email.fromAddress.toLowerCase(), domain: email.fromDomain }).kind === "person";
+    if (isPerson) {
+      await ctx.runMutation(internal.mailWatch.learnName, {
+        familyId,
+        name: senderName,
+        display: displayName(email.fromName),
+        address: email.fromAddress.toLowerCase(),
+      });
+    }
+  }
 
   // Claude only for flagged mail: it explains and may raise the level. Real mail stays private.
   // A flood of scam emails falls back to the template after CLAUDE_PER_HOUR in an hour.

@@ -554,6 +554,35 @@ describe("pollFamily", () => {
       expect((await levelOf(t, "s6"))?.checks?.find((c) => c.id === "relationship")?.detail ?? "").not.toContain("known contact");
     });
 
+    test("learns the name from Sue's own email, then catches a stranger using it", async () => {
+      const { t, familyId } = await activeFamily();
+      await t.run((ctx) =>
+        ctx.db.insert("relationships", {
+          familyId, kind: "person", key: "sue.miller@gmail.com", firstSeen: Date.now() - 900 * DAY, lastSeen: Date.now() - 5 * DAY, messageCount: 0, parentSentCount: 3, authPassRate: 1,
+        }),
+      );
+      fakeWorld({ messages: { l1: fromSue("l1", "sue.miller@gmail.com", "photos", "Here are the photos from Sunday.") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect(await t.run((ctx) => ctx.db.query("contactNames").collect())).toEqual([
+        expect.objectContaining({ name: "sue miller", display: "Sue Miller", address: "sue.miller@gmail.com" }),
+      ]);
+      fakeWorld({ messages: { l2: fromSue("l2", "sue.miller.help@gmail.com", "urgent", "I lost my phone, write me here.") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect((await levelOf(t, "l2"))?.level).toBe("unsure");
+    });
+
+    test("never learns a name from an odd email, even from someone Mom knows", async () => {
+      const { t, familyId } = await activeFamily();
+      await t.run((ctx) =>
+        ctx.db.insert("relationships", {
+          familyId, kind: "person", key: "sue.miller@gmail.com", firstSeen: Date.now() - 900 * DAY, lastSeen: Date.now() - 5 * DAY, messageCount: 0, parentSentCount: 3, authPassRate: 1,
+        }),
+      );
+      fakeWorld({ messages: { l3: fromSue("l3", "sue.miller@gmail.com", "help", "Buy gift cards and send me the numbers. Don't tell anyone.", "Sue Miller") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect(await t.run((ctx) => ctx.db.query("contactNames").collect())).toEqual([]);
+    });
+
     test("a stranger with a name nobody in Mom's mail uses is just a new sender", async () => {
       const { t, familyId } = await activeFamily();
       await knowsSue(t, familyId);
