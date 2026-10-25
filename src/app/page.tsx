@@ -74,13 +74,39 @@ function Preview() {
   );
 }
 
+// What could hurt the people using Anchor, in their words, and the guard for each.
+const RISKS: [string, string][] = [
+  [
+    "A scam email tries to talk the AI into letting it through.",
+    "The email is only ever evidence, never instructions. Our fixed checks decide first, and the AI can only make a verdict stricter. It can't let a fake through.",
+  ],
+  [
+    "Anchor sets aside an email that was real.",
+    "Nothing is ever deleted. It's in a folder your parent can always open, and you can put it back in their inbox with one tap.",
+  ],
+  [
+    "A family member's account gets hacked.",
+    "Family emails about bills and Venmo are left alone, but gift cards, secrecy, a dangerous link or \"your account is locked\" still get caught, even from family.",
+  ],
+  [
+    "Someone pretends to be family from a new address.",
+    "Anchor knows the names of the people your parent writes to. A stranger using one of those names is flagged, and a look-alike address is held.",
+  ],
+];
+
 export default function Home() {
   return (
     <>
       <SiteHeader wide>
-        <Link href="/start" className="flex min-h-tap items-center rounded-xl px-4 text-lg font-semibold text-action hover:bg-action-tint">
-          Sign in
-        </Link>
+        <nav aria-label="Main" className="flex items-center gap-1">
+          {/* Sample data, no sign-in: what a family sees, for anyone curious (judges too). */}
+          <Link href="/kid?demo=1" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold text-muted hover:bg-page hover:text-ink sm:px-4">
+            See a demo
+          </Link>
+          <Link href="/start" className="flex min-h-tap items-center rounded-xl px-3 text-lg font-semibold text-action hover:bg-action-tint sm:px-4">
+            Sign in
+          </Link>
+        </nav>
       </SiteHeader>
       <main className="flex-1">
         <section className="mx-auto grid w-full max-w-6xl gap-14 px-4 pt-14 pb-20 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:pt-20">
@@ -142,7 +168,24 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-6xl px-4 pb-20 sm:px-6">
+        <section className="border-y border-line bg-surface">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Where it could go wrong, and what we did about it</h2>
+            <dl className="mt-10 grid gap-x-10 gap-y-8 md:grid-cols-2">
+              {RISKS.map(([risk, answer]) => (
+                <div key={risk} className="flex flex-col gap-2">
+                  <dt className="flex items-start gap-3 text-xl font-bold">
+                    <Icon name="alert" className="mt-1 h-6 w-6 text-unsure" />
+                    {risk}
+                  </dt>
+                  <dd className="pl-9 text-lg text-muted">{answer}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
           <div className="rounded-3xl bg-brand px-6 py-10 text-white sm:px-10">
             <h2 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
               <Icon name="lock" className="h-8 w-8" />

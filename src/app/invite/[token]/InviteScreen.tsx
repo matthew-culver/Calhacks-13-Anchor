@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { useEffect, useState } from "react";
+import { Icon } from "@/components/icons";
 import { BigButton, Card, Screen } from "@/components/ui";
 import { convexSiteUrl } from "@/shared/convexSite";
 import { rememberKidName } from "@/shared/kidName";
@@ -44,11 +45,18 @@ export function InviteScreen({ token }: { token: string }) {
   return (
     <Screen focusTitle title={`Hi ${parentName}`}>
       {/* Anyone can sign up and claim to be someone's kid, so say exactly who is asking. */}
-      <p className="text-xl">
-        <strong>{kidName}</strong>
-        {kidEmail ? ` (${kidEmail})` : ""}
-        {" wants to help keep scam emails away from you."}
-      </p>
+      <Card>
+        <div className="flex items-start gap-4">
+          <span aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-action text-2xl font-bold text-on-action">
+            {kidName.charAt(0).toUpperCase()}
+          </span>
+          <p className="text-xl">
+            <strong>{kidName}</strong>
+            {kidEmail ? ` (${kidEmail})` : ""}
+            {" wants to help keep scam emails away from you."}
+          </p>
+        </div>
+      </Card>
       <p className="text-xl font-bold">{`Only tap the button if ${kidName} asked you.`}</p>
       <WhatHappensNext />
       {/* A real form post, not fetch: the browser must follow the redirect to Google, and the
@@ -75,6 +83,10 @@ export function InviteScreen({ token }: { token: string }) {
           {submitting ? "Taking you to Google. This can take a few seconds." : ""}
         </p>
       </form>
+      <p className="flex gap-3 text-lg text-muted">
+        <Icon name="lock" className="mt-1 h-6 w-6" />
+        Anchor never sends email as you and never deletes anything. You can turn it off any time.
+      </p>
     </Screen>
   );
 }
@@ -89,11 +101,20 @@ function WhatHappensNext() {
   }
   return (
     <Card>
-      <h2 className="mb-3 text-xl font-bold">What happens next</h2>
-      <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg">
-        <li>Tap the button below.</li>
-        <li>Google asks if Anchor can sort your email. Tap Continue.</li>
-        <li>That&apos;s it. You don&apos;t need to do anything else.</li>
+      <h2 className="mb-4 text-xl font-bold">What happens next</h2>
+      <ol className="flex flex-col gap-4 text-lg">
+        {[
+          "Tap the button below.",
+          "Google asks if Anchor can sort your email. Tap Continue.",
+          "That's it. You don't need to do anything else.",
+        ].map((step, i) => (
+          <li key={step} className="flex items-start gap-3">
+            <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-action-tint font-bold text-action">
+              {i + 1}
+            </span>
+            <span className="pt-0.5">{step}</span>
+          </li>
+        ))}
       </ol>
     </Card>
   );

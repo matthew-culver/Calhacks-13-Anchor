@@ -42,7 +42,7 @@ export function TurnOff({ parentToken, kidName }: { parentToken: string; kidName
 
   if (!confirming) {
     return (
-      <section ref={start} className="flex flex-col gap-3 border-t-2 border-line pt-6">
+      <section ref={start} className="flex flex-col gap-3 border-t border-line pt-6">
         <p className="text-lg text-muted">You can turn Anchor off any time.</p>
         <BigButton secondary onClick={() => setConfirming(true)}>
           Turn off Anchor
@@ -52,7 +52,7 @@ export function TurnOff({ parentToken, kidName }: { parentToken: string; kidName
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border-2 border-fake bg-fake-tint p-6">
+    <section className="flex flex-col gap-4 rounded-3xl border-2 border-fake bg-fake-tint p-6 sm:p-7">
       <h2 ref={question} tabIndex={-1} className="text-2xl font-bold outline-none">
         Turn off Anchor?
       </h2>
