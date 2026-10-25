@@ -162,14 +162,21 @@ export type RankInput = {
   wrote: boolean; // the parent wrote to them
 };
 
-/** Higher is more important. Real use (kinds and amount of account mail), then recency, then category. */
+/** An account's score halves for every this long without account mail. */
+const HALF_LIFE_MS = 60 * DAY;
+
+/**
+ * Higher is more important: how much the account mail shows Mom uses it (its kinds and
+ * amount) and the category, halved for every two months it's been quiet. So an account she
+ * stopped using sinks below the ones she uses now, however much mail it used to send. Every
+ * score fades at the same rate, so the order doesn't depend on when it's worked out.
+ */
 export function rankAccount(a: RankInput, now: number): number {
   const kinds = a.signals.reduce((sum, s) => sum + SIGNAL_WEIGHT[s], 0);
   const amount = Math.min(6, 2 * Math.log2(1 + a.signalCount));
-  const age = a.lastActivity === undefined ? Number.POSITIVE_INFINITY : now - a.lastActivity;
-  const recency = age <= 30 * DAY ? 10 : age <= 90 * DAY ? 7 : age <= 180 * DAY ? 4 : age <= 365 * DAY ? 1 : 0;
-  const score = CATEGORY_WEIGHT[a.category] + kinds + amount + recency + (a.wrote ? 3 : 0);
-  return Math.round(score * 100) / 100;
+  const use = CATEGORY_WEIGHT[a.category] + kinds + amount + (a.wrote ? 3 : 0);
+  const age = a.lastActivity === undefined ? Number.POSITIVE_INFINITY : Math.max(0, now - a.lastActivity);
+  return Math.round(use * 0.5 ** (age / HALF_LIFE_MS) * 1000) / 1000;
 }
 
 // ---------- Names for companies outside our directory ----------

@@ -98,7 +98,8 @@ export const ORGS: Org[] = [
   { name: "SoCalGas", category: "utility", domains: ["socalgas.com"], loginUrl: "https://myaccount.socalgas.com/ui/login" },
   { name: "Duke Energy", category: "utility", domains: ["duke-energy.com"], loginUrl: "https://www.duke-energy.com/my-account/dashboard" },
   { name: "Con Edison", category: "utility", domains: ["coned.com"], loginUrl: "https://www.coned.com/en/login" },
-  { name: "AT&T", category: "utility", domains: ["att.com"], loginUrl: "https://www.att.com/acctmgmt/login" },
+  // att-mail.com: "All AT&T emails are sent from att-mail.com" (att.com/support/article/my-account/KM1010136)
+  { name: "AT&T", category: "utility", domains: ["att.com", "att-mail.com"], loginUrl: "https://www.att.com/acctmgmt/login" },
   { name: "Verizon", category: "utility", domains: ["verizon.com", "verizonwireless.com"], loginUrl: "https://secure.verizon.com/signin" },
   { name: "Xfinity", category: "utility", domains: ["xfinity.com", "comcast.com"], loginUrl: "https://login.xfinity.com/login" },
   { name: "T-Mobile", category: "utility", domains: ["t-mobile.com"], loginUrl: "https://account.t-mobile.com/" },

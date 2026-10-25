@@ -64,6 +64,12 @@ describe("org directory", () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
+  test("AT&T's bills come from att-mail.com, which AT&T says sends all its email", () => {
+    expect(orgForDomain("att-mail.com")?.name).toBe("AT&T");
+    const { accounts } = buildHistory(series("AT&T <att@emaildl.att-mail.com>", "Your AT&T bill is ready", 6, 10), now);
+    expect(accounts).toEqual([expect.objectContaining({ orgName: "AT&T", loginUrlSource: "curated" })]);
+  });
+
   test("every brand the scam checks know is in the directory", () => {
     for (const brand of BRANDS) expect(orgForDomain(brand.officialDomains[0]), brand.name).toBeDefined();
   });
@@ -296,7 +302,10 @@ describe("real-use ranking (A8)", () => {
 
   test("only accounts Mom really uses, most important first", () => {
     const { accounts } = buildHistory(inbox(), now);
-    expect(accounts.map((a) => a.orgName)).toEqual(["Wells Fargo", "Kaiser Permanente", "PG&E", "Netflix", "Amazon"]);
+    const names = accounts.map((a) => a.orgName);
+    expect(names.slice(0, 3)).toEqual(["Wells Fargo", "Kaiser Permanente", "PG&E"]);
+    // Weekly Amazon orders and a monthly Netflix bill count about the same.
+    expect(names.slice(3).sort()).toEqual(["Amazon", "Netflix"]);
     // Marketing only (Sutter), receipts only (Apple), a past insurer (Blue Shield): not shown.
     for (const gone of ["Sutter Health", "Apple", "Blue Shield of California"]) {
       expect(accounts.find((a) => a.orgName === gone), gone).toBeUndefined();
@@ -355,6 +364,31 @@ describe("real-use ranking (A8)", () => {
     expect(shop).toBeGreaterThan(other);
     // Recent use beats old use.
     expect(rankAccount({ ...base, category: "bank" }, now)).toBeGreaterThan(rankAccount({ ...base, category: "bank", lastActivity: now - 200 * DAY }, now));
+  });
+
+  test("an account Mom stopped using sinks below the ones she uses now, however much mail it used to send", () => {
+    // Her old doctor sent every kind of account mail for years, then nothing for six months.
+    const oldDoctor = [
+      ...series("Sutter Health <noreply@sutterhealth.org>", "Appointment reminder", 20, 180, 14),
+      ...series("Sutter Health <noreply@sutterhealth.org>", "Your bill is ready", 12, 185, 30),
+      ...series("Sutter Health <noreply@sutterhealth.org>", "Your verification code", 8, 190, 20),
+    ];
+    const now_ = [
+      ...series("PG&E <billing@notifications.pge.com>", "Your PG&E bill is ready", 6, 8),
+      ...series("Google <no-reply@accounts.google.com>", "Security alert", 4, 20, 25),
+    ];
+    const { accounts } = buildHistory([...oldDoctor, ...now_], now);
+    expect(accounts.map((a) => a.orgName)).toEqual(["PG&E", "Google", "Sutter Health"]);
+  });
+
+  test("the order doesn't depend on when it's worked out, so a saved order stays right", () => {
+    const a = { category: "bank" as const, signals: ["statement" as const], signalCount: 3, wrote: false, lastActivity: now - 20 * DAY };
+    const b = { ...a, signals: ["statement" as const, "security" as const], lastActivity: now - 85 * DAY };
+    const order = Math.sign(rankAccount(b, now) - rankAccount(a, now));
+    for (let days = 1; days <= 365; days++) {
+      const later = now + days * DAY;
+      expect(Math.sign(rankAccount(b, later) - rankAccount(a, later)), `${days} days later`).toBe(order);
+    }
   });
 });
 

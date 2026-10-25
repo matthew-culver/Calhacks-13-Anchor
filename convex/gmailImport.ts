@@ -13,7 +13,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { type ActionCtx, internalAction, internalMutation, type MutationCtx } from "./_generated/server";
+import { type ActionCtx, internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { account, relationship } from "./contract";
 import { accessTokenFor } from "./googleAuth";
 import { type AccountRow, buildHistory, type HeaderRecord, sameAccount } from "./lib/history";
@@ -51,6 +51,8 @@ const MAX_RETRY_WAIT_MS = 10_000;
 const MAX_TRIES = 4;
 /** Whole-import retries after an unexpected failure: 1, 4, then 16 minutes later. */
 const MAX_IMPORT_ATTEMPTS = 3;
+/** Newest verdicts looked at for flagged mail to leave out (plenty: flagged mail is rare). */
+const MAX_VERDICTS_SCANNED = 5000;
 /** More than one import ever keeps (history.MAX_ACCOUNTS), so a re-import still finds every old row. */
 const MAX_STORED_ACCOUNTS = 200;
 
@@ -199,8 +201,11 @@ async function runImport(ctx: ActionCtx, familyId: Id<"families">, accessToken: 
   const profile = await gmail<{ historyId?: string }>(accessToken, "/profile");
   const records: HeaderRecord[] = [];
   const progress = () => saveProgress(ctx, familyId, records, selfEmail);
+  // Mail Anchor flagged never counts as history: otherwise a scammer whose emails were held
+  // would become a "familiar" sender on the next import, and get family-level trust.
+  const flagged = new Set(await ctx.runQuery(internal.gmailImport.flaggedMessageIds, { familyId }));
 
-  const firstIds = await listIds(accessToken, FIRST_PASS, MAX_FIRST_PASS);
+  const firstIds = (await listIds(accessToken, FIRST_PASS, MAX_FIRST_PASS)).filter((id) => !flagged.has(id));
   await fetchRecords(accessToken, firstIds, records, FIRST_SAVE_EVERY, progress);
   await progress();
   console.log(`History import: first pass read ${firstIds.length} emails in ${Date.now() - started} ms`);
@@ -208,7 +213,7 @@ async function runImport(ctx: ActionCtx, familyId: Id<"families">, accessToken: 
   const seen = new Set(firstIds);
   const recent = await listIds(accessToken, WINDOW, MAX_RECENT);
   const fromOrgs = await listFromOrgs(accessToken);
-  const deepIds = [...new Set([...recent, ...fromOrgs])].filter((id) => !seen.has(id));
+  const deepIds = [...new Set([...recent, ...fromOrgs])].filter((id) => !seen.has(id) && !flagged.has(id));
   await fetchRecords(accessToken, deepIds, records, DEEP_SAVE_EVERY, progress);
 
   await save(ctx, familyId, records, { historyId: profile.historyId, selfEmail });
@@ -329,6 +334,20 @@ async function upsertAccounts(
 }
 
 /** Accounts found so far during the import (A8): upsert only, nothing removed. */
+/** Gmail ids of mail Anchor flagged (fake or unsure) that the kid hasn't since called fine. */
+export const flaggedMessageIds = internalQuery({
+  args: { familyId: v.id("families") },
+  returns: v.array(v.string()),
+  handler: async (ctx, { familyId }) => {
+    const verdicts = await ctx.db
+      .query("verdicts")
+      .withIndex("by_family_received", (q) => q.eq("familyId", familyId))
+      .order("desc")
+      .take(MAX_VERDICTS_SCANNED);
+    return verdicts.filter((d) => d.level !== "real" && d.action !== "released").map((d) => d.gmailMessageId);
+  },
+});
+
 export const saveAccounts = internalMutation({
   args: { familyId: v.id("families"), accounts: v.array(account.omit("familyId")) },
   returns: v.null(),

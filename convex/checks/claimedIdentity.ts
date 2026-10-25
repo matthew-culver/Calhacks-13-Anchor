@@ -1,7 +1,7 @@
 // Check 2: does the brand the email claims to be match where it was really sent from?
 import type { CheckResult } from "../contract";
 import { brandForDomain, brandInName, brandInSubject, isOfficialFor, isPlausibleHost, lookalikeOf, type Brand } from "./brands";
-import { hasNonAscii } from "./text";
+import { foldText, hasNonAscii } from "./text";
 import type { ParsedEmail } from "./types";
 
 // "name": the From name is the brand ("Chase Bank"). "mention": the From name or subject only
@@ -13,6 +13,21 @@ function findClaim(email: ParsedEmail): Claim | undefined {
   if (inName?.strict) return { brand: inName.brand, how: "name" };
   const mentioned = inName?.brand ?? brandInSubject(email.subject);
   return mentioned ? { brand: mentioned, how: "mention" } : undefined;
+}
+
+// How a company (or someone pretending to be one) talks, and family doesn't: "your account has
+// been locked", "Dear customer", "verify your identity", "unusual sign-in activity".
+const COMPANY_VOICE = [
+  /\b(your|the) (account|card|access|service|membership|subscription)s? (has been|have been|will be|is|was) (suspended|locked|closed|disabled|terminated|frozen|restricted|limited|on hold|cancell?ed)\b/,
+  /\bdear (valued )?(customer|member|user|client|account ?holder|card ?holder)\b/,
+  /\b(verify|confirm|validate|update) your (account|identity|information|details|billing|payment (info|information|details|method))\b/,
+  /\b(unusual|suspicious|unauthori[sz]ed) (activity|sign-?ins?|logins?|access|charges?|transactions?)\b/,
+];
+
+/** The email speaks as a company would to its customer, rather than about one. */
+export function speaksAsCompany(email: ParsedEmail): boolean {
+  const text = foldText([email.subject, email.text, ...email.hiddenText].join("\n"));
+  return COMPANY_VOICE.some((re) => re.test(text));
 }
 
 /** The brand the email presents itself as, for `verdict.claimedOrg`. */

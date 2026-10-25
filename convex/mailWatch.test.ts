@@ -71,6 +71,7 @@ type Opts = {
   sizes?: Record<string, number>; // sizeEstimate per id
   rawStatus?: Record<string, number>; // make the raw download fail for an id
   recent?: string[]; // ids for the catch-up messages.list
+  web?: (url: URL) => Response | undefined; // other sites: DNS, RDAP, link probes
 };
 
 /** Fake Gmail (history + raw messages), RDAP, Safe Browsing and Claude. */
@@ -83,6 +84,8 @@ function fakeWorld(opts: Opts) {
       calls.push(url.toString());
       const json = (body: object, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+      const site = opts.web?.(url);
+      if (site) return site;
       if (url.hostname === "api.anthropic.com") {
         return json({
           id: "msg",
@@ -381,6 +384,84 @@ describe("pollFamily", () => {
     await t.action(internal.mailWatch.pollFamily, { familyId });
     const [v] = await t.run((ctx) => ctx.db.query("verdicts").collect());
     expect(v.level).toBe("real");
+    expect(await kid.query(api.feed.myFeed, {})).toEqual([]);
+  });
+
+  test("someone Mom knows naming a company in the subject (\"Can you pay the PG&E bill?\") is not flagged", async () => {
+    const { t, kid, familyId } = await activeFamily();
+    await t.run((ctx) =>
+      ctx.db.insert("relationships", {
+        familyId, kind: "person", key: "matt.culver@gmail.com", firstSeen: Date.now() - 900 * DAY, lastSeen: Date.now() - 3 * DAY, messageCount: 0, parentSentCount: 4, authPassRate: 0,
+      }),
+    );
+    const fromMatt = (id: string, subject: string, body: string) => [
+      "Authentication-Results: mx.google.com; dkim=pass header.i=@gmail.com; spf=pass smtp.mailfrom=matt.culver@gmail.com; dmarc=pass (p=NONE) header.from=gmail.com",
+      "From: Matt <matt.culver@gmail.com>",
+      "To: mom.culver@gmail.com",
+      `Subject: ${subject}`,
+      `Message-ID: <${id}@mail.gmail.com>`,
+      "Content-Type: text/plain",
+      "",
+      body,
+      "",
+    ].join("\r\n");
+    fakeWorld({
+      messages: {
+        b1: fromMatt("b1", "Can you pay the PG&E bill?", "Hi Mom! It's $84.20, due Friday. You can pay at https://www.pge.com/ or just Venmo me. Love, Matt"),
+        // A hacked account phishing with a company's name is still caught: the link gives it away,
+        b2: fromMatt("b2", "Chase account alert", "Your Chase account is locked. Verify it here: https://chase-account-verify.top/login"),
+        // even when the site looks harmless to our checks: Chase's name next to some other site.
+        b3: fromMatt("b3", "Chase account alert", "Please review your account here: https://secure-account-review.com/start"),
+        // and with no link at all, when it talks as the company would.
+        b4: fromMatt("b4", "Chase account alert", "Your Chase account has been locked. Call 1-800-555-0100 to verify your identity."),
+      },
+    });
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    const verdicts = await t.run((ctx) => ctx.db.query("verdicts").collect());
+    const level = (id: string) => verdicts.find((v) => v.gmailMessageId === id)?.level;
+    expect(level("b1")).toBe("real");
+    expect(level("b2")).toBe("fake");
+    expect(level("b3")).toBe("unsure");
+    expect(level("b4")).not.toBe("real");
+    const feed = await kid.query(api.feed.myFeed, {});
+    expect(feed.map((f) => f.verdict?.gmailMessageId).sort()).toEqual(["b2", "b3", "b4"]);
+  });
+
+  test("someone Mom knows linking to a site she's never visited isn't flagged when the site is ordinary", async () => {
+    const { t, kid, familyId } = await activeFamily();
+    await t.run((ctx) =>
+      ctx.db.insert("relationships", {
+        familyId, kind: "person", key: "matt.culver@gmail.com", firstSeen: Date.now() - 900 * DAY, lastSeen: Date.now() - 3 * DAY, messageCount: 0, parentSentCount: 4, authPassRate: 0,
+      }),
+    );
+    const raw = [
+      "Authentication-Results: mx.google.com; dkim=pass header.i=@gmail.com; spf=pass smtp.mailfrom=matt.culver@gmail.com; dmarc=pass (p=NONE) header.from=gmail.com",
+      "From: Matt <matt.culver@gmail.com>",
+      "To: mom.culver@gmail.com",
+      "Subject: you'll love this",
+      "Content-Type: text/plain",
+      "",
+      "Mom, look at this cookie recipe, we should make it this weekend! https://www.kingarthurbaking.com/recipes/classic-chocolate-chip-cookies-recipe",
+      "",
+    ].join("\r\n");
+    const probed: string[] = [];
+    fakeWorld({
+      messages: { k1: raw },
+      web: (url) => {
+        const json = (body: object) => new Response(JSON.stringify(body), { status: 200 });
+        if (url.hostname === "cloudflare-dns.com") return json({ Answer: url.searchParams.get("type") === "A" ? [{ type: 1, data: "151.101.1.1" }] : [] });
+        if (url.hostname === "rdap.org") return json({ events: [{ eventAction: "registration", eventDate: "1999-03-02T00:00:00Z" }] });
+        if (url.hostname === "www.kingarthurbaking.com") {
+          probed.push(url.toString());
+          return new Response("<html><title>Classic Chocolate Chip Cookies Recipe | King Arthur Baking</title></html>", { status: 200 });
+        }
+        return undefined;
+      },
+    });
+    await t.action(internal.mailWatch.pollFamily, { familyId });
+    const [v] = await t.run((ctx) => ctx.db.query("verdicts").collect());
+    expect(v.level).toBe("real");
+    expect(probed).toHaveLength(1); // Anchor looked at the page itself, without Mom clicking
     expect(await kid.query(api.feed.myFeed, {})).toEqual([]);
   });
 
