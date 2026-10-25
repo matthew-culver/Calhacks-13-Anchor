@@ -71,5 +71,5 @@ export function KidGate({ children }: { children: (family: KidFamily, demo: bool
 
 /** A small, honest note on screens showing the sample family. */
 export function SampleDataNote() {
-  return <p className="rounded-xl bg-unsure-tint px-4 py-2 text-lg text-unsure">Sample data for the demo</p>;
+  return <p className="rounded-xl border-2 border-transparent bg-unsure-tint px-4 py-2 text-lg text-unsure">Sample data for the demo</p>;
 }

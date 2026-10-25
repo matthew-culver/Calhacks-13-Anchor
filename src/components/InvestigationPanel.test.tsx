@@ -1,12 +1,17 @@
 // B9: the AI investigator's steps appearing live, then its conclusion, in plain words.
 
 import { act, render, renderHook, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SAMPLE_INVESTIGATIONS, useInvestigation, type InvestigationView } from "@/shared/investigationApi";
+import { fakeBackend } from "@/test/fakeBackend";
 import { InvestigationPanel } from "./InvestigationPanel";
+
+vi.mock("convex/react", async () => (await import("@/test/fakeBackend")).convexReact);
 
 // From CLAUDE.md: plain words only, and never say "safe".
 const BANNED = /\b(safe|phishing|domain|dkim|spf|dmarc)\b/i;
+
+beforeEach(() => fakeBackend.reset());
 
 afterEach(() => {
   sessionStorage.clear();
@@ -21,17 +26,19 @@ describe("investigation panel", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("while running: says it's still checking and lists the steps so far as a live log", () => {
+  it("while running: says it's still checking and lists the steps so far, quietly", () => {
     const running: InvestigationView = { status: "running", startedAt: 0, steps: chase.steps.slice(0, 3) };
     render(<InvestigationPanel investigation={running} />);
     expect(screen.getByRole("status")).toHaveTextContent("Still checking…");
-    expect(within(screen.getByRole("log")).getAllByRole("listitem")).toHaveLength(3);
+    // A plain list, not a live log: screen readers hear "checking" and "done", not every step.
+    expect(screen.queryByRole("log")).toBeNull();
+    expect(within(screen.getByRole("list", { name: "What we did" })).getAllByRole("listitem")).toHaveLength(3);
     expect(screen.queryByText(/What to do/)).toBeNull();
   });
 
-  it("when done: the summary, who really sent it, each link and what to do", () => {
+  it("when done: says so, then the summary, who really sent it, each link and what to do", () => {
     render(<InvestigationPanel investigation={chase} />);
-    expect(screen.getByRole("status")).toHaveTextContent("");
+    expect(screen.getByRole("status")).toHaveTextContent("Finished checking. Here's what we found.");
     expect(screen.getByText(/A fake Chase email/)).toBeInTheDocument();
     expect(screen.getByText("Pretending to be someone else.")).toBeInTheDocument();
     expect(screen.getByText("chase-secure-login.co")).toBeInTheDocument();
@@ -83,8 +90,15 @@ describe("investigation panel", () => {
 });
 
 describe("useInvestigation", () => {
-  it("shows nothing live until A7 lands", () => {
+  it("live: returns A7's investigation for an email the feed knows", () => {
+    fakeBackend.setQuery("investigations:forFeedItem", chase);
     const { result } = renderHook(() => useInvestigation("mock_feed_chase"));
+    expect(result.current).toBe(chase);
+  });
+
+  it("live: doesn't ask about an email the feed doesn't know", () => {
+    fakeBackend.setQuery("investigations:forFeedItem", chase);
+    const { result } = renderHook(() => useInvestigation("mock_feed_chase", false));
     expect(result.current).toBeNull();
   });
 

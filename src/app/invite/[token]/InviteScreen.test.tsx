@@ -56,7 +56,7 @@ describe("parent invite page", () => {
     render(<InviteScreen token="tok123" />);
     // jsdom doesn't navigate on submit; the handler still runs.
     fireEvent.submit(form());
-    expect(screen.getByRole("button", { name: "Opening Google..." })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Opening Google..." })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("status")).toHaveTextContent("Taking you to Google");
 
     const second = fireEvent.submit(form());
@@ -69,7 +69,7 @@ describe("parent invite page", () => {
     const back = new Event("pageshow") as PageTransitionEvent;
     Object.defineProperty(back, "persisted", { value: true });
     fireEvent(window, back);
-    expect(screen.getByRole("button", { name: "Protect my email" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Protect my email" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("remembers the kid's name for the problem page when the parent taps", () => {

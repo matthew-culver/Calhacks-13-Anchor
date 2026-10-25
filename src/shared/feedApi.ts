@@ -13,7 +13,8 @@ import { mockFeed, mockVerdicts } from "./mock";
 export type FeedEntry = FunctionReturnType<typeof api.feed.myFeed>[number];
 type KidAnswer = NonNullable<FeedEntry["kidAnswer"]>;
 
-export type Answer = { feedItemId: FeedEntry["_id"]; answer: "fine" | "scam"; note?: string };
+/** `trustSender` (with "fine"): always trust this sender, like family (A7). */
+export type Answer = { feedItemId: FeedEntry["_id"]; answer: "fine" | "scam"; note?: string; trustSender?: boolean };
 
 /** The note box's limit. The server trims and caps notes itself; this just matches it. */
 export const MAX_NOTE = 280;

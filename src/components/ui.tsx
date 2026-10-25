@@ -74,11 +74,19 @@ export function BigButton({
       </Link>
     );
   }
+  // While busy the button ignores taps (and form submits) but stays focusable: a truly
+  // disabled button that has focus drops it to the top of the page (WCAG 2.4.3).
   return (
     <button
       type={type}
-      onClick={onClick}
-      disabled={disabled}
+      onClick={(e) => {
+        if (disabled) {
+          e.preventDefault();
+          return;
+        }
+        onClick?.();
+      }}
+      aria-disabled={disabled || undefined}
       className={className}
     >
       {children}

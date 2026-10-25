@@ -20,7 +20,9 @@ const SAMPLE_VIEW = { parentName: "Mom", kidName: "Lucas", status: "active" as c
 // right words for every state of their protection, and "Turn it off". Demo mode replays a
 // sample import so the accounts can be seen arriving and re-sorting.
 export function ParentScreen({ token, justConnected }: { token: string; justConnected?: boolean }) {
-  const demo = useDemoMode();
+  // A real parent's link must never show sample data because of an earlier rehearsal in this
+  // tab: only ?demo=1 in this very address counts here.
+  const demo = useDemoMode({ sticky: false });
   const liveView = useQuery(api.families.getParentView, demo ? "skip" : { parentToken: token });
   // Also right after connecting: the done screen shows the accounts arriving live (B10).
   const liveAccounts = useQuery(api.accounts.parentAccounts, demo ? "skip" : { parentToken: token });
@@ -36,6 +38,25 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
   const accounts = demo ? sample.accounts : liveAccounts;
   const recap = demo ? mockRecap : liveRecap;
   const family = view?.kidName ?? "your family";
+
+  // A bad link or turned-off protection wins over "You're done", even on a reloaded or
+  // bookmarked ?connected=1 address.
+  if (view === null) {
+    return (
+      <Screen focusTitle title="This link doesn't work">
+        <p className="text-xl">Ask the person who set up Anchor for you to send a new one.</p>
+      </Screen>
+    );
+  }
+  if (view?.status === "off") {
+    return (
+      <Screen focusTitle title="Protection is off">
+        <p className="text-xl">
+          Anchor isn&apos;t watching your email anymore, and we deleted what we had learned.
+        </p>
+      </Screen>
+    );
+  }
 
   // Person A's /gmail/callback lands here with ?connected=1 after Google says yes. Below the
   // reassurance, Mom watches her accounts appear and sort themselves as the import runs (B10):
@@ -71,25 +92,9 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
   if (view === undefined || accounts === undefined) {
     return <Screen focusTitle title="One moment..." />;
   }
-  if (view === null) {
-    return (
-      <Screen focusTitle title="This link doesn't work">
-        <p className="text-xl">Ask the person who set up Anchor for you to send a new one.</p>
-      </Screen>
-    );
-  }
 
   const { parentName, kidName, status } = view;
   const turnOff = demo ? null : <TurnOff parentToken={token} kidName={kidName} />;
-  if (status === "off") {
-    return (
-      <Screen focusTitle title="Protection is off">
-        <p className="text-xl">
-          Anchor isn&apos;t watching your email anymore, and we deleted what we had learned.
-        </p>
-      </Screen>
-    );
-  }
   if (status === "needs_reconnect" || status === "invited") {
     return (
       <Screen focusTitle title="Anchor needs your OK">

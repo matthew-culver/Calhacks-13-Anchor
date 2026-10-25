@@ -27,7 +27,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
   const recap = demo ? mockRecap : liveRecap;
   const { parentName } = family;
 
-  if (feed === undefined) return <Screen title="One moment..." />;
+  if (feed === undefined) return <Screen focusTitle title="One moment..." />;
 
   const newestFirst = [...feed].sort((a, b) => b.createdAt - a.createdAt);
   const waiting = newestFirst.filter((e) => e.kind === "needs_answer" && !e.kidAnswer);
@@ -37,7 +37,7 @@ function KidFeed({ family, demo }: { family: KidFamily; demo: boolean }) {
   const needAnswer = waiting.length;
 
   return (
-    <Screen title="This week">
+    <Screen focusTitle title="This week">
       {demo && <SampleDataNote />}
       <KidRecapCard recap={recap} needAnswer={needAnswer} parentName={parentName} />
 
@@ -93,9 +93,14 @@ function FeedSection({
 function FeedCard({ entry, parentName }: { entry: FeedEntry; parentName: string }) {
   const { verdict, kidAnswer } = entry;
   const fake = verdict.level === "fake";
+  // A short name for screen readers, instead of the whole card read as one run-on sentence.
+  const name = `Says it's from ${claimedSender(verdict)}. ${fake ? "Looks fake" : "Not sure"}.${
+    kidAnswer ? ` You said it's ${kidAnswer.answer === "scam" ? "a scam" : "fine"}.` : ""
+  }`;
   return (
     <Link
       href={`/kid/item/${entry._id}`}
+      aria-label={name}
       className={`block rounded-2xl border-2 p-5 [overflow-wrap:anywhere] hover:shadow-md ${
         fake ? "border-fake bg-fake-tint" : "border-unsure bg-unsure-tint"
       }`}
