@@ -251,6 +251,7 @@ describe("getParentView", () => {
       parentName: "Mom",
       kidName: "Lucas",
       status: "learning",
+      canAsk: false, // no "Check with" label in their Gmail yet
     });
     await t.run((ctx) => ctx.db.patch(familyId, { status: "off" }));
     expect((await t.query(api.families.getParentView, { parentToken }))?.status).toBe("off");

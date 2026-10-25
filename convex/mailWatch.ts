@@ -293,6 +293,8 @@ export const learnName = internalMutation({
   args: { familyId: v.id("families"), name: v.string(), display: v.string(), address: v.string() },
   returns: v.null(),
   handler: async (ctx, { familyId, name, display, address }) => {
+    const family = await ctx.db.get(familyId);
+    if (!family || family.status === "off") return null; // turned off meanwhile: write nothing
     const same = await ctx.db
       .query("contactNames")
       .withIndex("by_family_name", (q) => q.eq("familyId", familyId).eq("name", name))
@@ -874,6 +876,8 @@ export const pollFamily = internalAction({
       }
       checked = done;
       if (done && family.checkLabelId) await checkAsked(ctx, familyId, family, access.accessToken, family.checkLabelId);
+      // The parent asks with the "Check with" label: if setup couldn't create it, try again.
+      if (done && !family.checkLabelId) await ctx.scheduler.runAfter(0, internal.gmailActions.prepareLabels, { familyId });
       return null;
     } finally {
       await ctx.runMutation(internal.mailWatch.releasePoll, { familyId, ...(checked && { checkedAt: Date.now() }) });

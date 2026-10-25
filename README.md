@@ -14,7 +14,7 @@ link from their kid and say yes to Google.
 |---|---|
 | **Scams leave the inbox quietly** | Every new email is checked within a minute against who the parent really deals with. Fakes move to an "Anchor: Held" folder (never deleted); unsure ones get a "⚠ Check with [kid]" label and go to the kid. |
 | **An AI investigator you can watch** | For suspicious mail, Claude (with web search and fetch) looks up the company's real addresses and follows each link without clicking it. The kid watches the steps live and gets a plain verdict with sources. |
-| **It knows the family** | Family emails about bills and Venmo are left alone; a hacked family account asking for gift cards is caught; a stranger using a family member's name from a new address is flagged, and a look-alike address is held. |
+| **It knows the family** | Family emails about bills and Venmo are left alone; a hacked family account asking for gift cards is caught; a stranger using a family member's name, or an address that looks almost like theirs, is flagged for the kid (and held if it also asks for gift cards or links somewhere dangerous). |
 | **The parent's front door** | Their real accounts, found from their own email and ranked by real use, each a big button to the company's real sign-in page. |
 | **A loop that goes both ways** | The kid gets an alert only when something needs them, answers with one tap, and adds a note that reaches the parent in their own words (the parent can reply straight back). The parent can ask about any email by moving it to "⚠ Check with [kid]" in Gmail and see the answer on their page. One calm note a week, with one plain lesson. |
 
@@ -50,7 +50,7 @@ Anchor off revokes Google access and deletes the family's data.
 
 `convex/accuracy.test.ts` runs 57 labeled emails (scams built from FTC and AARP warning patterns,
 and everyday mail including family bills and links) through the whole pipeline with no AI and no
-network: **24 of 24 scams caught, 19 held automatically, 0 of 33 real emails held.** The test
+network: **24 of 24 scams caught, 18 held automatically, 0 of 33 real emails held.** The test
 fails if a real email is ever held or a scam is missed. Details: [docs/ACCURACY.md](docs/ACCURACY.md).
 About 660 automated tests in all (`npx vitest run`).
 

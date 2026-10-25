@@ -225,7 +225,13 @@ export const getParentView = query({
   args: { parentToken: v.string() },
   returns: v.union(
     v.null(),
-    v.object({ parentName: v.string(), kidName: v.string(), status: familyStatus, lastCheckedAt: v.optional(v.number()) }),
+    v.object({
+      parentName: v.string(),
+      kidName: v.string(),
+      status: familyStatus,
+      lastCheckedAt: v.optional(v.number()),
+      canAsk: v.optional(v.boolean()), // the "⚠ Check with [kid]" label exists in their Gmail
+    }),
   ),
   handler: async (ctx, { parentToken }) => {
     if (parentToken.length === 0 || parentToken.length > MAX_TOKEN) return null;
@@ -234,12 +240,16 @@ export const getParentView = query({
       .withIndex("by_parent_token", (q) => q.eq("parentToken", parentToken))
       .unique();
     if (family === null) return null;
-    const checked = await lastCheckedAt(ctx, family._id);
+    const tokens = await ctx.db
+      .query("gmailTokens")
+      .withIndex("by_family", (q) => q.eq("familyId", family._id))
+      .unique();
     return {
       parentName: capitalized(family.parentName),
       kidName: capitalized(family.kidName),
       status: family.status,
-      ...(checked !== undefined && { lastCheckedAt: checked }),
+      ...(tokens?.checkedAt !== undefined && { lastCheckedAt: tokens.checkedAt }),
+      canAsk: tokens?.checkLabelId !== undefined,
     };
   },
 });

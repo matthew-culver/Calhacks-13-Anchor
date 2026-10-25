@@ -31,8 +31,8 @@ the parent does nothing new:
   and the kid watches each step live, then reads a plain verdict on the sender and each link,
   with sources.
 - **It knows your family.** Anchor learns the names of the people the parent writes to. A
-  stranger using a family member's name from a new address is flagged; a look-alike address
-  ("sue.miiler") is held. A son's email asking Mom to pay the PG&E bill by Venmo is left
+  stranger using a family member's name from a new address, or an address that looks almost
+  like theirs ("sue.miiler"), is flagged for the kid, and held if it also asks for money. A son's email asking Mom to pay the PG&E bill by Venmo is left
   alone, but the same son's hacked account asking for gift cards is caught.
 - **Mom's front door.** One page of big buttons for every account she really uses (bank,
   doctor, phone bill), found from her own email, ranked by real use, each going straight to
@@ -70,7 +70,7 @@ the parent does nothing new:
 ## Measured, not promised
 
 `convex/accuracy.test.ts` runs a labeled set of 57 emails through the whole pipeline with no AI
-and no network (the floor): **24 of 24 scams caught (19 held automatically), 0 of 33 real
+and no network (the floor): **24 of 24 scams caught (18 held automatically), 0 of 33 real
 emails held, 6 asked the kid** (first-ever emails from a real company, which the AI then
 clears, and one store's gift card promotion). Its first run caught only 18 of 21: tech-support, streaming and Zelle impostors got
 through. We added those brands and it now fails the build if a real email is ever held. 660+

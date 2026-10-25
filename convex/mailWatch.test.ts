@@ -545,14 +545,29 @@ describe("pollFamily", () => {
       expect((await levelOf(t, "s3"))?.level).toBe("fake");
     });
 
-    test("an address made to look like hers is held as fake", async () => {
-      const { t, familyId } = await activeFamily();
+    test("an address almost like hers asks the kid (a real second address can look like that)", async () => {
+      const { t, kid, familyId } = await activeFamily();
       await knowsSue(t, familyId);
       fakeWorld({ messages: { s4: fromSue("s4", "sue.miiler@gmail.com", "hi", "Can you call me later?") } });
       await t.action(internal.mailWatch.pollFamily, { familyId });
       const v = await levelOf(t, "s4");
-      expect(v?.level).toBe("fake");
-      expect(v?.checks?.find((c) => c.id === "relationship")?.plainReason).toContain("made to look like Sue Miller's");
+      expect(v?.level).toBe("unsure");
+      expect(v?.checks?.find((c) => c.id === "relationship")?.plainReason).toContain("looks almost like Sue Miller's");
+
+      // The kid says it's fine: it's really her second address, so it isn't asked again.
+      const [item] = await kid.query(api.feed.myFeed, {});
+      await kid.mutation(api.feed.answer, { feedItemId: item._id, answer: "fine" });
+      fakeWorld({ messages: { s8: fromSue("s8", "sue.miiler@gmail.com", "dinner", "Dinner Sunday?") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect((await levelOf(t, "s8"))?.level).toBe("real");
+    });
+
+    test("an almost-her address asking for gift cards is held", async () => {
+      const { t, familyId } = await activeFamily();
+      await knowsSue(t, familyId);
+      fakeWorld({ messages: { s9: fromSue("s9", "sue.miiler@gmail.com", "favor", "Buy me two gift cards and send the numbers. Keep this between us.") } });
+      await t.action(internal.mailWatch.pollFamily, { familyId });
+      expect((await levelOf(t, "s9"))?.level).toBe("fake");
     });
 
     test("Sue herself, however Gmail writes her address, is not an impostor", async () => {

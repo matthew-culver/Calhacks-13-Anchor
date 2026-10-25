@@ -11,6 +11,7 @@ import { TurnOff } from "@/components/TurnOff";
 import { Watching } from "@/components/Watching";
 import { Pill, Screen } from "@/components/ui";
 import { useDemoMode } from "@/shared/demoMode";
+import { SAMPLE_FEED } from "@/shared/feedApi";
 import { mockRecap } from "@/shared/mock";
 import { useSampleImport } from "@/shared/sampleImport";
 import { api } from "../../../../convex/_generated/api";
@@ -38,6 +39,7 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
   const sample = useSampleImport(demo);
   // The emails the parent asked their kid about, and the answers.
   const liveFeed = useQuery(api.feed.parentFeed, demo || justConnected ? "skip" : { parentToken: token });
+  const questions = demo ? SAMPLE_FEED : liveFeed;
 
   const view = demo ? SAMPLE_VIEW : liveView;
   const accounts = demo ? sample.accounts : liveAccounts;
@@ -140,17 +142,20 @@ export function ParentScreen({ token, justConnected }: { token: string; justConn
       </p>
       {status === "active" && <Watching whose="your" lastCheckedAt={demo ? undefined : liveView?.lastCheckedAt} />}
       {recap && <ParentRecapCard recap={recap} kidName={kidName} />}
-      {liveFeed && <ParentQuestions entries={liveFeed} kidName={kidName} />}
-      {/* The loop goes both ways: the parent can ask about any email, from inside Gmail. */}
-      <section className="rounded-3xl border border-line bg-action-tint p-6 shadow-card sm:p-7">
-        <h2 className="flex items-center gap-3 text-2xl font-bold">
-          <Icon name="heart" className="h-7 w-7 text-action" />
-          Not sure about an email?
-        </h2>
-        <p className="mt-3 text-xl">
-          {`In Gmail, move it to the “⚠ Check with ${kidName}” folder. ${kidName} will look at it and tell you, right here in your email.`}
-        </p>
-      </section>
+      {questions && <ParentQuestions entries={questions} kidName={kidName} />}
+      {/* The loop goes both ways: the parent can ask about any email, from inside Gmail, once the
+          label is there. */}
+      {(demo || liveView?.canAsk) && (
+        <section className="rounded-3xl border border-line bg-action-tint p-6 shadow-card sm:p-7">
+          <h2 className="flex items-center gap-3 text-2xl font-bold">
+            <Icon name="heart" className="h-7 w-7 text-action" />
+            Not sure about an email?
+          </h2>
+          <p className="mt-3 text-xl">
+            {`In Gmail, move it to the “⚠ Check with ${kidName}” folder. ${kidName} will look at it and tell you, right here in your email.`}
+          </p>
+        </section>
+      )}
       <p role="status" className="text-lg text-muted">
         {stillFinding ? "Still finding more of your accounts…" : ""}
       </p>

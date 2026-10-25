@@ -90,7 +90,7 @@ const RISKS: [string, string][] = [
   ],
   [
     "Someone pretends to be family from a new address.",
-    "Anchor knows the names of the people your parent writes to. A stranger using one of those names is flagged, and a look-alike address is held.",
+    "Anchor knows the names of the people your parent writes to. A stranger using one of those names, or an address that looks almost like theirs, is flagged for you to check.",
   ],
 ];
 

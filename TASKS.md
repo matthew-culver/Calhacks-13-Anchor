@@ -109,7 +109,7 @@ Check a box when its PR is merged. The plan and rules are in [CLAUDE.md](CLAUDE.
 
 ### Overnight (Sunday 2:40-5:30 AM, while Lucas slept)
 - [x] **Look and feel:** one design across every screen (header with the Anchor mark, cards, letter badges, tags, icons), a real front page (how it works, what the family gets, where it could go wrong, measured accuracy, a no-sign-in demo link), a shorter investigation page, phone-width fixes.
-- [x] **Family impostors:** names of people the parent corresponds with are learned (import + as mail arrives, only from her sent mail and authenticated mail). A stranger using one from a new address is flagged; a look-alike address is held. `contactNames` table.
+- [x] **Family impostors:** names of people the parent corresponds with are learned (import + as mail arrives, only from her sent mail and authenticated mail). A stranger using one from a new address, or a look-alike address, is flagged for the kid (held if it also asks for money). `contactNames` table.
 - [x] **Mom asks:** moving any email to "⚠ Check with [kid]" in Gmail sends it to the kid's feed as "asked", with the investigation; the answer comes back in the kid's words. Feed kind `asked`, verdict `askedAt`.
 - [x] **Heartbeat:** "Watching Mom's inbox · checked 2 minutes ago" on both sides (`gmailTokens.checkedAt`), with a plain warning if checks stop.
 - [x] **Weekly lesson:** one fixed "One thing to remember" from what was caught, plus how to ask the kid.

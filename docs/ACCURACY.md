@@ -12,8 +12,8 @@ email is ever held, or a scam is missed).
 | | |
 |---|---|
 | Scams caught | **24 of 24** (100%) |
-| Scams held automatically (Mom never sees them) | 19 of 24 |
-| Scams sent to the kid to decide | 5 |
+| Scams held automatically (Mom never sees them) | 18 of 24 |
+| Scams sent to the kid to decide | 6 |
 | Real emails held by mistake | **0 of 33** |
 | Real emails that asked the kid | 6 of 33 |
 
@@ -37,7 +37,7 @@ email is ever held, or a scam is missed).
 | Romance, cryptocurrency | Asked the kid | It asks you to pay with cryptocurrency and keep it a secret. |
 | Son's account hacked, gift cards | Held as fake | It asks you to pay with gift cards and keep it a secret. This came from someone you know, but it asks for gift cards, a wire transfer, cryptocurrency or secrecy. Their account may have been hacked. |
 | Son's name, new address, money | Asked the kid | It mentions paying with a payment app. It uses the name Matt Culver, someone you know, but from an address they've never used with you. |
-| Friend's address faked with a typo | Held as fake | The address is made to look like Sue Miller's, but it isn't theirs. Someone may be pretending to be Sue Miller. |
+| Friend's address faked with a typo | Asked the kid | The address looks almost like Sue Miller's, but it isn't the one they use with you. Someone may be pretending to be Sue Miller. |
 | Geek Squad renewal, call to cancel | Held as fake | This email says it is from Geek Squad, but it was not sent by Geek Squad. It tries to rush you. |
 | Antivirus renewal | Held as fake | This email says it is from Norton, but it was not sent by Norton. It says it's Norton, but you've never gotten email from Norton. |
 | Social media security alert, look-alike site | Held as fake | This email says it is from Facebook, but it was not sent by Facebook. A link goes to a fake copy of the Facebook website. |

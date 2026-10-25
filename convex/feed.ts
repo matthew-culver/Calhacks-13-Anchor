@@ -77,7 +77,7 @@ async function recapOf(ctx: QueryCtx, familyId: Id<"families">, now: number) {
     weekStart,
     checked: verdicts.length,
     held: verdicts.filter((x) => x.action === "held").length,
-    needAnswer: items.filter((i) => i.kind === "needs_answer" && i.kidAnswer === undefined).length,
+    needAnswer: items.filter((i) => (i.kind === "needs_answer" || i.kind === "asked") && i.kidAnswer === undefined).length,
     goodCatches: items.filter((i) => i.kidAnswer?.answer === "scam").length,
   };
 }
@@ -161,7 +161,12 @@ export const answer = mutation({
       kidAnswer: { answer: args.answer, ...(note && { note }), answeredAt: Date.now() },
     });
     await ctx.db.patch(verdict._id, { action: args.answer === "fine" ? "released" : "held" });
-    if (args.answer === "fine" && args.trustSender && verdict.fromAddress) {
+    // "It's fine" on a "known name, new address" flag means the kid confirmed it's really them:
+    // remember the address, so they aren't asked again every time.
+    const newAddressOfSomeoneKnown = (verdict.checks ?? []).some(
+      (c) => c.id === "relationship" && (c.detail?.startsWith("known contact's name") || c.detail?.startsWith("look-alike of a known contact")),
+    );
+    if (args.answer === "fine" && (args.trustSender || newAddressOfSomeoneKnown) && verdict.fromAddress) {
       const address = verdict.fromAddress.toLowerCase();
       const known = await ctx.db
         .query("trustedSenders")

@@ -119,15 +119,16 @@ export function relationship(
     };
   }
   // Someone Mom knows, by name, on an address they've never used: the family impostor scam.
-  // A look-alike address is deliberate, so a fake; a plain new address asks the kid (people do
-  // get new addresses).
+  // Both ask the kid rather than hold: people do get new addresses, and a real second address
+  // can be a letter or two off the first ("tyler.j2"). Paired with any other red flag (gift
+  // cards, a dangerous link) it's held as fake.
   if (history.knownNameElsewhere) {
     const { who, lookalike } = history.knownNameElsewhere;
     return lookalike
       ? {
           id: "relationship",
-          status: "fail",
-          plainReason: `The address is made to look like ${who}'s, but it isn't theirs. Someone may be pretending to be ${who}.`,
+          status: "warn",
+          plainReason: `The address looks almost like ${who}'s, but it isn't the one they use with you. Someone may be pretending to be ${who}.`,
           detail: "look-alike of a known contact's address",
         }
       : {
